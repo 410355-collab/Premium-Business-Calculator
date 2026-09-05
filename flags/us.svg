@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1235 650">
+  <rect width="1235" height="650" fill="#b22234"/>
+  <path d="M0,50H1235M0,150H1235M0,250H1235M0,350H1235M0,450H1235M0,550H1235" stroke="#fff" stroke-width="50"/>
+  <rect width="494" height="350" fill="#3c3b6e"/>
+  <g fill="#fff">
+    <g id="s18">
+      <g id="s9">
+        <g id="s5">
+          <polygon id="s" points="0,-13 3.8,4.2 -12.4,-3.8 12.4,-3.8 -3.8,4.2" transform="translate(41.16,35)"/>
+          <use href="#s" x="82.32"/>
+          <use href="#s" x="164.64"/>
+          <use href="#s" x="246.96"/>
+          <use href="#s" x="329.28"/>
+        </g>
+        <use href="#s" x="411.6"/>
+      </g>
+      <use href="#s5" x="41.16" y="35"/>
+    </g>
+    <use href="#s18" y="70"/>
+    <use href="#s18" y="140"/>
+    <use href="#s18" y="210"/>
+    <use href="#s9" y="280"/>
+  </g>
+</svg>

@@ -1,0 +1,3234 @@
+        :root {
+            /* Font Variables */
+            --font-tech: 'Orbitron', 'Noto Sans TC', sans-serif;
+            --font-business: 'Inter', 'Noto Sans TC', sans-serif;
+            --font-cute: 'Fredoka', 'ZCOOL KuaiLe', cursive;
+            --app-font: var(--font-tech);
+
+            /* Dark Mode Variables */
+            --bg-color: #0f1015; 
+            --card-bg: rgba(255, 255, 255, 0.045); 
+            --operator-bg: rgba(255, 255, 255, 0.09); 
+            --text-color: #ffffff; 
+            --text-muted: rgba(255, 255, 255, 0.4);
+            
+            --accent-main: #29b6f6; 
+            --accent-red: #ef5350;  
+            --accent-green: #00e676;
+            --equal-text: #000000;
+            
+            /* Capsule Size Variables */
+            --capsule-height: 40px;
+            --capsule-padding-y: 4px;
+            --capsule-padding-x: 6px;
+            --capsule-btn-height: 28px;
+
+            --capsule-bg: #1e202a;
+            --capsule-border: 0.5px solid rgba(255, 255, 255, 0.12);
+            --dropdown-bg: rgba(18, 22, 34, 0.8);
+            --capsule-glass-bg: rgba(255, 255, 255, 0.08);
+            --capsule-btn-bg: rgba(255, 255, 255, 0.06);
+            --setting-box-bg: rgba(255, 255, 255, 0.045);
+            --input-bg: rgba(0, 0, 0, 0.22);
+            --overlay-gradient: linear-gradient(160deg, rgba(14, 16, 24, 0.60) 0%, rgba(8, 10, 18, 0.70) 100%);
+            /* 🍏 Apple iOS Native Spring & Easing Physics Curves (Accelerated & Snappy) */
+            --ios-spring-snappy: cubic-bezier(0.25, 1, 0.5, 1);
+            --ios-spring-bouncy: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            --ios-sheet-curve: cubic-bezier(0.32, 0.72, 0, 1);
+            --ios-interactive: cubic-bezier(0.16, 1, 0.3, 1);
+            --trans-smooth: transform 0.22s var(--ios-spring-snappy), opacity 0.16s ease, background-color 0.18s ease, filter 0.16s ease;
+            --trans-pop: transform 0.18s var(--ios-spring-bouncy), opacity 0.14s ease, background-color 0.14s ease, filter 0.14s ease;
+        }
+
+        /* Dynamic Font Class Injection */
+        body.font-tech { --app-font: var(--font-tech); }
+        body.font-business { --app-font: var(--font-business); }
+        body.font-cute { --app-font: var(--font-cute); }
+
+        /* Light Mode Variables (Enhanced Contrast & Outdoor Readability) */
+        body.light-mode {
+            --bg-color: #e2e8f0; 
+            --card-bg: rgba(255, 255, 255, 0.82); 
+            --operator-bg: rgba(203, 213, 225, 0.82); 
+            --text-color: #0f172a; 
+            --text-muted: rgba(15, 23, 42, 0.78);
+            
+            --capsule-bg: #ffffff;
+            --capsule-border: 0.5px solid rgba(15, 23, 42, 0.15);
+            --dropdown-bg: rgba(255, 255, 255, 0.8);
+            --capsule-glass-bg: rgba(255, 255, 255, 0.45);
+            --capsule-btn-bg: rgba(255, 255, 255, 0.35);
+            --setting-box-bg: rgba(255, 255, 255, 0.55);
+            --input-bg: rgba(0, 0, 0, 0.06);
+            --overlay-gradient: linear-gradient(160deg, rgba(230, 235, 248, 0.60) 0%, rgba(210, 220, 235, 0.68) 100%);
+        }
+
+        * {
+            box-sizing: border-box; margin: 0; padding: 0;
+            font-family: var(--app-font);
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        html, body {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%;
+            height: 100%;
+            height: 100dvh;
+            overflow: hidden;
+            overscroll-behavior: none;
+            touch-action: none;
+            -webkit-overflow-scrolling: touch;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+            background-color: var(--bg-color); /* 🔥 背景色一致，防止 iOS 露出底色黑塊 */
+        }
+
+        body {
+            display: flex; justify-content: center; align-items: stretch;
+            width: 100%; height: 100%; height: 100dvh;
+            min-height: 100vh; min-height: -webkit-fill-available; min-height: 100dvh;
+            color: var(--text-color); transition: background-color 0.4s ease;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* 📱 主容器（消滅 iOS 上下黑邊，適應 safe-area 邊距） */
+        .phone-container {
+            width: 100%; max-width: 430px;
+            height: 100%; /* PWA 模式下 100% 比 100dvh 更穩定，避免分割螢幕啟動時跳動 */
+            background-color: var(--bg-color); display: flex; flex-direction: column;
+            justify-content: flex-start; /* 改為從頂部開始排列，避免 space-between 在分割螢幕失控 */
+            overflow: hidden; /* 強制不准溢出，溢出就切掉下方而不是推上去 */
+            position: relative; transition: var(--trans-smooth);
+            padding-left: env(safe-area-inset-left, 0px);
+            padding-right: env(safe-area-inset-right, 0px);
+            contain: layout style;
+        }
+
+        .left-panel {
+            flex: 1 1 auto; /* 讓顯示區成為「貪婪型」元素，佔滿剩餘空間 */
+            display: flex;
+            flex-direction: column;
+            min-height: 120px; /* 保險：確保顯示區最少要有 120px，不准消失 */
+            width: 100%;
+        }
+
+        /* 🔥 頂部 Header Area：大幅放寬 iOS 流海 / 動態島留白 (Top Safe Area) */
+        .header-area {
+            position: relative; width: 100%;
+            padding: calc(env(safe-area-inset-top, 24px) + 8px) clamp(8px, 4vw, 20px) 0;
+            display: flex; flex-direction: column; gap: 8px; z-index: 10;
+            flex-shrink: 0;
+        }
+
+        .action-bar { 
+            display: flex; justify-content: space-between; align-items: center; 
+            width: 100%; padding: 0 2px; position: relative; height: var(--capsule-height); min-height: var(--capsule-height);
+            pointer-events: none; gap: 4px;
+        }
+
+        .icon-btn {
+            background: transparent; display: flex; justify-content: center; align-items: center;
+            cursor: pointer; transition: var(--trans-smooth); padding: 0; border-radius: 50%;
+            width: var(--capsule-height); height: var(--capsule-height);
+            pointer-events: auto; z-index: 10; flex-shrink: 0;
+            box-sizing: border-box;
+        }
+        .icon-btn svg { width: 26.4px; height: 26.4px; fill: var(--text-color); filter: drop-shadow(0 0 6px color-mix(in srgb, var(--text-color) 40%, transparent)); transition: var(--trans-smooth); }
+        .icon-btn:active svg, .icon-btn:hover svg { transform: rotate(90deg) scale(1.1); fill: var(--accent-main); }
+        .history-btn svg { fill: var(--text-muted); filter: none; transition: var(--trans-smooth); }
+        .history-btn.has-history svg { fill: var(--text-color); filter: drop-shadow(0 0 6px color-mix(in srgb, var(--text-color) 40%, transparent)); }
+        .history-btn:active svg, .history-btn:hover svg { transform: scale(1.1) rotate(-15deg); fill: var(--accent-main); }
+
+        /* 展開大膠囊時，設定與歷史紀錄按鍵降低能見度，避免透穿干擾 */
+        .header-area:not(.collapsed) .icon-btn {
+            opacity: 0.65;
+            transition: var(--trans-smooth);
+        }
+        .header-area:not(.collapsed) .icon-btn:hover,
+        .header-area:not(.collapsed) .icon-btn:active {
+            opacity: 1;
+        }
+        /* 收合時恢復正常 */
+        .header-area.collapsed .icon-btn {
+            opacity: 1;
+            pointer-events: auto;
+            transition: opacity 0.35s ease;
+        }
+
+        .capsule-wrapper { 
+            position: relative; flex: 1; min-width: 0; width: auto; height: var(--capsule-height); 
+            display: flex; justify-content: center; align-items: center; 
+            margin: 0 -34px 2px -34px;
+            z-index: 50;
+        }
+        
+        .capsule {
+            background: linear-gradient(180deg, rgba(28, 34, 52, 0.45) 0%, rgba(16, 20, 32, 0.55) 100%);
+            -webkit-backdrop-filter: blur(14px) saturate(190%); 
+            backdrop-filter: blur(14px) saturate(190%);
+            border-radius: 40px; 
+            padding: var(--capsule-padding-y) 4px; display: flex; align-items: center; justify-content: space-between;
+            gap: 4px; width: 100%; min-width: 0; max-width: 100%;
+            /* 🍏 晶體邊框與流線光影 (Liquid Glass + GPU 最佳化) */
+            border: 0.5px solid rgba(255, 255, 255, 0.18);
+            box-shadow: 
+                0 4px 12px rgba(0, 0, 0, 0.25),
+                0 10px 24px rgba(0, 0, 0, 0.35),
+                inset 0 0.5px 0 rgba(255, 255, 255, 0.35),
+                inset 0 -0.5px 0 rgba(255, 255, 255, 0.12),
+                inset 0 0 12px rgba(255, 255, 255, 0.08);
+            white-space: nowrap;
+            height: var(--capsule-height);
+            transition:
+                box-shadow 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+                background 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+            position: relative; top: 0;
+            transform-origin: center center;
+            pointer-events: auto;
+        }
+        .header-area.is-animating .capsule {
+            transition: none;
+            pointer-events: none;
+        }
+
+        body.light-mode .capsule {
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.65) 0%, rgba(240, 245, 255, 0.55) 100%);
+            border: 0.5px solid rgba(0, 0, 0, 0.12);
+            box-shadow: 
+                0 4px 12px rgba(0, 0, 0, 0.04),
+                0 10px 24px rgba(0, 0, 0, 0.03),
+                inset 0 0.5px 0 rgba(255, 255, 255, 0.9),
+                inset 0 -0.5px 0.5px rgba(0, 0, 0, 0.03);
+        }
+
+        /* --- 原地縮放：收合時小膠囊與設定/歷史按鈕居中同列 (X/Y 軸完全對齊) --- */
+        .header-area.collapsed .capsule-wrapper { height: var(--capsule-height); margin: 0; pointer-events: none; z-index: 20; }
+        .header-area.collapsed .capsule {
+            width: auto; min-width: 0; height: var(--capsule-height); padding: 0 4px 0 8px !important; top: 0;
+            display: inline-flex; align-items: center; justify-content: center;
+            box-sizing: border-box; line-height: 1;
+            background: linear-gradient(180deg, rgba(28, 34, 52, 0.45) 0%, rgba(16, 20, 32, 0.55) 100%);
+            -webkit-backdrop-filter: blur(12px) saturate(190%); 
+            backdrop-filter: blur(12px) saturate(190%);
+            border-radius: calc(var(--capsule-height) / 2);
+            /* 🍏 與設定選單完全相同的邊框與投影 */
+            border: 0.5px solid rgba(255, 255, 255, 0.18);
+            box-shadow: 
+                0 4px 12px rgba(0, 0, 0, 0.25),
+                0 10px 24px rgba(0, 0, 0, 0.35),
+                inset 0 0.5px 0 rgba(255, 255, 255, 0.35),
+                inset 0 -0.5px 0 rgba(255, 255, 255, 0.12),
+                inset 0 0 10px rgba(255, 255, 255, 0.08);
+            cursor: pointer; pointer-events: auto;
+            gap: 3px !important;
+        }
+        .header-area.collapsed .capsule:active {
+            transform: scale(1.04);
+        }
+        body.light-mode .header-area.collapsed .capsule {
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.65) 0%, rgba(240, 245, 255, 0.55) 100%);
+            color: var(--text-color);
+            border: 0.5px solid rgba(0, 0, 0, 0.12);
+            box-shadow: 
+                0 4px 12px rgba(0, 0, 0, 0.04),
+                0 10px 24px rgba(0, 0, 0, 0.03),
+                inset 0 0.5px 0 rgba(255, 255, 255, 0.9),
+                inset 0 -0.5px 0.5px rgba(0, 0, 0, 0.03);
+        }
+        .header-area.collapsed .custom-dropdown { 
+            flex: 0 0 auto !important; 
+            min-width: auto !important; 
+            width: auto !important; 
+            container-type: normal !important; 
+            display: inline-flex !important; 
+            align-items: center; 
+        }
+        /* 國旗不需要外框：保持純粹國旗顯示，不裁切 */
+        .header-area.collapsed .dropdown-trigger { 
+            background: transparent !important; 
+            border: none !important;
+            box-shadow: none !important;
+            border-radius: 0 !important;
+            overflow: visible;
+            padding: 0 !important; 
+            width: auto !important;
+            min-width: auto !important;
+            display: inline-flex !important;
+            align-items: center;
+            justify-content: center;
+            height: auto; 
+            min-height: 0; 
+            pointer-events: none; 
+        }
+        body.light-mode .header-area.collapsed .dropdown-trigger { 
+            color: var(--text-color); 
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+        }
+        .header-area.collapsed #label-from, .header-area.collapsed #label-to, .header-area.collapsed .swap-arrow, .header-area.collapsed .arrow-down { display: none; }
+        .collapsed-arrow {
+            display: none; font-size: 11px; opacity: 0; margin: 0 1px; pointer-events: none;
+            transform: scale(0.85);
+            transition: opacity 0.18s cubic-bezier(0.16, 1, 0.3, 1), transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .header-area.collapsed .collapsed-arrow { display: inline-block; opacity: 0.7; transform: scale(1); flex-shrink: 0; margin: 0 1px; }
+        .header-area.is-expanding .collapsed-arrow { opacity: 0; transform: scale(0.85); }
+
+        /* 🍏 縮小狀態下的含稅按鍵：獨立外框，文字絕不壓縮，點擊不放大膠囊 */
+        .header-area.collapsed .tax-badge { 
+            background: rgba(255, 255, 255, 0.08); 
+            border: 0.5px solid rgba(255, 255, 255, 0.18); 
+            border-radius: 12px;
+            box-shadow: 
+                0 2px 6px rgba(0, 0, 0, 0.25), 
+                inset 0 0.5px 0 rgba(255, 255, 255, 0.35),
+                inset 0 -0.5px 0 rgba(255, 255, 255, 0.1);
+            padding: 0 7px; 
+            font-size: 11px; 
+            font-weight: 900;
+            white-space: nowrap;
+            color: var(--accent-main);
+            height: 28px; 
+            min-height: 28px; 
+            border-radius: 14px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0; 
+            cursor: pointer;
+            pointer-events: auto;
+            margin-left: 2px; 
+            box-sizing: border-box;
+            position: relative;
+            overflow: hidden;
+            transition: var(--trans-smooth);
+        }
+        .header-area.collapsed .tax-badge:active {
+            transform: scale(0.92);
+        }
+        body.light-mode .header-area.collapsed .tax-badge { 
+            background: rgba(255, 255, 255, 0.65);
+            border: 0.5px solid rgba(0, 0, 0, 0.1);
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.04), inset 0 0.5px 0 rgba(255, 255, 255, 0.85);
+        }
+        .header-area.collapsed .flag-img { width: 22px !important; height: 15px !important; margin: 0; flex-shrink: 0; object-fit: cover; border-radius: 2px; box-shadow: 0 0 2px rgba(0,0,0,0.3); }
+        .same-currency-label { display: none; font-size: 12px; font-weight: 800; color: var(--accent-main); padding: 0 4px; white-space: nowrap; pointer-events: none; align-items: center; gap: 4px; }
+        .header-area.collapsed.same-currency .custom-dropdown, .header-area.collapsed.same-currency .swap-arrow, .header-area.collapsed.same-currency .collapsed-arrow, .header-area.collapsed.same-currency .tax-badge { display: none !important; }
+        .header-area.collapsed.same-currency .same-currency-label { display: flex; }
+        .phone-container.same-currency #converted-wrapper { display: none !important; }
+        
+        @keyframes slideRefresh {
+            0% { transform: translateX(0); opacity: 1; }
+            40% { transform: translateX(-20px); opacity: 0; }
+            50% { transform: translateX(20px); opacity: 0; }
+            100% { transform: translateX(0); opacity: 1; }
+        }
+        .slide-refresh { animation: slideRefresh 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+
+        .custom-dropdown { 
+            position: relative; flex: 1 1 auto; min-width: 0; display: flex; 
+        }
+        
+        .dropdown-trigger {
+            display: flex; align-items: center; justify-content: center;
+            gap: 3.5px; font-size: 11px; font-weight: 800; color: var(--text-color);
+            cursor: pointer; width: 100%; min-width: 0; height: var(--capsule-btn-height); padding: 0 6px; border-radius: calc(var(--capsule-btn-height) / 2);
+            background: rgba(255, 255, 255, 0.08);
+            border: 0.5px solid rgba(255, 255, 255, 0.18);
+            box-shadow: 
+                0 2px 8px rgba(0, 0, 0, 0.25), 
+                inset 0 0.5px 0 rgba(255, 255, 255, 0.35),
+                inset 0 -0.5px 0 rgba(255, 255, 255, 0.1),
+                inset 0 0 6px rgba(0, 0, 0, 0.25);
+            transition: var(--trans-smooth);
+            overflow: hidden;
+        }
+        #label-from, #label-to {
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+        /* 膠囊延展後空間充足，完整呈現國家/幣別名稱 */
+        #label-from, #label-to {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 95px;
+        }
+        body.light-mode .dropdown-trigger {
+            background: rgba(255, 255, 255, 0.65);
+            border: 0.5px solid rgba(0, 0, 0, 0.1);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04), inset 0 0.5px 0 rgba(255, 255, 255, 0.85);
+        }
+        
+        .flag-img {
+            width: 18px; height: 13px; object-fit: cover; border-radius: 2px;
+            box-shadow: 0 0 3px rgba(0,0,0,0.3); display: block; flex-shrink: 0;
+        }
+
+        .dropdown-trigger:active, .dropdown-trigger.is-active { opacity: 0.75; transform: scale(0.96); }
+        .arrow-down { font-size: 9px; color: var(--text-muted); margin-left: 1px; flex-shrink: 0; }
+
+        /* 🍏 貨幣下拉選單全域毛玻璃遮罩：完全對齊設定選單 (.overlay-menu) 14px 背景模糊度與通透暗色 */
+        .dropdown-backdrop {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.14);
+            -webkit-backdrop-filter: blur(14px);
+            backdrop-filter: blur(14px);
+            z-index: 45;
+            opacity: 0; visibility: hidden; pointer-events: none;
+            transition: opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.22s;
+            contain: layout paint;
+            will-change: opacity;
+        }
+        body.light-mode .dropdown-backdrop {
+            background: rgba(255, 255, 255, 0.2);
+            -webkit-backdrop-filter: blur(14px);
+            backdrop-filter: blur(14px);
+        }
+        .dropdown-backdrop.show {
+            opacity: 1; visibility: visible; pointer-events: auto;
+        }
+
+        /* 下拉選單開啟時，將頂部 Header 提升至全域毛玻璃遮罩之上 */
+        .phone-container.dropdown-open .header-area {
+            z-index: 60;
+        }
+
+        .dropdown-options {
+            position: absolute; top: calc(var(--capsule-btn-height) + 12px); left: 50%;
+            transform-origin: center top;
+            transform: translate(-50%, 0) scale(0);
+            /* 🍏 Apple Liquid Glass 流體玻璃質感背景 (完全對齊設定選單 .setting-box) */
+            background: linear-gradient(180deg, rgba(28, 34, 52, 0.50) 0%, rgba(16, 20, 32, 0.58) 100%);
+            -webkit-backdrop-filter: blur(14px); 
+            backdrop-filter: blur(14px);
+            border-radius: 22px; 
+            /* 邊界微晶體高光 + 雙層立體深邃漫射陰影 (同 .setting-box) */
+            border: 0.5px solid rgba(255, 255, 255, 0.18);
+            box-shadow: 
+                0 4px 14px rgba(0, 0, 0, 0.25), 
+                0 16px 36px rgba(0, 0, 0, 0.45),
+                inset 0 0.5px 0 rgba(255, 255, 255, 0.4), 
+                inset 0 -0.5px 0 rgba(255, 255, 255, 0.15),
+                inset 0 0 16px rgba(255, 255, 255, 0.08); 
+            z-index: 1000;
+            min-width: 135px; padding: 8px 6px 12px 6px;
+            max-height: 380px;
+            overflow-y: auto;
+            overflow-x: hidden;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+            touch-action: pan-y;
+            opacity: 0; visibility: hidden; pointer-events: none;
+            transition: transform 0.22s var(--ios-spring-bouncy), opacity 0.16s ease, visibility 0.22s;
+        }
+        .dropdown-options::-webkit-scrollbar { display: none; }
+
+        .dropdown-options.show { 
+            opacity: 1; visibility: visible; pointer-events: auto;
+            transform: translate(-50%, 0) scale(1); 
+        }
+
+        body.light-mode .dropdown-options {
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.65) 0%, rgba(240, 245, 255, 0.58) 100%);
+            border: 0.5px solid rgba(0, 0, 0, 0.12);
+            box-shadow: 
+                0 4px 12px rgba(0, 0, 0, 0.04), 
+                0 10px 24px rgba(0, 0, 0, 0.03),
+                inset 0 0.5px 0 rgba(255, 255, 255, 0.9), 
+                inset 0 -0.5px 0.5px rgba(0, 0, 0, 0.03);
+        }
+
+        #options-from { left: 50%; transform-origin: center top; transform: translate(-50%, 0) scale(0.9); }
+        #options-from.show { transform: translate(-50%, 0) scale(1); }
+        #options-to { left: 50%; right: auto; transform-origin: center top; transform: translate(-50%, 0) scale(0.9); }
+        #options-to.show { transform: translate(-50%, 0) scale(1); }
+
+        .dropdown-option {
+            padding: 10px 10px; font-size: 13px; font-weight: 700; color: var(--text-color);
+            display: flex; align-items: center; gap: 8px; border-radius: 14px;
+            transition: background 0.25s ease, color 0.25s ease; cursor: pointer; white-space: nowrap;
+        }
+        .dropdown-option:hover, .dropdown-option:active { background-color: var(--accent-main); color: var(--equal-text); }
+        body.light-mode .dropdown-option { color: #0f172a; }
+        body.light-mode .dropdown-option:hover, body.light-mode .dropdown-option:active { background-color: var(--accent-main); color: #000; }
+
+        .swap-arrow { 
+            color: var(--text-muted); font-size: 16px; cursor: pointer; 
+            padding: 0 4px; height: var(--capsule-btn-height); display: flex; align-items: center; justify-content: center; 
+            transition: var(--trans-pop); flex-shrink: 0; 
+        }
+        .swap-arrow:active { transform: scale(1.3) rotate(180deg); color: var(--accent-main); }
+
+        .tax-badge {
+            position: relative; font-size: 12px; font-weight: 900; 
+            height: var(--capsule-btn-height); padding: 0 8px; border-radius: calc(var(--capsule-btn-height) / 2);
+            cursor: pointer;
+            background: rgba(255, 255, 255, 0.08);
+            border: 0.5px solid rgba(255, 255, 255, 0.18); 
+            box-shadow: 
+                0 2px 8px rgba(0, 0, 0, 0.25), 
+                inset 0 0.5px 0 rgba(255, 255, 255, 0.35),
+                inset 0 -0.5px 0 rgba(255, 255, 255, 0.1),
+                inset 0 0 6px rgba(0, 0, 0, 0.25);
+            color: var(--accent-main);
+            display: flex; align-items: center; justify-content: center; transition: var(--trans-smooth);
+            letter-spacing: 1px; overflow: hidden; flex-shrink: 0;
+        }
+        body.light-mode .tax-badge {
+            background: rgba(255, 255, 255, 0.65);
+            border: 0.5px solid rgba(0, 0, 0, 0.1);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04), inset 0 0.5px 0 rgba(255, 255, 255, 0.85);
+        }
+        .tax-badge:active { transform: scale(0.92); transition: 0.1s; }
+        .tax-badge.tax-excluded { color: var(--text-muted); }
+        
+        .tax-badge::after {
+            content: ''; position: absolute; left: 50%; top: 50%;
+            width: 110%; height: 2.5px; background-color: var(--accent-red);
+            transform: translate(-50%, -50%) rotate(-20deg) scaleX(0); 
+            transform-origin: center; pointer-events: none;
+            box-shadow: 0 0 4px rgba(239, 83, 80, 0.6);
+            transition: transform 0.36s var(--ios-sheet-curve); 
+        }
+        .tax-badge.tax-excluded::after { transform: translate(-50%, -50%) rotate(-20deg) scaleX(1); }
+
+        /* 顯示區域 */
+        .display-container {
+            flex: 1; /* 始終撐滿剩餘空間 */
+            min-height: 0;
+            padding: 12px 20px 16px; display: flex; flex-direction: column;
+            contain: layout style;
+            justify-content: flex-end; /* 始終貼著鍵盤上方 */
+            align-items: flex-end; width: 100%; overflow: hidden;
+            position: relative;
+        }
+
+        .display-indicators {
+            position: absolute;
+            top: 10px;
+            left: 20px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            z-index: 15;
+        }
+        .mem-indicator {
+            font-size: 11px;
+            font-weight: 900;
+            letter-spacing: 0.5px;
+            padding: 2px 7px;
+            border-radius: 8px;
+            color: var(--text-muted);
+            background: rgba(255, 255, 255, 0.04);
+            border: 0.5px solid rgba(255, 255, 255, 0.12);
+            opacity: 0;
+            transform: scale(0.85);
+            transition: opacity 0.22s ease, transform 0.22s var(--ios-spring-snappy), color 0.2s, background 0.2s, border-color 0.2s, box-shadow 0.2s;
+            cursor: pointer;
+            user-select: none;
+            -webkit-user-select: none;
+            pointer-events: none;
+        }
+        .mem-indicator.active {
+            opacity: 1;
+            transform: scale(1);
+            color: var(--accent-main);
+            background: color-mix(in srgb, var(--accent-main) 18%, transparent);
+            border-color: color-mix(in srgb, var(--accent-main) 45%, transparent);
+            box-shadow: 0 0 12px color-mix(in srgb, var(--accent-main) 35%, transparent);
+            pointer-events: auto;
+        }
+        .mem-indicator.active:active {
+            transform: scale(0.92);
+        }
+        body.light-mode .mem-indicator {
+            background: rgba(0, 0, 0, 0.04);
+            border: 0.5px solid rgba(0, 0, 0, 0.1);
+        }
+        body.light-mode .mem-indicator.active {
+            color: #0284c7;
+            background: rgba(2, 132, 199, 0.12);
+            border-color: rgba(2, 132, 199, 0.35);
+            box-shadow: 0 0 8px rgba(2, 132, 199, 0.25);
+        }
+        
+        .text-wrapper {
+            width: 100%;
+            display: block;
+            text-align: right;
+            overflow-x: auto;
+            overflow-y: hidden;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+            -webkit-overflow-scrolling: touch;
+            cursor: text;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: pan-x pan-y;
+            padding: 0;
+        }
+        .text-wrapper::-webkit-scrollbar { display: none; }
+
+        .text-scaler {
+            display: block;
+            width: max-content;
+            margin-left: auto;
+            text-align: right;
+            white-space: nowrap;
+            transform-origin: right center;
+            transition: transform 0.28s var(--ios-spring-snappy);
+        }
+
+        .formula { 
+            font-size: 20px; color: var(--text-muted); margin-bottom: 2px; min-height: 24px; 
+            line-height: 1.15;
+            transform-origin: right center;
+            will-change: transform, opacity;
+            cursor: text;
+            user-select: text;
+            -webkit-user-select: text;
+            position: relative;
+        }
+        .formula:active { color: var(--text-color); }
+
+        .formula-cursor {
+            display: inline-block;
+            width: 2px;
+            height: 1.15em;
+            background-color: var(--accent-main);
+            vertical-align: -0.15em;
+            margin: 0 0.5px;
+            border-radius: 1px;
+            box-shadow: 0 0 4px var(--accent-main);
+            animation: cursorBlink 1s infinite steps(2, start);
+            pointer-events: none;
+        }
+        @keyframes cursorBlink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+        
+        .result-display { 
+            font-size: 64px; font-weight: 800; letter-spacing: -1px; color: var(--text-color); 
+            line-height: 1.12; padding-bottom: 2px;
+            display: inline-block; transform-origin: right center;
+            will-change: transform, opacity;
+        }
+        
+        .converted-small { 
+            font-size: 20px; font-weight: 700; color: var(--accent-main); margin-top: 2px; min-height: 24px; 
+            line-height: 1.15;
+            display: inline-block; transform-origin: right center;
+            transition: color 0.4s ease;
+        }
+        
+        .converted-small.tax-excluded-text { color: var(--text-muted); }
+
+        /* 🧪 Liquid Glass Notification Toast 媲美 iOS 18 / Apple VisionOS 流體玻璃通知 (GPU 加速) */
+        .toast {
+            position: absolute; top: 50%; left: 50%;
+            /* 離場預設位置 (Exit state)：向上平移離場 (-28px) 且縮小淡出 */
+            transform: translate3d(-50%, calc(-50% - 28px), 0) scale(0.85);
+            transform-origin: center center; 
+            /* 液體玻璃背景：精緻小透明透光感 */
+            background: linear-gradient(180deg, rgba(28, 34, 52, 0.75) 0%, rgba(16, 20, 32, 0.85) 100%);
+            -webkit-backdrop-filter: blur(14px) saturate(190%);
+            backdrop-filter: blur(14px) saturate(190%);
+            color: var(--accent-main); 
+            font-weight: 900; font-size: 13px; height: var(--capsule-height); padding: 0 18px;
+            display: flex; align-items: center; justify-content: center; text-align: center;
+            line-height: 1; box-sizing: border-box; overflow: hidden;
+            border-radius: calc(var(--capsule-height) / 2); opacity: 0; pointer-events: none;
+            /* 離場動畫 (Exit Transition)：與進場動畫完全對稱倒放 (Reverse of Fluid Spring) */
+            transition: transform 0.22s cubic-bezier(0.36, 0, 0.66, -0.56),
+                        opacity 0.16s cubic-bezier(0.7, 0, 0.84, 0) 0.05s;
+            z-index: 99999999 !important;
+            border: 0.5px solid rgba(255, 255, 255, 0.2);
+            /* 玻璃邊緣立體陰影 */
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25),
+                        0 10px 24px rgba(0, 0, 0, 0.35),
+                        inset 0 0.5px 0 rgba(255, 255, 255, 0.45),
+                        inset 0 -0.5px 0 rgba(255, 255, 255, 0.15),
+                        inset 0 0 10px rgba(255, 255, 255, 0.08);
+            white-space: nowrap; letter-spacing: 1.2px;
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+            will-change: transform, opacity;
+            touch-action: none;
+            cursor: pointer;
+            backface-visibility: hidden;
+        }
+
+        /* 進場動畫 (Enter Transition)：移至正中心 + iOS 彈性流體彈簧曲線 (Fluid Spring Overshoot) */
+        .toast.show { 
+            opacity: 1; 
+            pointer-events: auto;
+            transform: translate3d(-50%, -50%, 0) scale(1);
+            transition: transform 0.24s cubic-bezier(0.34, 1.4, 0.64, 1),
+                        opacity 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        /* 淺色模式下 Premium Liquid Glass */
+        body.light-mode .toast {
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.85) 0%, rgba(240, 245, 255, 0.75) 100%);
+            color: #0f172a;
+            border: 0.5px solid rgba(0, 0, 0, 0.12);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04),
+                        0 10px 24px rgba(0, 0, 0, 0.03),
+                        inset 0 0.5px 0 rgba(255, 255, 255, 0.9),
+                        inset 0 -0.5px 0.5px rgba(0, 0, 0, 0.03);
+            text-shadow: none;
+        }
+
+        /* 當 toast 處於顯示狀態時，僅將 header-area 提升到全域最頂層，絕不提升 left-panel 避免 display-container 數字列透出 */
+        .header-area:has(.toast.show),
+        .header-area.toast-active,
+        .action-bar:has(.toast.show) {
+            z-index: 99999999 !important;
+            position: relative;
+        }
+
+        /* 當設定選單、歷史選單或彈窗開啟時，隱藏計算機數字顯示區，徹底杜絕數字列透出干擾 */
+        .phone-container:has(.overlay-menu.show) .display-container,
+        .phone-container:has(.modal-overlay.show) .display-container,
+        .phone-container.menu-open .display-container {
+            opacity: 0 !important;
+            pointer-events: none !important;
+            transition: opacity 0.2s ease;
+        }
+
+        /* 微微透出底下小膠囊 (保留底下小膠囊流體質感，透出微調模糊) */
+        .header-area.toast-active .capsule-wrapper,
+        .action-bar:has(.toast.show) .capsule-wrapper {
+            opacity: 0.65 !important;
+            pointer-events: none !important;
+            transition: opacity 0.2s ease;
+        }
+
+        @keyframes newDigitPop {
+            0% { transform: scale(0.25) translate3d(10px, 0, 0); opacity: 0; }
+            100% { transform: scale(1) translate3d(0, 0, 0); opacity: 1; }
+        }
+        @keyframes clearReset { 
+            0% { transform: translateY(8px); opacity: 0; } 
+            100% { transform: translateY(0); opacity: 1; } 
+        }
+        @keyframes deleteSlide { 
+            0% { transform: translateX(-8px); } 
+            100% { transform: translateX(0); } 
+        }
+
+        .existing-digits {
+            display: inline-block;
+            will-change: transform;
+            transform: translate3d(0, 0, 0);
+            backface-visibility: hidden;
+        }
+
+        .new-digit {
+            display: inline-block;
+            animation: newDigitPop 0.12s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            transform-origin: right center;
+            will-change: transform, opacity;
+            transform: translate3d(0, 0, 0);
+            backface-visibility: hidden;
+        }
+
+        .anim-clear { animation: clearReset 0.15s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        .anim-delete { animation: deleteSlide 0.12s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+
+        /* 🔥 鍵盤區域 */
+        .keyboard {
+            background-color: var(--bg-color); 
+            padding: 6px clamp(10px, 3.5vw, 16px) max(env(safe-area-inset-bottom, 12px), 12px);
+            display: grid;
+            grid-template-columns: repeat(var(--grid-cols, 4), 1fr);
+            grid-template-rows: repeat(var(--grid-rows, 5), 1fr);
+            gap: clamp(4px, 1.5vw, 10px);
+            justify-items: center;
+            align-items: center;
+            flex: 1 1 auto;
+            min-height: 0;
+            width: 100%;
+            contain: layout style;
+            transform: translate3d(0, 0, 0);
+        }
+
+        .key {
+            background: var(--card-bg);
+            border: var(--capsule-border);
+            border-radius: 50%;
+            aspect-ratio: 1 / 1;
+            width: 100%;
+            height: auto;
+            max-width: min(80px, calc((100dvh - 240px) / var(--grid-rows, 5) - 6px), calc((100vw - 32px) / var(--grid-cols, 4) - 6px));
+            max-height: min(80px, calc((100dvh - 240px) / var(--grid-rows, 5) - 6px), calc((100vw - 32px) / var(--grid-cols, 4) - 6px));
+            min-width: 0;
+            min-height: 0;
+            place-self: center;
+            container-type: size;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            transition: transform 0.16s cubic-bezier(0.175, 0.885, 0.32, 1.275), filter 0.14s ease, background-color 0.14s ease, box-shadow 0.14s ease;
+            box-shadow: 
+                0 4px 12px rgba(0, 0, 0, 0.22), 
+                inset 0 0.5px 0 rgba(255, 255, 255, 0.35),
+                inset 0 -0.5px 0 rgba(255, 255, 255, 0.1),
+                inset 0 0 8px rgba(255, 255, 255, 0.06);
+            touch-action: none;
+            -webkit-user-select: none;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            will-change: transform, filter;
+            transform: translate3d(0, 0, 0);
+            backface-visibility: hidden;
+            contain: layout style;
+            color: var(--text-color);
+            padding: 0;
+            position: relative;
+        }
+
+        .key-text {
+            font-size: 53cqmin;
+            line-height: 1;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+            user-select: none;
+            -webkit-user-select: none;
+            text-align: center;
+        }
+
+        .key.paren-key .key-text {
+            font-size: 42cqmin;
+            letter-spacing: -0.04em;
+        }
+
+        input {
+            font-size: 16px !important;
+        }
+
+        .key svg {
+            width: 50cqmin;
+            height: 50cqmin;
+            fill: currentColor;
+            display: block;
+            pointer-events: none;
+        }
+
+        /* 🍏 Apple iOS 觸控按下極速響應 + 高光增強 */
+        .key:active { 
+            transform: scale(0.94) translate3d(0, 0, 0); 
+            filter: brightness(1.25);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.25), inset 0 0.5px 1px rgba(0,0,0,0.35);
+            transition: transform 0.06s cubic-bezier(0.25, 1, 0.5, 1), filter 0.06s ease;
+        }
+
+        .key.cyan { 
+            color: var(--accent-main); 
+            background: color-mix(in srgb, var(--accent-main) 16%, transparent); 
+            border: 0.5px solid color-mix(in srgb, var(--accent-main) 35%, transparent); 
+            box-shadow: 
+                0 4px 12px rgba(0, 0, 0, 0.22), 
+                inset 0 0.5px 0 color-mix(in srgb, var(--accent-main) 45%, rgba(255, 255, 255, 0.5)),
+                inset 0 -0.5px 0 color-mix(in srgb, var(--accent-main) 15%, transparent),
+                inset 0 0 8px color-mix(in srgb, var(--accent-main) 12%, transparent);
+        } 
+        .key.cyan .key-text { font-size: 51cqmin; }
+        .key.operator { 
+            background: var(--operator-bg); 
+            border: 0.5px solid rgba(255, 255, 255, 0.18); 
+            box-shadow: 
+                0 4px 12px rgba(0, 0, 0, 0.22), 
+                inset 0 0.5px 0 rgba(255, 255, 255, 0.4),
+                inset 0 -0.5px 0 rgba(255, 255, 255, 0.12),
+                inset 0 0 8px rgba(255, 255, 255, 0.06);
+        } 
+        .key.operator .key-text { font-size: 54cqmin; }
+        .key.equal { 
+            background: var(--accent-main); 
+            color: var(--equal-text); 
+            border: 0.5px solid rgba(255, 255, 255, 0.35); 
+            box-shadow: 
+                0 6px 20px color-mix(in srgb, var(--accent-main) 45%, transparent), 
+                inset 0 0.5px 0 rgba(255, 255, 255, 0.6),
+                inset 0 -0.5px 0 rgba(0, 0, 0, 0.2),
+                inset 0 0 12px rgba(255, 255, 255, 0.25); 
+        } 
+        .key.equal .key-text { font-size: 54cqmin; }
+        .key.red-back { 
+            color: var(--accent-red); 
+            background: rgba(239, 83, 80, 0.14); 
+            border: 0.5px solid rgba(239, 83, 80, 0.3); 
+            box-shadow: 
+                0 4px 12px rgba(0, 0, 0, 0.22), 
+                inset 0 0.5px 0 rgba(255, 255, 255, 0.35),
+                inset 0 -0.5px 0 rgba(239, 83, 80, 0.2),
+                inset 0 0 8px rgba(239, 83, 80, 0.15);
+        }
+        .key.accent-mem { 
+            color: #b388ff; 
+            background: rgba(179, 136, 255, 0.16); 
+            border: 0.5px solid rgba(179, 136, 255, 0.35); 
+            box-shadow: 
+                0 4px 12px rgba(0, 0, 0, 0.22), 
+                inset 0 0.5px 0 rgba(255, 255, 255, 0.35),
+                inset 0 -0.5px 0 rgba(179, 136, 255, 0.2),
+                inset 0 0 8px rgba(179, 136, 255, 0.15);
+        }
+        .key.accent-util { 
+            color: #ffd54f; 
+            background: rgba(255, 213, 79, 0.16); 
+            border: 0.5px solid rgba(255, 213, 79, 0.35); 
+            box-shadow: 
+                0 4px 12px rgba(0, 0, 0, 0.22), 
+                inset 0 0.5px 0 rgba(255, 255, 255, 0.35),
+                inset 0 -0.5px 0 rgba(255, 213, 79, 0.2),
+                inset 0 0 8px rgba(255, 213, 79, 0.15);
+        }
+        .key.blank { background: transparent; border: 0.5px dashed rgba(255, 255, 255, 0.2); box-shadow: none; color: var(--text-muted); opacity: 0.5; backdrop-filter: none; -webkit-backdrop-filter: none; }
+        body.light-mode .key.blank { border: 0.5px dashed rgba(0, 0, 0, 0.2); }
+        .key.small-text .key-text { font-size: 38cqmin; font-weight: 800; letter-spacing: -0.02em; }
+        .key.tiny-text .key-text { font-size: 32cqmin; font-weight: 800; letter-spacing: -0.03em; }
+        .key.mini-text .key-text { font-size: 26cqmin; font-weight: 800; letter-spacing: -0.04em; }
+
+        body.light-mode .key { 
+            box-shadow: 0 2px 6px rgba(0,0,0,0.08), inset 0 0.5px 0.5px rgba(255,255,255,0.85); 
+        }
+        body.light-mode .key:active { filter: brightness(0.92); }
+
+        /* ─── 🍏 編輯模式：高質感穩固細白邊 + 表面「霧面 / 亮面」呼吸交替 (Matte / Glossy Surface Luster Cycle) ─── */
+        @keyframes surfaceMatteGlossyDark {
+            0%, 100% {
+                filter: brightness(0.97) contrast(0.99);
+            }
+            50% {
+                filter: brightness(1.04) contrast(1.02);
+            }
+        }
+
+        @keyframes surfaceGlossLayerDark {
+            0%, 100% {
+                /* 柔和基底：消弭死黑空窗期，保持晶瑩透感 */
+                opacity: 0.16;
+                box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.10);
+            }
+            50% {
+                /* 流體正弦曲線：到達頂點即順暢回落，告別生硬長停留，質感細膩 */
+                opacity: 0.65;
+                box-shadow: 
+                    inset 1.2px 1.2px 1px rgba(255, 255, 255, 0.42),
+                    inset -1.2px -1.2px 2px rgba(0, 0, 0, 0.2),
+                    -0.5px -0.5px 6px rgba(255, 255, 255, 0.08);
+            }
+        }
+
+        @keyframes surfaceMatteGlossyLight {
+            0%, 100% {
+                filter: brightness(0.98) contrast(0.99);
+            }
+            50% {
+                filter: brightness(1.03) contrast(1.02);
+            }
+        }
+
+        @keyframes surfaceGlossLayerLight {
+            0%, 100% {
+                opacity: 0.16;
+                box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.03);
+            }
+            50% {
+                opacity: 0.65;
+                box-shadow: 
+                    inset 1.2px 1.2px 1px rgba(255, 255, 255, 0.68),
+                    inset -1px -1px 2px rgba(0, 0, 0, 0.05),
+                    -0.5px -0.5px 6px rgba(255, 255, 255, 0.25);
+            }
+        }
+
+        /* 穩固白色細邊（維持不閃動）與按鍵容器 */
+        .jiggle-mode .key:not(.blank), 
+        .custom-keyboard-grid .key:not(.blank) {
+            position: relative;
+            overflow: hidden;
+            border: 0.5px solid rgba(255, 255, 255, 0.38) !important;
+            box-shadow: 
+                0 0 0 0.5px rgba(255, 255, 255, 0.22),
+                0 3px 8px rgba(0, 0, 0, 0.25) !important;
+            transform: none !important;
+            animation: surfaceMatteGlossyDark 0.85s infinite ease-in-out !important;
+        }
+
+        /* 亮面鏡面反射層 (Gloss Specular Overlay - 左上方鏡面晶體微高光) */
+        .jiggle-mode .key:not(.blank)::after,
+        .custom-keyboard-grid .key:not(.blank)::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            pointer-events: none;
+            z-index: 1;
+            background: radial-gradient(circle at 26% 24%, rgba(255, 255, 255, 0.26) 0%, rgba(255, 255, 255, 0.08) 32%, rgba(255, 255, 255, 0) 65%);
+            animation: surfaceGlossLayerDark 0.85s infinite ease-in-out;
+        }
+
+        /* 確保字體與圖標置於亮面反光層上方，清晰立體 */
+        .jiggle-mode .key .key-text,
+        .jiggle-mode .key svg,
+        .custom-keyboard-grid .key .key-text,
+        .custom-keyboard-grid .key svg {
+            position: relative;
+            z-index: 2;
+        }
+
+        body.light-mode .jiggle-mode .key:not(.blank),
+        body.light-mode .custom-keyboard-grid .key:not(.blank) {
+            border: 0.5px solid rgba(0, 0, 0, 0.22) !important;
+            box-shadow: 
+                0 0 0 0.5px rgba(0, 0, 0, 0.12),
+                0 2px 6px rgba(0, 0, 0, 0.08) !important;
+            transform: none !important;
+            animation: surfaceMatteGlossyLight 0.85s infinite ease-in-out !important;
+        }
+
+        body.light-mode .jiggle-mode .key:not(.blank)::after,
+        body.light-mode .custom-keyboard-grid .key:not(.blank)::after {
+            background: radial-gradient(circle at 26% 24%, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0.18) 32%, rgba(255, 255, 255, 0) 65%);
+            animation: surfaceGlossLayerLight 0.85s infinite ease-in-out;
+        }
+
+        .custom-keyboard-grid .key.blank {
+            animation: none !important;
+            transform: none !important;
+        }
+        .custom-keyboard-grid .key.blank::after {
+            display: none !important;
+        }
+
+        /* 拖曳中與佔位狀態 */
+        .custom-keyboard-grid.is-dragging-active .key {
+            animation: none !important;
+        }
+        .custom-keyboard-grid.is-dragging-active .key::after,
+        .key.is-dragging::after {
+            animation: none !important;
+            display: none !important;
+        }
+        .key.is-dragging {
+            animation: none !important;
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            z-index: 999999 !important;
+            width: var(--drag-size, 40px) !important;
+            height: var(--drag-size, 40px) !important;
+            max-width: var(--drag-size, 40px) !important;
+            max-height: var(--drag-size, 40px) !important;
+            min-width: var(--drag-size, 40px) !important;
+            min-height: var(--drag-size, 40px) !important;
+            box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45), 0 0 12px color-mix(in srgb, var(--accent-main) 35%, transparent) !important;
+            opacity: 0.95 !important;
+            pointer-events: none !important;
+            box-sizing: border-box !important;
+            margin: 0 !important;
+            will-change: transform;
+            cursor: grabbing !important;
+            backface-visibility: hidden;
+        }
+        .key.is-dragging.is-dropping {
+            transition: transform 0.26s var(--ios-spring-bouncy), opacity 0.2s ease !important;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3) !important;
+            opacity: 1 !important;
+        }
+        .key.is-dragging.is-discarding {
+            transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease !important;
+            transform: scale(0.2) translate3d(0, 30px, 0) !important;
+            opacity: 0 !important;
+        }
+        .key.is-placeholder {
+            opacity: 0 !important;
+            visibility: hidden !important;
+            pointer-events: none !important;
+        }
+        .key.is-placeholder * {
+            opacity: 0 !important;
+            visibility: hidden !important;
+        }
+        .custom-keyboard-grid .key.is-shifting {
+            transition: transform 0.28s var(--ios-spring-snappy), opacity 0.22s ease, visibility 0.22s ease !important;
+            will-change: transform, opacity;
+        }
+        .grid-slot-indicator {
+            position: fixed;
+            top: 0;
+            left: 0;
+            margin: 0;
+            padding: 0;
+            border-radius: 50%;
+            border: 2px dashed var(--accent-main);
+            background: color-mix(in srgb, var(--accent-main) 16%, rgba(255, 255, 255, 0.05));
+            box-shadow: 0 0 16px color-mix(in srgb, var(--accent-main) 35%, transparent), inset 0 0 8px color-mix(in srgb, var(--accent-main) 20%, transparent);
+            pointer-events: none;
+            z-index: 999990;
+            opacity: 0;
+            visibility: hidden;
+            box-sizing: border-box;
+            transform: translate3d(-9999px, -9999px, 0);
+            transition: opacity 0.16s ease, visibility 0.16s ease, transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), width 0.18s ease, height 0.18s ease, border-radius 0.18s ease;
+            will-change: transform, opacity, width, height;
+        }
+        .grid-slot-indicator.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        /* ─── 鍵盤自訂專屬選單佈局 (極致黃金比例：清晰真實預覽 + 寬敞按鍵庫) ─── */
+        #keyboard-settings-menu {
+            padding: max(env(safe-area-inset-top, 20px), 20px) clamp(10px, 3.5vw, 16px) max(env(safe-area-inset-bottom, 16px), 16px);
+        }
+
+        #keyboard-settings-menu .overlay-title {
+            margin-bottom: 4px;
+            font-size: clamp(16px, 4vw, 19px);
+            letter-spacing: 1.5px;
+        }
+
+        .keyboard-custom-wrapper {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            min-height: 0;
+            gap: 6px;
+            overflow-y: auto;
+            overflow-x: hidden;
+            margin-bottom: 4px;
+            padding: 1px;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+            touch-action: pan-y;
+        }
+        .keyboard-custom-wrapper::-webkit-scrollbar { display: none; }
+
+        .custom-hint-badge {
+            text-align: center;
+            font-size: 9.5px;
+            font-weight: 700;
+            color: var(--accent-main);
+            background: color-mix(in srgb, var(--accent-main) 12%, transparent);
+            border: 0.5px solid color-mix(in srgb, var(--accent-main) 25%, transparent);
+            padding: 3px 10px;
+            border-radius: 12px;
+            margin: 0 auto 2px auto;
+            letter-spacing: 0.3px;
+            flex-shrink: 0;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+            line-height: 1.2;
+        }
+
+        .grid-preset-selector {
+            margin: 0 auto 2px auto;
+            max-width: 100%;
+            width: 100%;
+            padding: 2px;
+        }
+
+        .grid-preset-btn {
+            font-size: clamp(9px, 2.4vw, 10.5px);
+            padding: 4px 6px;
+        }
+
+        @keyframes keyGridMorph {
+            0% {
+                transform: scale(0.72) translate3d(0, 4px, 0);
+                opacity: 0;
+            }
+            100% {
+                transform: scale(1) translate3d(0, 0, 0);
+                opacity: 1;
+            }
+        }
+        .custom-keyboard-grid.is-morphing .key {
+            animation: keyGridMorph 0.26s cubic-bezier(0.16, 1, 0.3, 1) both;
+        }
+
+        /* ─── L 型智慧自適應佈局 (左上目標鍵盤 + 右側候選側欄 + 底部擴充按鍵庫) ─── */
+        .custom-top-split {
+            display: flex;
+            gap: 6px;
+            width: 100%;
+            align-items: stretch;
+            flex-shrink: 0;
+        }
+
+        /* 頂部左側：自訂鍵盤網格預覽區 */
+        .custom-grid-container {
+            background: linear-gradient(180deg, rgba(28, 34, 52, 0.30) 0%, rgba(16, 20, 32, 0.38) 100%);
+            border: 0.5px solid rgba(255, 255, 255, 0.18);
+            border-radius: 16px;
+            padding: 5px 8px 6px 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            gap: 3px;
+            flex: 0 0 64%;
+            max-width: 64%;
+            box-shadow: 
+                0 4px 14px rgba(0, 0, 0, 0.25),
+                inset 0 0.5px 0 rgba(255, 255, 255, 0.35),
+                inset 0 -0.5px 0 rgba(255, 255, 255, 0.12),
+                inset 0 0 12px rgba(255, 255, 255, 0.06);
+            position: relative;
+            touch-action: none;
+            contain: layout style;
+            transition: flex 0.22s ease, max-width 0.22s ease;
+        }
+
+        /* 依規格動態調整左上預覽比例 */
+        .keyboard-custom-wrapper[data-grid="3x4"] .custom-grid-container {
+            flex: 0 0 52%;
+            max-width: 52%;
+        }
+        .keyboard-custom-wrapper[data-grid="4x4"] .custom-grid-container {
+            flex: 0 0 60%;
+            max-width: 60%;
+        }
+        .keyboard-custom-wrapper[data-grid="4x5"] .custom-grid-container {
+            flex: 0 0 64%;
+            max-width: 64%;
+        }
+        .keyboard-custom-wrapper[data-grid="4x6"] .custom-grid-container {
+            flex: 0 0 66%;
+            max-width: 66%;
+        }
+
+        body.light-mode .custom-grid-container {
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.65) 0%, rgba(240, 245, 255, 0.58) 100%);
+            border: 0.5px solid rgba(0, 0, 0, 0.12);
+            box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.85), 0 4px 12px rgba(0, 0, 0, 0.04);
+        }
+
+        .custom-keyboard-grid {
+            display: grid;
+            grid-template-columns: repeat(var(--grid-cols, 4), 1fr);
+            grid-template-rows: repeat(var(--grid-rows, 5), 1fr);
+            gap: 3.5px;
+            width: 100%;
+            justify-items: center;
+            align-items: center;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none;
+        }
+
+        .custom-keyboard-grid .key {
+            width: 100%;
+            max-width: 38px;
+            max-height: 38px;
+            aspect-ratio: 1 / 1;
+            border-radius: 50% !important;
+            cursor: grab;
+            touch-action: none;
+            font-size: clamp(11.5px, 3vw, 14.5px);
+            place-self: center;
+        }
+        .custom-keyboard-grid .key:active {
+            cursor: grabbing;
+        }
+
+        /* 頂部右側：L 型側邊候選庫 (Side Shelf) */
+        .side-pool-section {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            min-width: 0;
+            background: linear-gradient(180deg, rgba(24, 28, 44, 0.48) 0%, rgba(16, 20, 32, 0.56) 100%);
+            border: 0.5px solid rgba(255, 255, 255, 0.16);
+            border-radius: 16px;
+            padding: 5px 6px;
+            gap: 3px;
+            box-shadow: 
+                0 4px 14px rgba(0, 0, 0, 0.25),
+                inset 0 0.5px 0 rgba(255, 255, 255, 0.35),
+                inset 0 -0.5px 0 rgba(255, 255, 255, 0.1),
+                inset 0 0 12px rgba(255, 255, 255, 0.06);
+            contain: layout style;
+            overflow: hidden;
+        }
+
+        body.light-mode .side-pool-section {
+            background: rgba(255, 255, 255, 0.55);
+            border: 0.5px solid rgba(0, 0, 0, 0.1);
+            box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.85), 0 2px 8px rgba(0, 0, 0, 0.04);
+        }
+
+        .pool-shelf-label {
+            font-size: 8px;
+            font-weight: 800;
+            color: var(--accent-main);
+            text-align: center;
+            letter-spacing: 0.5px;
+            margin-bottom: 2px;
+            white-space: nowrap;
+            text-transform: uppercase;
+        }
+
+        .side-pool-scroll {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(30px, 1fr));
+            gap: 4px 3px;
+            overflow-y: auto;
+            flex: 1;
+            min-height: 0;
+            padding: 1px;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+            touch-action: pan-y;
+            align-content: start;
+        }
+        .side-pool-scroll::-webkit-scrollbar { display: none; }
+
+        #main-keyboard .key.blank {
+            visibility: hidden !important;
+            pointer-events: none !important;
+            opacity: 0 !important;
+        }
+
+        #custom-keyboard-grid .key.blank {
+            background: rgba(255, 255, 255, 0.03);
+            border: 0.75px dashed rgba(255, 255, 255, 0.25);
+            box-shadow: none;
+            color: var(--text-muted);
+            opacity: 0.6;
+        }
+        body.light-mode #custom-keyboard-grid .key.blank {
+            background: rgba(0, 0, 0, 0.02);
+            border: 0.75px dashed rgba(0, 0, 0, 0.2);
+        }
+
+        /* 擴充按鍵庫區塊 (L 型底部全寬庫，寬敞充裕，滑順展示) */
+        .pool-section {
+            display: flex;
+            flex-direction: column;
+            flex: 1 1 0;
+            min-height: 110px;
+            background: linear-gradient(180deg, rgba(24, 28, 44, 0.48) 0%, rgba(16, 20, 32, 0.56) 100%);
+            border: 0.5px solid rgba(255, 255, 255, 0.16);
+            border-radius: 16px;
+            padding: 6px 8px;
+            gap: 4px;
+            box-shadow: 
+                0 4px 14px rgba(0, 0, 0, 0.25),
+                inset 0 0.5px 0 rgba(255, 255, 255, 0.35),
+                inset 0 -0.5px 0 rgba(255, 255, 255, 0.1),
+                inset 0 0 12px rgba(255, 255, 255, 0.06);
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+            contain: layout style;
+            overflow: hidden;
+        }
+        .pool-section.is-drop-active,
+        .side-pool-section.is-drop-active {
+            border-color: var(--accent-main) !important;
+            box-shadow: 0 0 16px color-mix(in srgb, var(--accent-main) 35%, transparent), inset 0 0 10px color-mix(in srgb, var(--accent-main) 20%, transparent) !important;
+        }
+
+        body.light-mode .pool-section {
+            background: rgba(255, 255, 255, 0.55);
+            border: 0.5px solid rgba(0, 0, 0, 0.1);
+            box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.85), 0 2px 8px rgba(0, 0, 0, 0.04);
+        }
+
+        .pool-category-tabs {
+            width: 100%;
+            padding: 2px;
+            margin-bottom: 2px;
+        }
+
+        .pool-tab-btn {
+            font-size: clamp(8.5px, 2.2vw, 10px);
+            padding: 3px 4px;
+        }
+
+        .key-pool-scroll {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(34px, 1fr));
+            gap: 5px 3px;
+            overflow-y: auto;
+            flex: 1;
+            min-height: 0;
+            padding: 3px 2px;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+            touch-action: pan-y;
+            align-content: start;
+        }
+        .key-pool-scroll::-webkit-scrollbar { display: none; }
+
+        .key-pool-scroll.is-morphing .pool-key-item,
+        .side-pool-scroll.is-morphing .pool-key-item {
+            animation: keyGridMorph 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
+        }
+
+        .pool-key-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 1.5px;
+            cursor: grab;
+            touch-action: none;
+            min-width: 0;
+        }
+        .pool-key-item .key {
+            width: 32px;
+            height: 32px;
+            max-width: 32px;
+            max-height: 32px;
+            aspect-ratio: 1 / 1;
+            border-radius: 50% !important;
+            font-size: 12.5px;
+        }
+        .pool-key-label {
+            font-size: 7.5px;
+            font-weight: 700;
+            color: var(--text-muted);
+            white-space: nowrap;
+            text-align: center;
+            width: 100%;
+            max-width: 42px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            line-height: 1.1;
+        }
+
+        #keyboard-settings-menu .btn-group {
+            margin-top: 4px;
+            gap: 8px;
+        }
+        #keyboard-settings-menu .clear-btn,
+        #keyboard-settings-menu .done-btn {
+            padding: 11px 8px;
+            font-size: 15px;
+            border-radius: 24px;
+        }
+
+        @keyframes menuOpen { 
+            0% { transform: scale(0.92) translate3d(0, 0, 0); opacity: 0; } 
+            100% { transform: scale(1) translate3d(0, 0, 0); opacity: 1; } 
+        }
+        @keyframes menuClose { 
+            0% { transform: scale(1) translate3d(0, 0, 0); opacity: 1; } 
+            100% { transform: scale(0.92) translate3d(0, 0, 0); opacity: 0; } 
+        }
+
+        /* 滑動轉場 Keyframes */
+        @keyframes slideLeftOut { 0% { transform: translate3d(0, 0, 0); opacity: 1; } 100% { transform: translate3d(-40px, 0, 0); opacity: 0; } }
+        @keyframes slideLeftIn { 0% { transform: translate3d(40px, 0, 0); opacity: 0; } 100% { transform: translate3d(0, 0, 0); opacity: 1; } }
+        @keyframes slideRightOut { 0% { transform: translate3d(0, 0, 0); opacity: 1; } 100% { transform: translate3d(40px, 0, 0); opacity: 0; } }
+        @keyframes slideRightIn { 0% { transform: translate3d(-40px, 0, 0); opacity: 0; } 100% { transform: translate3d(0, 0, 0); opacity: 1; } }
+
+        .overlay-menu {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            /* 🍏 Apple Liquid Glass: 通透微暗背景，單一頂層毛玻璃合成通道 */
+            background: rgba(0, 0, 0, 0.05);
+            -webkit-backdrop-filter: blur(10px);
+            backdrop-filter: blur(10px);
+            z-index: 200; display: flex; flex-direction: column;
+            padding: max(env(safe-area-inset-top, 32px), 32px) clamp(10px, 3.5vw, 18px) 24px; overflow: hidden; 
+            transform-origin: var(--origin-x, 50%) var(--origin-y, 50%);
+            transform: scale(0.92) translate3d(0, 0, 0); opacity: 0; visibility: hidden; pointer-events: none;
+            will-change: transform, opacity;
+            contain: layout paint;
+            touch-action: pan-y;
+            backface-visibility: hidden;
+        }
+        .overlay-menu.is-animating {
+            pointer-events: none !important;
+        }
+        body.light-mode .overlay-menu {
+            background: rgba(255, 255, 255, 0.10);
+            -webkit-backdrop-filter: blur(10px);
+            backdrop-filter: blur(10px);
+        }
+        .overlay-menu.show { visibility: visible; pointer-events: auto; opacity: 1; transform: scale(1) translate3d(0, 0, 0); }
+        .overlay-title { text-align: center; font-size: 22px; font-weight: 900; letter-spacing: 2px; margin-bottom: 16px; color: var(--text-color); text-shadow: 0 2px 12px rgba(0, 0, 0, 0.6); flex-shrink: 0; }
+        
+        .setting-box { 
+            position: relative;
+            /* 🍏 Stealth Dark Apple Liquid Glass: 0.5px 晶體邊界與折射 */
+            border: 0.5px solid rgba(255, 255, 255, 0.18);
+            background: linear-gradient(180deg, rgba(28, 34, 52, 0.28) 0%, rgba(16, 20, 32, 0.36) 100%);
+            
+            /* 深邃物理漫射陰影 + 清晰頂部邊界線條與內光暈 */
+            box-shadow: 
+                0 4px 14px rgba(0, 0, 0, 0.25),
+                0 12px 28px rgba(0, 0, 0, 0.35),
+                inset 0 0.5px 0 rgba(255, 255, 255, 0.4),
+                inset 0 -0.5px 0 rgba(255, 255, 255, 0.15),
+                inset 0 0 16px rgba(255, 255, 255, 0.08);
+                
+            border-radius: 28px; 
+            padding: clamp(14px, 3.5vw, 22px) clamp(10px, 3.5vw, 18px); 
+            margin-bottom: 14px; 
+            overflow-y: auto; 
+            flex: 1;
+            min-height: 0;
+            touch-action: pan-y;
+            scrollbar-width: none; -ms-overflow-style: none;
+            contain: layout style;
+        }
+
+        body.light-mode .setting-box {
+            border: 0.5px solid rgba(0, 0, 0, 0.12);
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.45) 0%, rgba(240, 245, 255, 0.38) 100%);
+            box-shadow: 
+                0 4px 12px rgba(0, 0, 0, 0.04),
+                0 10px 24px rgba(0, 0, 0, 0.03),
+                inset 0 0.5px 0 rgba(255, 255, 255, 0.9),
+                inset 0 -0.5px 0.5px rgba(0, 0, 0, 0.03);
+        }
+        .setting-box::-webkit-scrollbar { display: none; }
+        
+        .setting-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; gap: 6px; flex-wrap: nowrap; min-width: 0; }
+        .setting-row:last-child { margin-bottom: 0; }
+        .setting-label { font-size: clamp(11px, 2.8vw, 13px); font-weight: 700; color: var(--text-color); white-space: nowrap; flex-shrink: 1; min-width: 0; }
+
+        .setting-row.clickable {
+            cursor: pointer; padding: 4px 0; border-radius: 12px; transition: opacity 0.2s;
+        }
+        .setting-row.clickable:active { opacity: 0.6; }
+        .setting-arrow-link { font-size: 18px; font-weight: 900; color: var(--accent-main); }
+
+        .option-selector {
+            position: relative;
+            display: flex;
+            gap: 2px;
+            background: var(--input-bg);
+            border-radius: 12px;
+            padding: 3px;
+            border: 0.5px solid rgba(255, 255, 255, 0.12);
+            box-shadow: inset 0 0.5px 0px rgba(255, 255, 255, 0.1), inset 0 0 6px rgba(0, 0, 0, 0.25);
+            isolation: isolate;
+            flex-shrink: 0;
+            min-width: 0;
+        }
+
+        .selector-glider {
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            height: calc(100% - 6px);
+            background: var(--accent-main);
+            border-radius: 9px;
+            transition: transform 0.18s var(--ios-spring-snappy), width 0.18s var(--ios-spring-snappy), background-color 0.16s ease;
+            z-index: 1;
+            pointer-events: none;
+            will-change: transform, width;
+            box-shadow: 
+                0 2px 5px rgba(0, 0, 0, 0.25),
+                0 6px 14px color-mix(in srgb, var(--accent-main) 35%, transparent),
+                inset 0 0.5px 0 rgba(255, 255, 255, 0.35);
+        }
+
+        .selector-btn { 
+            position: relative;
+            z-index: 2;
+            border: none;
+            background: transparent !important;
+            color: var(--text-muted); 
+            font-size: clamp(9px, 2.5vw, 10.5px);
+            font-weight: 800;
+            padding: 5px clamp(5px, 1.5vw, 9px);
+            border-radius: 9px; 
+            cursor: pointer;
+            transition: color 0.18s ease;
+            white-space: nowrap;
+            flex: 1;
+            text-align: center;
+        }
+
+        .selector-btn.tech-f { font-family: var(--font-tech); }
+        .selector-btn.biz-f { font-family: var(--font-business); }
+        .selector-btn.cute-f { font-family: var(--font-cute); }
+        .selector-btn.active { color: var(--equal-text); }
+
+        .color-palette { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+        .color-swatch { width: 24px; height: 24px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: var(--trans-pop); box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+        .color-swatch:active { transform: scale(0.9); }
+        .color-swatch.active { border-color: var(--text-color); transform: scale(1.15); }
+        .color-swatch.custom-btn { background: var(--input-bg); border: 0.5px dashed var(--text-muted); color: var(--text-muted); display: flex; justify-content: center; align-items: center; font-size: 16px; font-weight: 300; font-family: sans-serif; line-height: 1; }
+        .color-swatch.custom-btn.active { border-style: solid; border-color: var(--text-color); color: var(--equal-text); background: var(--accent-main); }
+
+        @keyframes slideDown { from { opacity: 0; transform: translate3d(0, -10px, 0); } to { opacity: 1; transform: translate3d(0, 0, 0); } }
+        .custom-color-menu {
+            width: 100%;
+            padding: 16px;
+            margin-top: 8px;
+            background: rgba(18, 20, 28, 0.92);
+            border-radius: 20px;
+            border: 0.5px solid rgba(255, 255, 255, 0.08);
+            display: none;
+            flex-direction: column;
+            gap: 14px;
+            box-shadow: 
+                0 8px 24px rgba(0, 0, 0, 0.3),
+                inset 0 0.5px 0.75px rgba(255, 255, 255, 0.15),
+                0 0 16px color-mix(in srgb, var(--accent-main) 12%, transparent);
+            animation: slideDown 0.18s cubic-bezier(0.19, 1, 0.22, 1);
+            transition: box-shadow 0.2s ease;
+            contain: layout style;
+        }
+        body.light-mode .custom-color-menu {
+            background: rgba(255, 255, 255, 0.9);
+            border: 0.5px solid rgba(0, 0, 0, 0.06);
+            box-shadow: 
+                0 8px 20px rgba(0, 0, 0, 0.05),
+                inset 0 0.5px 1px rgba(255, 255, 255, 0.7),
+                0 0 16px color-mix(in srgb, var(--accent-main) 10%, transparent);
+        }
+        .custom-color-menu.show { display: flex; }
+        
+        .picker-main-row {
+            display: flex;
+            gap: 16px;
+            width: 100%;
+            height: 160px;
+            margin-bottom: 4px;
+        }
+        
+        .color-field {
+            position: relative;
+            flex: 1;
+            height: 100%;
+            border-radius: 12px;
+            background-color: hsl(180, 100%, 50%);
+            cursor: crosshair;
+            overflow: hidden;
+            border: 0.5px solid rgba(255, 255, 255, 0.08);
+            box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.4), 0 4px 12px rgba(0, 0, 0, 0.15);
+            touch-action: none;
+        }
+        
+        body.light-mode .color-field {
+            border: 0.5px solid rgba(0, 0, 0, 0.06);
+            box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.25), 0 4px 8px rgba(0, 0, 0, 0.06);
+        }
+        
+        .color-field-white {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(to right, #fff, transparent);
+        }
+        
+        .color-field-black {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(to top, #000, transparent);
+        }
+        
+        .color-field-handle {
+            position: absolute;
+            width: 18px;
+            height: 18px;
+            border: 2.5px solid #ffffff;
+            border-radius: 50%;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.6), inset 0 0.5px 1px rgba(0,0,0,0.4);
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            will-change: left, top;
+            background: transparent;
+            transition: transform 0.15s cubic-bezier(0.19, 1, 0.22, 1), border-width 0.15s ease, box-shadow 0.15s ease;
+        }
+        
+        .color-field:active .color-field-handle {
+            transform: translate(-50%, -50%) scale(1.2);
+            border-width: 3px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.8), 0 0 10px rgba(255,255,255,0.7);
+        }
+        
+        .hue-slider-container {
+            position: relative;
+            width: 20px;
+            height: 100%;
+            border-radius: 10px;
+            cursor: pointer;
+            border: 0.5px solid rgba(255, 255, 255, 0.08);
+            box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.3);
+            touch-action: none;
+            overflow: visible;
+        }
+        
+        body.light-mode .hue-slider-container {
+            border: 0.5px solid rgba(0, 0, 0, 0.06);
+        }
+        
+        .hue-slider-track {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            border-radius: 9px;
+            background: linear-gradient(to bottom, #ff0000 0%, #ffff00 17%, #00ff00 33%, #00ffff 50%, #0000ff 67%, #ff00ff 83%, #ff0000 100%);
+        }
+        
+        .hue-slider-handle {
+            position: absolute;
+            left: 50%;
+            width: 26px;
+            height: 26px;
+            border: 3px solid #ffffff;
+            border-radius: 50%;
+            box-shadow: 0 3px 8px rgba(0,0,0,0.6), inset 0 0.5px 1px rgba(0,0,0,0.3);
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            will-change: top;
+            background: transparent;
+            transition: transform 0.15s cubic-bezier(0.19, 1, 0.22, 1), border-width 0.15s ease, box-shadow 0.15s ease;
+        }
+        
+        .hue-slider-container:active .hue-slider-handle {
+            transform: translate(-50%, -50%) scale(1.18);
+            border-width: 3.5px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.8), 0 0 10px rgba(255,255,255,0.7);
+        }
+        
+        .picker-values-row {
+            display: grid;
+            grid-template-columns: 1.45fr 1fr 1fr 1fr;
+            gap: 5px;
+            border-top: 0.5px solid rgba(255, 255, 255, 0.08);
+            padding-top: 10px;
+            margin-top: 2px;
+            width: 100%;
+        }
+        
+        body.light-mode .picker-values-row {
+            border-top: 0.5px solid rgba(0, 0, 0, 0.06);
+        }
+        
+        .value-item {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 2px;
+            background: rgba(0, 0, 0, 0.25);
+            padding: 5px 3px;
+            border-radius: 8px;
+            border: 0.5px solid rgba(255, 255, 255, 0.05);
+            font-family: var(--font-tech);
+            font-size: clamp(9px, 2.5vw, 11px);
+            font-weight: 700;
+            letter-spacing: 0.1px;
+            min-width: 0;
+            overflow: hidden;
+        }
+        
+        body.light-mode .value-item {
+            background: rgba(255, 255, 255, 0.7);
+            border: 0.5px solid rgba(0, 0, 0, 0.05);
+            color: var(--text-color);
+        }
+        
+        .value-item.hex-item {
+            padding: 5px 4px;
+        }
+        
+        .value-label {
+            font-size: clamp(9px, 2.5vw, 11px);
+            color: var(--text-muted);
+            font-weight: 900;
+            user-select: none;
+            flex-shrink: 0;
+        }
+        
+        .value-label.r-label { color: #ef5350; }
+        .value-label.g-label { color: #00e676; }
+        .value-label.b-label { color: #29b6f6; }
+        
+        .value-val {
+            color: var(--text-color);
+            font-weight: 800;
+            font-size: clamp(9px, 2.5vw, 11px);
+            line-height: 1;
+        }
+        
+        .picker-values-row .hex-input {
+            background: transparent;
+            border: none;
+            color: var(--text-color);
+            font-family: var(--font-tech);
+            font-size: clamp(9px, 2.5vw, 11px) !important;
+            line-height: 1;
+            height: auto;
+            width: 100%;
+            text-transform: uppercase;
+            outline: none;
+            font-weight: 800;
+            letter-spacing: 0.3px;
+            padding: 0;
+            margin: 0;
+            text-align: center;
+            min-width: 0;
+        }
+
+        .stepper { display: flex; align-items: center; background: var(--input-bg); border-radius: 14px; padding: 2px; border: var(--capsule-border); }
+        .stepper button { background: transparent; border: none; color: var(--accent-main); font-size: 18px; width: 32px; height: 32px; border-radius: 10px; cursor: pointer; display: flex; justify-content: center; align-items: center; transition: 0.2s;}
+        .stepper button:active { background: rgba(255,255,255,0.1); }
+        .stepper span { width: 26px; text-align: center; font-size: 16px; font-weight: 700; color: var(--text-color); }
+        
+        .switch { position: relative; width: 46px; height: 26px; flex-shrink: 0; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { 
+            position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; 
+            background-color: var(--text-muted); 
+            transition: background-color 0.32s var(--ios-spring-snappy), border-color 0.32s ease; 
+            border-radius: 34px; border: var(--capsule-border); 
+        }
+        .slider:before { 
+            position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; 
+            background-color: white; 
+            transition: transform 0.34s var(--ios-spring-snappy), width 0.22s var(--ios-spring-snappy), border-radius 0.22s ease; 
+            border-radius: 50%; 
+            box-shadow: 0 2px 5px rgba(0,0,0,0.25);
+        }
+        input:checked + .slider { background-color: var(--accent-main); }
+        input:checked + .slider:before { transform: translateX(20px); }
+        .switch:active .slider:before { width: 22px; }
+
+        .tax-grid, .rate-grid { display: flex; flex-direction: column; gap: 8px; width: 100%; margin-top: 4px; }
+        .tax-input-group, .rate-input-group { display: flex; align-items: center; justify-content: space-between; gap: 8px; background: var(--input-bg); border-radius: 14px; padding: 10px 14px; border: var(--capsule-border); }
+        .tax-input-group span.tax-currency-label { color: var(--text-muted); font-size: 13px; font-weight: 800; white-space: nowrap; }
+        .tax-input-group input, .rate-input-group input { background: transparent; border: none; color: var(--text-color); font-size: 15px; font-weight: 700; width: 90px; text-align: right; outline: none; font-family: var(--app-font); }
+
+        .currency-btn-group { display: flex; align-items: center; gap: 6px; cursor: pointer; padding: 2px 4px; border-radius: 8px; transition: background 0.2s; white-space: nowrap; }
+        .currency-btn-group:active { background: rgba(255, 255, 255, 0.1); }
+        .currency-btn-group span { color: var(--text-muted); font-size: 13px; font-weight: 800; }
+
+        .api-status { font-size: 11px; color: var(--text-muted); font-family: 'Rajdhani', sans-serif; text-align: right; margin-top: 2px; transition: color 0.3s ease; }
+        .api-status.outdated { color: #ffb74d !important; font-weight: 700; }
+        .api-status.outdated::before { content: '⚠️ '; font-size: 10px; }
+        .refresh-btn { 
+            background: var(--input-bg); 
+            border: 0.5px solid rgba(255, 255, 255, 0.18); 
+            color: var(--accent-main); font-size: 11px; padding: 4px 0; border-radius: 12px; cursor: pointer; margin-left: 8px; font-weight: bold; width: 85px; text-align: center; 
+            box-shadow: 
+                0 2px 6px rgba(0, 0, 0, 0.25),
+                0 6px 14px rgba(0, 0, 0, 0.3),
+                inset 0 0.5px 0px rgba(255, 255, 255, 0.35),
+                inset 0 -0.5px 0 rgba(255, 255, 255, 0.1),
+                inset 0 0 6px rgba(0, 0, 0, 0.25);
+            transition: background 0.3s, color 0.3s, transform 0.15s, box-shadow 0.15s; 
+            white-space: nowrap; 
+        }
+        .refresh-btn:active { 
+            transform: scale(0.96); 
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), inset 0 0 6px rgba(0, 0, 0, 0.35);
+        }
+        .refresh-btn.success { background: var(--accent-green); color: #000; }
+        .refresh-btn.error { background: var(--accent-red); color: #fff; }
+
+        /* ─── 記帳即時分類氣泡 (全寬覆蓋頂部動作列，大氣排版) ─── */
+        .category-bubble {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 100%;
+            max-width: 100%;
+            height: var(--capsule-height);
+            transform: translate3d(-50%, calc(-50% - 22px), 0) scale(0.92);
+            transform-origin: center center;
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 3px;
+            padding: 0 4px;
+            box-sizing: border-box;
+            border-radius: calc(var(--capsule-height) / 2);
+            background: linear-gradient(180deg, rgba(28, 34, 52, 0.90) 0%, rgba(14, 18, 28, 0.95) 100%);
+            border: 0.5px solid rgba(255, 255, 255, 0.28);
+            -webkit-backdrop-filter: blur(16px) saturate(200%);
+            backdrop-filter: blur(16px) saturate(200%);
+            box-shadow: 
+                0 6px 20px rgba(0, 0, 0, 0.45), 
+                inset 0 0.5px 0 rgba(255, 255, 255, 0.45),
+                inset 0 -0.5px 0 rgba(255, 255, 255, 0.12),
+                inset 0 0 10px rgba(255, 255, 255, 0.06);
+            z-index: 100;
+            transition: transform 0.24s var(--ios-spring-snappy), opacity 0.2s ease, visibility 0.2s;
+            overflow-x: auto;
+            overflow-y: hidden;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+            -webkit-overflow-scrolling: touch;
+            touch-action: pan-x;
+        }
+        .category-bubble::-webkit-scrollbar { display: none; }
+        .category-bubble.show {
+            transform: translate3d(-50%, -50%, 0) scale(1);
+            opacity: 1;
+            visibility: visible;
+            pointer-events: auto;
+        }
+        body.light-mode .category-bubble {
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.92) 0%, rgba(240, 245, 255, 0.90) 100%);
+            border: 0.5px solid rgba(0, 0, 0, 0.12);
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08), inset 0 0.5px 0 rgba(255, 255, 255, 0.95);
+        }
+
+        /* 顯示即時分類氣泡時，頂部幣別膠囊與左右按鈕柔和隱藏讓位 */
+        .action-bar:has(.category-bubble.show) .capsule-wrapper,
+        .action-bar:has(.category-bubble.show) .icon-btn,
+        .header-area.bubble-active .capsule-wrapper,
+        .header-area.bubble-active .icon-btn {
+            opacity: 0 !important;
+            pointer-events: none !important;
+            transition: opacity 0.2s ease;
+        }
+
+        .cat-chip {
+            flex: 1 1 auto;
+            min-width: 0;
+            background: rgba(255, 255, 255, 0.08);
+            border: 0.5px solid rgba(255, 255, 255, 0.15);
+            border-radius: 14px;
+            height: 28px;
+            padding: 0 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 2px;
+            color: var(--text-color);
+            font-size: 11px;
+            font-weight: 700;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: transform 0.15s var(--ios-spring-bouncy), background 0.15s, border-color 0.15s, color 0.15s;
+            touch-action: manipulation;
+            line-height: 1;
+            flex-shrink: 1;
+        }
+        .cat-chip:active, .cat-chip.active {
+            transform: scale(0.93);
+            background: var(--accent-main);
+            color: #000;
+            border-color: transparent;
+            font-weight: 800;
+            box-shadow: 0 0 10px color-mix(in srgb, var(--accent-main) 40%, transparent);
+        }
+        body.light-mode .cat-chip {
+            background: rgba(0, 0, 0, 0.04);
+            border: 0.5px solid rgba(0, 0, 0, 0.08);
+        }
+        body.light-mode .cat-chip:active, body.light-mode .cat-chip.active {
+            background: var(--accent-main);
+            color: #000;
+        }
+        .cat-emoji { font-size: 12px; line-height: 1; flex-shrink: 0; }
+        .cat-name { font-size: 11px; line-height: 1; white-space: nowrap; flex-shrink: 0; }
+
+        .history-list {
+            flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; min-height: 0; scrollbar-width: none; -ms-overflow-style: none; touch-action: pan-y;
+        }
+        .history-list::-webkit-scrollbar { display: none; }
+        .history-item {
+            position: relative;
+            border: 0.5px solid rgba(255, 255, 255, 0.18);
+            background: linear-gradient(180deg, rgba(28, 34, 52, 0.45) 0%, rgba(16, 20, 32, 0.55) 100%);
+            border-radius: 18px;
+            padding: 11px 14px;
+            text-align: left;
+            box-shadow: 
+                0 2px 5px rgba(0, 0, 0, 0.25),
+                0 8px 18px rgba(0, 0, 0, 0.3),
+                inset 0 0.5px 0px rgba(255, 255, 255, 0.35),
+                inset 0 -0.5px 0 rgba(255, 255, 255, 0.1),
+                inset 0 0 10px rgba(255, 255, 255, 0.06);
+            cursor: pointer;
+            transition: transform 0.18s var(--ios-spring-bouncy), box-shadow 0.14s ease, filter 0.14s ease;
+            transform: translate3d(0, 0, 0);
+            backface-visibility: hidden;
+            contain: layout style;
+        }
+        .history-item:active {
+            transform: scale(0.97) translate3d(0, 0, 0);
+            filter: brightness(1.18);
+            box-shadow: 
+                0 1px 2px rgba(0, 0, 0, 0.3),
+                0 4px 10px rgba(0, 0, 0, 0.35),
+                inset 0 0.5px 0px rgba(255, 255, 255, 0.15),
+                inset 0 0 8px rgba(0, 0, 0, 0.35);
+            transition: transform 0.05s var(--ios-spring-snappy), filter 0.05s ease;
+        }
+        body.light-mode .history-item {
+            border: 0.5px solid rgba(0, 0, 0, 0.1);
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.65) 0%, rgba(240, 245, 255, 0.55) 100%);
+            box-shadow: 
+                0 2px 4px rgba(0, 0, 0, 0.04),
+                0 6px 14px rgba(0, 0, 0, 0.04),
+                inset 0 0.5px 0px rgba(255, 255, 255, 0.85),
+                inset 0 0 6px rgba(0, 0, 0, 0.03);
+        }
+        body.light-mode .history-item:active {
+            filter: brightness(0.92);
+        }
+        .history-top-meta {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 4px;
+        }
+        .cat-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            font-size: 10px;
+            font-weight: 800;
+            padding: 2px 7px;
+            border-radius: 10px;
+            border: 0.5px solid rgba(255, 255, 255, 0.15);
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--text-color);
+        }
+        .cat-badge.cat-food { background: rgba(255, 152, 0, 0.18); border-color: rgba(255, 152, 0, 0.35); color: #ffb74d; }
+        .cat-badge.cat-clothing { background: rgba(156, 39, 176, 0.18); border-color: rgba(156, 39, 176, 0.35); color: #ba68c8; }
+        .cat-badge.cat-housing { background: rgba(33, 150, 243, 0.18); border-color: rgba(33, 150, 243, 0.35); color: #64b5f6; }
+        .cat-badge.cat-transport { background: rgba(76, 175, 80, 0.18); border-color: rgba(76, 175, 80, 0.35); color: #81c784; }
+        .cat-badge.cat-business { background: rgba(0, 229, 255, 0.18); border-color: rgba(0, 229, 255, 0.35); color: #4dd0e1; }
+        .cat-badge.cat-other { background: rgba(255, 255, 255, 0.12); border-color: rgba(255, 255, 255, 0.22); color: var(--text-muted); }
+        
+        .history-time { font-size: 10px; color: var(--text-muted); font-family: var(--font-tech); }
+        .history-item .h-formula { font-size: 13px; color: var(--text-muted); margin-bottom: 2px; letter-spacing: 0.5px; word-break: break-all; }
+        .history-item .h-result-row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+        .history-item .h-result { font-size: 19px; font-weight: 700; color: var(--accent-main); word-break: break-all; }
+        .history-item .h-converted { font-size: 11px; color: var(--text-muted); white-space: nowrap; }
+        .empty-history { text-align: center; color: var(--text-muted); font-size: 14px; margin-top: 30px; font-weight: 700; }
+
+        /* 歷史選單按鈕組 (自適應排版：直向與窄模式預設採 2x2 雙列大觸控按鍵，徹底防止按鍵被擠出螢幕；寬螢幕自動展開為單列 4 欄) */
+        #history-menu {
+            container-type: inline-size;
+        }
+        .history-btn-group {
+            display: grid !important;
+            grid-template-columns: repeat(2, 1fr) !important;
+            gap: 8px 10px !important;
+            width: 100%;
+            margin-top: auto;
+            flex-shrink: 0;
+            box-sizing: border-box;
+        }
+        .history-btn-group .share-line-btn { order: 1; }
+        .history-btn-group .excel-btn { order: 2; }
+        .history-btn-group .clear-btn { order: 3; }
+        .history-btn-group .done-btn { order: 4; }
+
+        .history-btn-group .clear-btn,
+        .history-btn-group .share-btn,
+        .history-btn-group .done-btn {
+            padding: 11px 6px !important;
+            font-size: 13px !important;
+            border-radius: 38px !important;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            width: 100%;
+            box-sizing: border-box;
+            min-height: 42px;
+        }
+        .history-btn-group .excel-btn {
+            color: #00e676 !important;
+            border-color: rgba(0, 230, 118, 0.35) !important;
+        }
+        .history-btn-group .share-line-btn {
+            color: #29b6f6 !important;
+            border-color: rgba(41, 182, 246, 0.35) !important;
+        }
+
+        /* 寬度充裕時 (容器寬度 >= 460px)，自動展開為單列 4 欄排版 */
+        @container (min-width: 460px) {
+            .history-btn-group {
+                grid-template-columns: 1fr 1.25fr 1.25fr 1fr !important;
+                gap: 8px !important;
+            }
+            .history-btn-group .clear-btn { order: 1; }
+            .history-btn-group .share-line-btn { order: 2; }
+            .history-btn-group .excel-btn { order: 3; }
+            .history-btn-group .done-btn { order: 4; }
+        }
+        @media (min-width: 600px) {
+            .history-btn-group {
+                grid-template-columns: 1fr 1.25fr 1.25fr 1fr !important;
+                gap: 8px !important;
+            }
+            .history-btn-group .clear-btn { order: 1; }
+            .history-btn-group .share-line-btn { order: 2; }
+            .history-btn-group .excel-btn { order: 3; }
+            .history-btn-group .done-btn { order: 4; }
+        }
+        @media (max-height: 560px) {
+            .history-btn-group { gap: 6px !important; }
+            .history-btn-group .clear-btn,
+            .history-btn-group .share-btn,
+            .history-btn-group .done-btn {
+                padding: 7px 4px !important;
+                min-height: 32px !important;
+                font-size: 11.5px !important;
+                border-radius: 38px !important;
+            }
+        }
+
+        /* 歷史紀錄選項 Modal 內記帳分類選擇器 */
+        .modal-section-label {
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: 1px;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+            text-align: center;
+        }
+        .modal-category-picker {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 6px;
+            margin-bottom: 12px;
+            width: 100%;
+        }
+        .modal-cat-chip {
+            background: rgba(255, 255, 255, 0.06);
+            border: 0.5px solid rgba(255, 255, 255, 0.15);
+            border-radius: 12px;
+            padding: 7px 4px;
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--text-color);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 3px;
+            transition: transform 0.15s ease, background 0.15s, border-color 0.15s;
+        }
+        .modal-cat-chip:active, .modal-cat-chip.active {
+            background: var(--accent-main);
+            color: #000;
+            border-color: transparent;
+            transform: scale(0.95);
+        }
+        body.light-mode .modal-cat-chip {
+            background: rgba(0, 0, 0, 0.04);
+            border-color: rgba(0, 0, 0, 0.08);
+        }
+
+        .modal-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.38);
+            -webkit-backdrop-filter: blur(12px);
+            backdrop-filter: blur(12px);
+            z-index: 300; display: flex; justify-content: center; align-items: flex-end;
+            opacity: 0; visibility: hidden; 
+            transition: opacity 0.2s var(--ios-spring-snappy), visibility 0.2s;
+            contain: layout style paint;
+        }
+        .modal-overlay.show .modal-card { transform: translate3d(0, 0, 0); }
+        .modal-card {
+            width: 100%;
+            /* 🍏 Apple Liquid Glass VisionOS Modal */
+            border-top: 0.5px solid rgba(255, 255, 255, 0.28);
+            border-left: 0.5px solid rgba(255, 255, 255, 0.14);
+            border-right: 0.5px solid rgba(255, 255, 255, 0.14);
+            background: linear-gradient(180deg, rgba(32, 38, 58, 0.70) 0%, rgba(16, 20, 32, 0.78) 100%);
+            -webkit-backdrop-filter: blur(20px) saturate(190%);
+            backdrop-filter: blur(20px) saturate(190%);
+            border-radius: 32px 32px 0 0;
+            padding: 16px 20px max(env(safe-area-inset-bottom, 22px), 22px);
+            box-shadow: 
+                0 -12px 40px rgba(0, 0, 0, 0.55),
+                inset 0 0.5px 0 rgba(255, 255, 255, 0.45),
+                inset 0 -0.5px 0 rgba(255, 255, 255, 0.15),
+                inset 0 0 20px rgba(255, 255, 255, 0.06);
+            transform: translate3d(0, 100%, 0); 
+            transition: transform 0.22s var(--ios-sheet-curve);
+            display: flex; flex-direction: column; gap: 10px;
+            will-change: transform;
+            backface-visibility: hidden;
+            contain: layout style;
+        }
+        .modal-card::before {
+            content: '';
+            display: block;
+            width: 36px;
+            height: 4.5px;
+            background: rgba(255, 255, 255, 0.28);
+            border-radius: 3px;
+            margin: 0 auto 10px auto;
+            flex-shrink: 0;
+        }
+        body.light-mode .modal-card {
+            border-top: 0.5px solid rgba(255, 255, 255, 0.9);
+            border-left: 0.5px solid rgba(0, 0, 0, 0.08);
+            border-right: 0.5px solid rgba(0, 0, 0, 0.08);
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(240, 245, 255, 0.9) 100%);
+            box-shadow: 
+                0 -10px 30px rgba(0, 0, 0, 0.1),
+                inset 0 0.5px 0 rgba(255, 255, 255, 0.95);
+        }
+        body.light-mode .modal-card::before {
+            background: rgba(0, 0, 0, 0.18);
+        }
+        .modal-overlay.show { opacity: 1; visibility: visible; }
+
+        .modal-title {
+            text-align: center;
+            font-size: 19px;
+            font-weight: 900;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+            color: var(--text-color);
+        }
+        .modal-title.danger-title {
+            color: #ff5252;
+            text-shadow: 0 0 16px rgba(239, 83, 80, 0.4);
+        }
+        .modal-desc {
+            text-align: center;
+            color: var(--text-muted);
+            margin-bottom: 14px;
+            font-size: 13px;
+            font-weight: 600;
+            line-height: 1.4;
+            padding: 0 10px;
+        }
+
+        /* 🍏 Apple Liquid Glass Buttons */
+        .modal-btn {
+            position: relative;
+            background: 
+                linear-gradient(180deg, rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0.06) 100%),
+                rgba(255, 255, 255, 0.06);
+            border: 0.5px solid rgba(255, 255, 255, 0.22);
+            box-shadow: 
+                0 4px 14px rgba(0, 0, 0, 0.25),
+                inset 0 0.5px 0 rgba(255, 255, 255, 0.45),
+                inset 0 -0.5px 0 rgba(255, 255, 255, 0.15),
+                inset 0 0 12px rgba(255, 255, 255, 0.08);
+            color: var(--text-color);
+            font-size: 15px;
+            font-weight: 800;
+            padding: 15px;
+            border-radius: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: transform 0.18s var(--ios-spring-bouncy), background 0.14s ease, box-shadow 0.14s ease, filter 0.14s ease;
+            transform: translate3d(0, 0, 0);
+            backface-visibility: hidden;
+            letter-spacing: 0.4px;
+        }
+        .modal-btn:active { 
+            transform: scale(0.97) translate3d(0, 0, 0); 
+            filter: brightness(1.18);
+            background: rgba(255, 255, 255, 0.16);
+            box-shadow: 
+                0 2px 6px rgba(0, 0, 0, 0.3),
+                inset 0 0.5px 0 rgba(255, 255, 255, 0.2),
+                inset 0 0 8px rgba(0, 0, 0, 0.35);
+            transition: transform 0.05s var(--ios-spring-snappy), filter 0.05s ease;
+        }
+
+        /* 🍏 Liquid Glass Red Danger Button */
+        .modal-btn.danger {
+            color: #ff5252;
+            background: 
+                linear-gradient(145deg, rgba(239, 83, 80, 0.28) 0%, rgba(211, 47, 47, 0.14) 100%),
+                rgba(239, 83, 80, 0.08);
+            border: 0.5px solid rgba(239, 83, 80, 0.38);
+            box-shadow: 
+                0 4px 16px rgba(239, 83, 80, 0.25),
+                0 2px 6px rgba(0, 0, 0, 0.25),
+                inset 0 0.5px 0 rgba(255, 255, 255, 0.35),
+                inset 0 -0.5px 0 rgba(239, 83, 80, 0.2),
+                inset 0 0 10px rgba(239, 83, 80, 0.15);
+            text-shadow: 0 0 12px rgba(239, 83, 80, 0.45);
+        }
+        .modal-btn.danger:active { 
+            background: linear-gradient(145deg, rgba(239, 83, 80, 0.4) 0%, rgba(211, 47, 47, 0.25) 100%);
+            box-shadow: 
+                0 2px 8px rgba(239, 83, 80, 0.25),
+                inset 0 0.5px 0 rgba(255, 255, 255, 0.2),
+                inset 0 0 8px rgba(0, 0, 0, 0.35);
+        }
+
+        /* 🍏 Liquid Glass Neutral Cancel Button */
+        .modal-btn.cancel {
+            color: var(--text-muted);
+            background: 
+                linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.02) 100%),
+                rgba(255, 255, 255, 0.03);
+            border: 0.5px solid rgba(255, 255, 255, 0.14);
+            box-shadow: 
+                0 2px 8px rgba(0, 0, 0, 0.2),
+                inset 0 0.5px 0 rgba(255, 255, 255, 0.25),
+                inset 0 -0.5px 0 rgba(255, 255, 255, 0.1);
+            margin-top: 2px;
+        }
+        .modal-btn.cancel:active { 
+            color: var(--text-color);
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        /* Light Mode Liquid Glass Modals */
+        body.light-mode .modal-btn {
+            background: 
+                linear-gradient(180deg, rgba(255, 255, 255, 0.85) 0%, rgba(255, 255, 255, 0.6) 100%);
+            border: 0.5px solid rgba(0, 0, 0, 0.1);
+            box-shadow: 
+                0 2px 8px rgba(0, 0, 0, 0.04),
+                inset 0 0.5px 0 rgba(255, 255, 255, 0.95),
+                inset 0 -0.5px 0.5px rgba(0, 0, 0, 0.03);
+        }
+        body.light-mode .modal-btn:active {
+            filter: brightness(0.92);
+        }
+        body.light-mode .modal-btn.danger {
+            color: #d32f2f;
+            background: linear-gradient(145deg, rgba(239, 83, 80, 0.18) 0%, rgba(229, 57, 53, 0.1) 100%);
+            border: 0.5px solid rgba(239, 83, 80, 0.32);
+            box-shadow: 
+                0 4px 14px rgba(239, 83, 80, 0.15),
+                inset 0 0.5px 0 rgba(255, 255, 255, 0.85);
+            text-shadow: none;
+        }
+        body.light-mode .modal-btn.cancel {
+            color: var(--text-muted);
+            background: rgba(0, 0, 0, 0.04);
+            border: 0.5px solid rgba(0, 0, 0, 0.08);
+            box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.7);
+        }
+
+        .btn-group { display: flex; gap: 10px; margin-top: auto; width: 100%; flex-shrink: 0; }
+        .done-btn, .clear-btn {
+            color: var(--accent-main);
+            border: 0.5px solid rgba(255, 255, 255, 0.2);
+            border-radius: 38px; padding: 14px; font-size: 16px; font-weight: 900; cursor: pointer; flex: 1;
+            background: linear-gradient(180deg, rgba(28, 34, 52, 0.32) 0%, rgba(16, 20, 32, 0.42) 100%);
+            /* 🍏 Liquid Glass 物理分層陰影 (清晰 1px 亮線 + AO + 擴散) */
+            box-shadow: 
+                0 2px 4px rgba(0, 0, 0, 0.25),
+                0 8px 20px rgba(0, 0, 0, 0.35),
+                inset 0 0.5px 0px rgba(255, 255, 255, 0.45),
+                inset 0 -0.5px 0 rgba(255, 255, 255, 0.15),
+                inset 0 0 10px rgba(255, 255, 255, 0.08);
+            display: flex; justify-content: center; align-items: center; 
+            transition: transform 0.18s var(--ios-spring-bouncy), box-shadow 0.14s ease, filter 0.14s ease;
+            transform: translate3d(0, 0, 0);
+            backface-visibility: hidden;
+        }
+        .clear-btn { color: var(--accent-red); }
+        .done-btn:active, .clear-btn:active { 
+            transform: scale(0.96) translate3d(0, 0, 0) !important; 
+            filter: brightness(1.18);
+            box-shadow: 
+                0 1px 2px rgba(0, 0, 0, 0.3),
+                0 4px 10px rgba(0, 0, 0, 0.35),
+                inset 0 0.5px 0px rgba(255, 255, 255, 0.2),
+                inset 0 0 8px rgba(0, 0, 0, 0.35);
+            transition: transform 0.06s var(--ios-spring-snappy), filter 0.06s ease !important; 
+        }
+        body.light-mode .done-btn:active, body.light-mode .clear-btn:active {
+            filter: brightness(0.92);
+        }
+        body.light-mode .done-btn, body.light-mode .clear-btn {
+            border: 0.5px solid rgba(0, 0, 0, 0.12);
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.52) 0%, rgba(240, 245, 255, 0.42) 100%);
+            box-shadow: 
+                0 2px 4px rgba(0, 0, 0, 0.04),
+                0 6px 16px rgba(0, 0, 0, 0.05),
+                inset 0 0.5px 0px rgba(255, 255, 255, 0.9),
+                inset 0 0 6px rgba(0, 0, 0, 0.03);
+        }
+
+        .share-btn {
+            color: var(--accent-main);
+            border: 0.5px solid rgba(255, 255, 255, 0.2);
+            border-radius: 38px; padding: 14px; font-size: 16px; font-weight: 900; cursor: pointer; flex: 1;
+            background: linear-gradient(180deg, rgba(28, 34, 52, 0.32) 0%, rgba(16, 20, 32, 0.42) 100%);
+            box-shadow: 
+                0 2px 4px rgba(0, 0, 0, 0.25),
+                0 8px 20px rgba(0, 0, 0, 0.35),
+                inset 0 0.5px 0px rgba(255, 255, 255, 0.45),
+                inset 0 -0.5px 0 rgba(255, 255, 255, 0.15),
+                inset 0 0 10px rgba(255, 255, 255, 0.08);
+            display: flex; justify-content: center; align-items: center; 
+            transition: transform 0.18s var(--ios-spring-bouncy), box-shadow 0.14s ease, filter 0.14s ease;
+            transform: translate3d(0, 0, 0);
+            backface-visibility: hidden;
+        }
+        .share-btn:active {
+            transform: scale(0.96) translate3d(0, 0, 0) !important;
+            filter: brightness(1.18);
+        }
+        body.light-mode .share-btn {
+            border: 0.5px solid rgba(0, 0, 0, 0.12);
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.68) 0%, rgba(240, 245, 255, 0.58) 100%);
+            box-shadow: 
+                0 2px 4px rgba(0, 0, 0, 0.04),
+                0 6px 16px rgba(0, 0, 0, 0.05),
+                inset 0 0.5px 0px rgba(255, 255, 255, 0.9),
+                inset 0 0 6px rgba(0, 0, 0, 0.03);
+        }
+
+        /* 🚀 PWA Update Notification Banner */
+        .pwa-update-banner {
+            position: absolute;
+            bottom: max(env(safe-area-inset-bottom, 20px), 20px);
+            left: 50%;
+            transform: translate3d(-50%, 140%, 0);
+            background: linear-gradient(180deg, rgba(28, 34, 52, 0.92) 0%, rgba(16, 20, 32, 0.96) 100%);
+            -webkit-backdrop-filter: blur(16px);
+            backdrop-filter: blur(16px);
+            border: 0.5px solid rgba(255, 255, 255, 0.28);
+            border-radius: 30px;
+            padding: 10px 18px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+            box-shadow: 0 12px 36px rgba(0, 0, 0, 0.55), inset 0 0.5px 0 rgba(255, 255, 255, 0.45);
+            z-index: 10000;
+            transition: transform 0.32s var(--ios-sheet-curve), opacity 0.25s ease;
+            opacity: 0;
+            pointer-events: none;
+            max-width: 90%;
+            white-space: nowrap;
+        }
+        .pwa-update-banner.show {
+            transform: translate3d(-50%, 0, 0);
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .pwa-update-text {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--text-color);
+        }
+        .pwa-update-btn {
+            background: var(--accent-main);
+            color: #000;
+            border: none;
+            border-radius: 16px;
+            padding: 6px 14px;
+            font-size: 12px;
+            font-weight: 900;
+            cursor: pointer;
+            transition: transform 0.15s ease, filter 0.15s ease;
+        }
+        .pwa-update-btn:active {
+            transform: scale(0.94);
+        }
+        body.light-mode .pwa-update-banner {
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.92) 0%, rgba(240, 245, 255, 0.88) 100%);
+            border: 0.5px solid rgba(0, 0, 0, 0.15);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12), inset 0 0.5px 0 rgba(255, 255, 255, 0.95);
+        }
+
+        /* ==========================================================================
+           📱 Mode A/B: 直向手機模式 (Portrait Mode)
+           - 比例界線：寬高比 W/H <= 9/11 (即 W/H <= 0.818，高度:寬度 >= 11:9)
+           - 適用情境：直向手機或直向視窗
+           - 佈局特點：按鍵維持正圓形 (border-radius: 50%; aspect-ratio: 1)
+           ========================================================================== */
+        @media (max-aspect-ratio: 9/11) {
+            .phone-container {
+                max-width: 430px;
+                flex-direction: column;
+            }
+            .left-panel {
+                flex: 1 1 auto;
+                min-height: 0;
+            }
+            .display-container {
+                padding: 4px 18px 6px;
+                min-height: 0;
+                flex: 1 1 auto;
+                justify-content: flex-end;
+            }
+            .result-display { font-size: clamp(38px, 6.5vh, 52px); line-height: 1.12; padding-bottom: 2px; }
+            .formula, .converted-small { font-size: clamp(14px, 2.2vh, 18px); min-height: 20px; line-height: 1.15; }
+
+            .keyboard {
+                display: grid;
+                grid-template-columns: repeat(var(--grid-cols, 4), 1fr);
+                grid-template-rows: repeat(var(--grid-rows, 5), 1fr);
+                row-gap: clamp(4px, 1.2vh, 8px);
+                column-gap: clamp(4px, 1.5vw, 8px);
+                padding: 4px 14px max(env(safe-area-inset-bottom, 8px), 8px) 14px;
+                flex: 0 0 auto;
+                min-height: 0;
+                width: 100%;
+            }
+            .key {
+                aspect-ratio: 1 / 1 !important;
+                border-radius: 50% !important;
+                width: 100% !important;
+                height: auto !important;
+                max-width: min(80px, calc((100dvh - 220px) / var(--grid-rows, 5) - 6px), calc((100vw - 32px) / var(--grid-cols, 4) - 6px)) !important;
+                max-height: min(80px, calc((100dvh - 220px) / var(--grid-rows, 5) - 6px), calc((100vw - 32px) / var(--grid-cols, 4) - 6px)) !important;
+                min-width: 0;
+                min-height: 0;
+                place-self: center !important;
+            }
+        }
+
+        /* ==========================================================================
+           📱 Mode C: 雙螢幕 / Android 分割畫面 / 正方形多工模式 (SplitView / DualScreen / SplitScreen Mode)
+           - 比例界線：寬高比 9/11 < W/H <= 3/2 (即 0.818 < W/H <= 1.5)
+           - 適用情境：Android 上下分割畫面多工、折疊螢幕 1:1 或矮直向視窗
+           - 佈局特點：按鍵切換為極致觸控矩形膠囊 (border-radius: 14px)，動態填滿空間，緊湊排列消除垂直溢出
+           ========================================================================== */
+        @media (min-aspect-ratio: 9/11) and (max-aspect-ratio: 3/2) {
+            :root {
+                --capsule-height: 32px;
+                --capsule-padding-y: 3px;
+                --capsule-padding-x: 5px;
+                --capsule-btn-height: 24px;
+            }
+            .phone-container {
+                max-width: 100% !important;
+                width: 100% !important;
+                flex-direction: column;
+            }
+            .left-panel {
+                flex: 1 1 auto;
+                min-height: 0;
+                width: 100%;
+            }
+            .header-area {
+                padding-top: max(env(safe-area-inset-top, 6px), 6px) !important;
+                padding-left: 14px !important;
+                padding-right: 14px !important;
+                gap: 4px !important;
+            }
+            .action-bar { height: var(--capsule-height) !important; min-height: var(--capsule-height) !important; }
+            .capsule-wrapper, .header-area.collapsed .capsule-wrapper { height: var(--capsule-height) !important; }
+            .capsule { height: var(--capsule-height) !important; padding: var(--capsule-padding-y) var(--capsule-padding-x) !important; }
+            .header-area.collapsed .capsule { height: var(--capsule-height) !important; padding: 0 4px 0 8px !important; gap: 3px !important; }
+            .toast { height: var(--capsule-height) !important; padding: 0 10px !important; font-size: 11px !important; border-radius: calc(var(--capsule-height) / 2) !important; }
+            .icon-btn svg { width: 23px !important; height: 23px !important; }
+
+            .display-container {
+                padding: 4px 16px !important;
+                min-height: 0;
+                flex: 0 1 auto; /* 根據內容自適應，但不強制撐開 */
+                flex-direction: column;
+                justify-content: flex-end;
+                align-items: flex-end;
+                gap: 1px !important;
+                overflow: hidden;
+            }
+            .result-display { font-size: clamp(24px, 6.5vh, 36px) !important; line-height: 1.16 !important; padding-bottom: 4px; }
+            .formula, .converted-small { font-size: clamp(11px, 2vh, 14px) !important; min-height: 14px !important; }
+
+            .keyboard {
+                display: grid;
+                grid-template-columns: repeat(var(--grid-cols, 4), 1fr);
+                grid-template-rows: repeat(var(--grid-rows, 5), 1fr); /* 均分網格行數 */
+                gap: 6px !important; /* 確保上下左右間距完全相同 */
+                padding: 4px 12px 10px 12px !important; /* 直接寫死底部間距，不准用 max(env...) */
+                flex: 0 0 55%; /* 強制鍵盤最多只准佔視窗高度的 55% */
+                max-height: 350px;
+                min-height: 0;
+                width: 100%;
+            }
+            .keyboard .key {
+                aspect-ratio: auto !important; /* 取消正圓形限制 */
+                border-radius: 18px !important; /* 改用圓角矩形 */
+                width: 100% !important;
+                height: 100% !important;
+                max-width: 100% !important;
+                min-height: 28px;
+                max-height: none !important; /* 移除高度限制，完全填滿網格以維持間距相同 */
+                min-width: 0;
+                place-self: stretch !important; /* 填滿整個網格單元格 */
+            }
+            .display-container {
+                padding: 4px 16px !important;
+                flex: 1;
+                justify-content: center; /* 在扁平模式下，內容居中比靠下對齊更安全 */
+            }
+            .result-display { font-size: clamp(24px, 7vh, 44px) !important; line-height: 1.16 !important; padding-bottom: 4px; }
+            .setting-box { border-radius: 12px !important; }
+            .done-btn, .clear-btn { border-radius: 12px !important; }
+        }
+
+        /* ==========================================================================
+           💻 Mode D: 橫向桌面 / 平板模式 (Landscape Desktop / Tablet Mode)
+           - 比例界線：寬高比 W/H > 3/2 (即 W/H > 1.5)
+           - 適用情境：電腦寬螢幕、平板橫向、外接顯示器
+           - 佈局特點：雙欄橫向佈局 (鍵盤在左，顯示區在右)，按鍵為正圓形 (border-radius: 50%; aspect-ratio: 1)
+           ========================================================================== */
+        @media (min-aspect-ratio: 3/2) {
+            .phone-container {
+                max-width: 1100px;
+                max-height: 680px;
+                width: 95vw;
+                height: 90vh;
+                min-height: 0;
+                margin: auto;
+                flex-direction: row-reverse; /* 數字鍵在左，顯示螢幕在右 */
+                border-radius: 28px;
+                border: var(--capsule-border);
+                box-shadow: 0 25px 60px rgba(0,0,0,0.5);
+            }
+
+            .left-panel {
+                flex: 1.1;
+                display: flex;
+                flex-direction: column;
+                border-left: var(--capsule-border);
+                background: rgba(0,0,0,0.15);
+                position: relative;
+                min-height: 0;
+                min-width: 0;
+            }
+
+            .action-bar {
+                position: absolute;
+                top: 12px; left: 16px; right: 16px;
+                width: calc(100% - 32px);
+                z-index: 50;
+                pointer-events: none;
+            }
+
+            .header-area {
+                padding-top: calc(env(safe-area-inset-top, 0px) + 8px);
+                padding-bottom: 0;
+                z-index: 60;
+            }
+
+            .display-container {
+                display: flex !important;
+                flex-direction: column !important;
+                flex: 1 1 auto !important;
+                min-height: 0 !important;
+                width: 100% !important;
+                justify-content: flex-end !important;
+                align-items: flex-end !important;
+                padding: 12px 24px 20px !important;
+                gap: 4px !important;
+                overflow: hidden !important;
+                position: relative !important;
+            }
+
+            .formula { 
+                font-size: clamp(14px, 2.2vh, 18px) !important; 
+                min-height: 20px !important; 
+                color: var(--text-muted) !important;
+                opacity: 1 !important;
+            }
+
+            .result-display { 
+                font-size: clamp(36px, 7.5vh, 56px) !important; 
+                line-height: 1.16 !important; 
+                padding-bottom: 6px !important;
+                color: var(--text-color) !important;
+                opacity: 1 !important;
+            }
+
+            .converted-small { 
+                font-size: clamp(14px, 2.2vh, 18px) !important; 
+                min-height: 20px !important; 
+                color: var(--accent-main) !important;
+                opacity: 1 !important;
+            }
+
+            .keyboard {
+                flex: 1;
+                min-height: 0;
+                height: 100%;
+                max-height: 100%;
+                padding: 12px calc(env(safe-area-inset-right, 12px) + 12px) max(env(safe-area-inset-bottom, 0px), 8px) calc(env(safe-area-inset-left, 12px) + 12px);
+                gap: 10px;
+                background: transparent;
+                grid-template-columns: repeat(var(--grid-cols, 4), 1fr);
+                grid-template-rows: repeat(var(--grid-rows, 5), 1fr);
+                align-content: stretch;
+                width: 100%;
+            }
+
+            .key {
+                aspect-ratio: 1 / 1 !important;
+                border-radius: 50% !important;
+                width: auto !important;
+                height: 100% !important;
+                max-width: 100% !important;
+                max-height: 100% !important;
+                min-width: 0;
+                min-height: 0;
+                place-self: center !important;
+            }
+            .setting-box { border-radius: 38px !important; }
+            .done-btn, .clear-btn { border-radius: 38px !important; }
+        }
+
+        /* 💻 窄視窗全螢幕橫向修飾 (< 600px 寬) */
+        @media (min-aspect-ratio: 3/2) and (max-width: 599px) {
+            .phone-container {
+                border-radius: 0;
+                border: none;
+                box-shadow: none;
+            }
+        }
+
+        /* 💻 Mode D 子斷點：視窗縮窄至 850px 以下時，圓形按鍵太小，改為扁圓角矩形 */
+        @media (min-aspect-ratio: 3/2) and (max-width: 850px) {
+            .keyboard {
+                gap: 8px !important;     /* 縮小 gap，確保按鍵有足夠空間 */
+                padding: 10px 10px max(env(safe-area-inset-bottom, 6px), 6px) 10px !important;
+            }
+            .key {
+                aspect-ratio: auto !important;   /* 取消正方形限制 */
+                border-radius: 18px !important;  /* 改為大圓角膠囊感矩形 */
+                width: 100% !important;
+                height: 100% !important;
+                max-width: 100% !important;
+                max-height: 100% !important;
+                min-height: 0 !important;
+                place-self: stretch !important;  /* 填滿網格格，讓 gap 統一管理間距 */
+            }
+            .setting-box { border-radius: 16px !important; }
+            .done-btn, .clear-btn { border-radius: 16px !important; }
+        }
+
+        /* Mode E: 極矮橫向視窗模式 (UltraCompact Landscape Mode | Height <= 380px & W/H > 3/2) */
+        @media (max-height: 380px) and (min-aspect-ratio: 3/2) {
+            :root {
+                --capsule-height: 26px;
+                --capsule-padding-y: 2px;
+                --capsule-padding-x: 4px;
+                --capsule-btn-height: 20px;
+            }
+            .phone-container {
+                height: 100% !important;
+                max-height: 100% !important;
+                width: 100% !important;
+                max-width: 100% !important;
+                margin: 0 !important;
+                border-radius: 0 !important;
+                border: none !important;
+                box-shadow: none !important;
+            }
+            .left-panel {
+                min-height: 0 !important;
+                height: 100% !important;
+                overflow: hidden !important;
+            }
+            .header-area {
+                padding: max(env(safe-area-inset-top, 3px), 3px) 10px 0 !important;
+                gap: 2px !important;
+            }
+            .action-bar {
+                height: var(--capsule-height) !important;
+                min-height: var(--capsule-height) !important;
+            }
+            .capsule-wrapper, .header-area.collapsed .capsule-wrapper { height: var(--capsule-height) !important; }
+            .header-area.collapsed .capsule { height: var(--capsule-height) !important; padding: 0 4px 0 8px !important; gap: 3px !important; font-size: 10px !important; }
+            .toast { height: var(--capsule-height) !important; padding: 0 6px !important; font-size: 9.5px !important; border-radius: calc(var(--capsule-height) / 2) !important; }
+            .icon-btn svg { width: 18px !important; height: 18px !important; }
+
+            .display-container {
+                padding: 2px 12px clamp(2px, 0.8vh, 6px) !important;
+                gap: 1px !important;
+                min-height: 0 !important;
+                flex: 1 1 auto !important;
+                justify-content: flex-end !important;
+                overflow: hidden !important;
+            }
+            .result-display {
+                font-size: clamp(16px, 7vh, 30px) !important;
+                line-height: 1.12 !important;
+                padding-bottom: 2px !important;
+            }
+            .formula, .converted-small {
+                font-size: clamp(9px, 2vh, 12px) !important;
+                min-height: 12px !important;
+            }
+
+            /* 鍵盤：5 列均分，彈性填滿視窗，確保絕對不切到底部 */
+            .keyboard {
+                padding: clamp(2px, 0.8vh, 6px) clamp(6px, 1.2vw, 12px) !important;
+                gap: clamp(2px, 0.8vh, 5px) !important;
+                grid-template-columns: repeat(4, 1fr) !important;
+                grid-template-rows: repeat(5, 1fr) !important;
+                align-content: stretch !important;
+                max-height: 100% !important;
+                height: 100% !important;
+                min-height: 0 !important;
+                overflow: hidden !important;
+            }
+
+            .key {
+                aspect-ratio: auto !important;
+                border-radius: clamp(10px, 3vh, 18px) !important;
+                width: 100% !important;
+                height: 100% !important;
+                min-height: 0 !important;
+                max-height: none !important;
+                place-self: stretch !important;
+            }
+            .setting-box { border-radius: 12px !important; }
+            .done-btn, .clear-btn { border-radius: 12px !important; }
+        }
+
+        /* Mode F: 極矮直向視窗模式 (UltraCompact Portrait Mode | Height <= 420px & Portrait) */
+        @media (max-height: 420px) and (orientation: portrait) {
+            :root {
+                --capsule-height: 30px;
+                --capsule-padding-y: 3px;
+                --capsule-padding-x: 5px;
+                --capsule-btn-height: 22px;
+            }
+            .phone-container { max-width: 100% !important; width: 100% !important; }
+            .keyboard { padding: 4px 0 max(calc(env(safe-area-inset-bottom, 8px) + 4px), 10px) 0; }
+            .left-panel { min-height: calc(max(env(safe-area-inset-top, 6px), 6px) + 34px); flex: 0 0 auto; }
+            .display-container { padding: 2px 16px 6px !important; min-height: 32px; }
+            .result-display { font-size: 32px !important; line-height: 1.12 !important; padding-bottom: 2px !important; }
+            #formula-wrapper, #converted-wrapper { display: none !important; }
+            .header-area { padding-top: max(env(safe-area-inset-top, 6px), 6px); }
+            .action-bar { height: var(--capsule-height); min-height: var(--capsule-height); }
+            .capsule-wrapper, .header-area.collapsed .capsule-wrapper { height: var(--capsule-height); }
+            .header-area.collapsed .capsule { height: var(--capsule-height); padding: 0 4px 0 8px !important; gap: 3px !important; }
+            .toast { height: var(--capsule-height) !important; padding: 0 8px !important; font-size: 11px !important; border-radius: calc(var(--capsule-height) / 2) !important; }
+            .icon-btn svg { width: 21.6px; height: 21.6px; }
+            .key {
+                aspect-ratio: auto !important;
+                border-radius: clamp(12px, 3.5vh, 20px) !important;
+                width: 100% !important;
+                height: 100% !important;
+                max-width: 100% !important;
+                min-height: 0 !important;
+                max-height: none !important;
+                place-self: stretch !important;
+            }
+            .setting-box { border-radius: 16px !important; }
+            .done-btn, .clear-btn { border-radius: 16px !important; }
+        }
+
+        /* Mode G: Android 通用分割畫面與低高度視窗調優 (Android Split Screen & Low Height Viewports <= 560px) */
+        @media (max-height: 560px) {
+            :root {
+                --capsule-height: 32px;
+                --capsule-padding-y: 3px;
+                --capsule-padding-x: 5px;
+                --capsule-btn-height: 24px;
+            }
+            .header-area {
+                padding-top: max(env(safe-area-inset-top, 6px), 6px) !important;
+                gap: 4px !important;
+            }
+            .action-bar { height: var(--capsule-height) !important; min-height: var(--capsule-height) !important; }
+            .capsule-wrapper, .header-area.collapsed .capsule-wrapper { height: var(--capsule-height) !important; }
+            .capsule { height: var(--capsule-height) !important; padding: var(--capsule-padding-y) var(--capsule-padding-x) !important; }
+            .header-area.collapsed .capsule { height: var(--capsule-height) !important; padding: 0 4px 0 8px !important; gap: 3px !important; }
+            .toast { height: var(--capsule-height) !important; padding: 0 10px !important; font-size: 11px !important; border-radius: calc(var(--capsule-height) / 2) !important; }
+
+            .display-container {
+                padding: 4px 16px 6px !important;
+                gap: 2px !important;
+            }
+            .result-display { font-size: clamp(26px, 6.5vh, 42px) !important; line-height: 1.15 !important; padding-bottom: 3px !important; }
+            .formula, .converted-small { font-size: clamp(12px, 2.2vh, 15px) !important; min-height: 18px !important; }
+
+            /* 設定選單與彈窗超緊湊適應 */
+            .overlay-menu {
+                padding: max(env(safe-area-inset-top, 10px), 10px) 14px 12px !important;
+            }
+            .overlay-title {
+                font-size: 16px !important;
+                margin-bottom: 8px !important;
+                letter-spacing: 1px !important;
+            }
+            .setting-box {
+                padding: 10px 12px !important;
+                margin-bottom: 8px !important;
+            }
+            .setting-row {
+                margin-bottom: 8px !important;
+                gap: 6px !important;
+            }
+            .setting-label { font-size: 12px !important; }
+            .selector-btn { padding: 4px 8px !important; font-size: 9.5px !important; }
+            .color-swatch { width: 20px !important; height: 20px !important; }
+            .stepper button { width: 28px !important; height: 28px !important; font-size: 15px !important; }
+            .stepper span { font-size: 14px !important; width: 22px !important; }
+            .done-btn, .clear-btn {
+                padding: 8px 12px !important;
+                font-size: 13px !important;
+            }
+            .btn-group { gap: 8px !important; }
+            .dropdown-options {
+                top: calc(var(--capsule-btn-height) + 10px) !important;
+                max-height: 380px !important;
+            }
+            .modal-card {
+                padding: 12px 14px max(env(safe-area-inset-bottom, 8px), 8px) !important;
+                border-radius: 18px 18px 0 0 !important;
+                gap: 6px !important;
+            }
+            .modal-btn {
+                padding: 10px !important;
+                font-size: 13px !important;
+                border-radius: 12px !important;
+            }
+            .tax-input-group, .rate-input-group {
+                padding: 6px 10px !important;
+                border-radius: 10px !important;
+            }
+            .tax-input-group input, .rate-input-group input {
+                font-size: 13px !important;
+                width: 75px !important;
+            }
+        }
+
+        @supports (not (backdrop-filter: blur(1px))) and (not (-webkit-backdrop-filter: blur(1px))) {
+            .key { background: rgba(40, 45, 60, 0.85) !important; }
+            .overlay-menu { background: rgba(15, 16, 21, 0.98) !important; }
+        }
+
+        /* iOS PWA Install Prompt Styles */
+        .ios-prompt-overlay {
+            position: absolute;
+            left: 0;
+            bottom: 0;
+            width: 100%;
+            z-index: 999;
+            padding: 16px 16px calc(env(safe-area-inset-bottom, 16px) + 16px) 16px;
+            pointer-events: none;
+            display: flex;
+            justify-content: center;
+            transform: translateY(100%);
+            opacity: 0;
+            transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
+        }
+        .ios-prompt-overlay.show {
+            transform: translateY(0);
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .ios-prompt-card {
+            width: 100%;
+            max-width: 380px;
+            background: rgba(25, 28, 36, 0.9);
+            -webkit-backdrop-filter: blur(12px) saturate(180%);
+            backdrop-filter: blur(12px) saturate(180%);
+            border: var(--capsule-border);
+            border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4), inset 0 0.5px 0.5px rgba(255, 255, 255, 0.2);
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            color: var(--text-color);
+        }
+        body.light-mode .ios-prompt-card {
+            background: rgba(255, 255, 255, 0.92);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1), inset 0 0.5px 0.5px rgba(255, 255, 255, 0.8);
+        }
+        .ios-prompt-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            position: relative;
+        }
+        .ios-prompt-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+        .ios-prompt-title-group {
+            flex: 1;
+            padding-right: 20px;
+        }
+        .ios-prompt-title {
+            font-size: 14px;
+            font-weight: 700;
+        }
+        .ios-prompt-subtitle {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+        .ios-prompt-close {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            font-size: 24px;
+            cursor: pointer;
+            padding: 4px;
+            line-height: 1;
+            position: absolute;
+            top: -4px;
+            right: -4px;
+        }
+        .ios-prompt-body {
+            font-size: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            line-height: 1.4;
+        }
+        .ios-prompt-instruction {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 8px 12px;
+            border-radius: 12px;
+            border: 0.5px solid rgba(255, 255, 255, 0.05);
+        }
+        body.light-mode .ios-prompt-instruction {
+            background: rgba(0, 0, 0, 0.04);
+            border-color: rgba(0, 0, 0, 0.04);
+        }
+        .ios-share-svg, .ios-add-svg {
+            color: var(--accent-main);
+            flex-shrink: 0;
+        }
+
+        .setting-box, .history-list, .dropdown-options {
+            touch-action: pan-y !important; /* 恢復選單的垂直滑動 */
+            -webkit-overflow-scrolling: touch;
+        }
+
+        /* ─── 效能優化：強制開啟 GPU 合成層，減少主執行緒繪製壓力 ─── */
+        /* translate3d(0,0,0) 將動態元素提升到獨立的 GPU 合成層；          */
+        /* will-change 預告瀏覽器哪些屬性即將變動，使其提前配置資源。       */
+        /* backface-visibility: hidden 抑制不必要的背面繪製。               */
+        .result-display,
+        .formula,
+        .converted-small,
+        .text-scaler,
+        .overlay-menu {
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+            transform: translate3d(0, 0, 0);
+        }
+
+        /* isolation: isolate 建立獨立繪製上下文，                          */
+        /* 避免毛玻璃濾鏡在動畫期間強制重繪鄰近元素。                       */
+        .key,
+        .overlay-menu {
+            isolation: isolate;
+        }
+
+/* --- 優化矮螢幕佈局 --- */
+@media (max-height: 550px) and (min-aspect-ratio: 9/11) and (max-aspect-ratio: 3/2) {
+    .header-area {
+        padding-top: 4px !important;
+    }
+    .key {
+        max-height: 45px !important;
+        border-radius: 18px !important;
+        aspect-ratio: auto !important;
+    }
+    .result-display {
+        font-size: clamp(24px, 7vh, 42px) !important;
+        line-height: 1.15 !important;
+        padding-bottom: 4px !important;
+    }
+    .setting-box { border-radius: 14px !important; }
+    .done-btn, .clear-btn { border-radius: 14px !important; }
+}
+
+/* ─── 快速設定稅率 (Quick Tax Modal) ─── */
+.quick-tax-input-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: rgba(0, 0, 0, 0.25);
+    border: 0.5px solid rgba(255, 255, 255, 0.15);
+    border-radius: 16px;
+    padding: 10px 14px;
+    margin: 10px 0 16px 0;
+}
+body.light-mode .quick-tax-input-wrap {
+    background: rgba(0, 0, 0, 0.04);
+    border-color: rgba(0, 0, 0, 0.1);
+}
+.quick-tax-curr-tag {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 15px;
+    font-weight: 800;
+    color: var(--text-color);
+}
+.quick-tax-input {
+    width: 80px;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--accent-main);
+    font-size: 22px;
+    font-weight: 900;
+    text-align: right;
+    font-family: inherit;
+}
+.quick-tax-percent {
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--text-muted);
+}
+
+/* ─── 鍵盤自訂網格中空白格 (Blank Key) 視覺化 ─── */
+#custom-keyboard-grid .key.blank {
+    background: rgba(255, 255, 255, 0.03) !important;
+    border: 1.5px dashed rgba(255, 255, 255, 0.28) !important;
+    box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.25) !important;
+    color: rgba(255, 255, 255, 0.4) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    pointer-events: auto !important;
+    cursor: grab !important;
+    position: relative;
+}
+#custom-keyboard-grid .key.blank::after {
+    content: '⬚';
+    font-size: 16px;
+    font-weight: 400;
+    opacity: 0.6;
+}
+body.light-mode #custom-keyboard-grid .key.blank {
+    background: rgba(0, 0, 0, 0.02) !important;
+    border-color: rgba(0, 0, 0, 0.22) !important;
+    color: rgba(0, 0, 0, 0.4) !important;
+}
+
+/* ─── 佈局快照切換器 (Layout Snapshots Bar) ─── */
+.snapshot-selector-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    width: 100%;
+    margin-bottom: 8px;
+    padding: 0 2px;
+}
+.snapshot-label {
+    font-size: 11px;
+    font-weight: 800;
+    color: var(--text-muted);
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+}
+.snapshot-btn-group {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+.snapshot-btn-group::-webkit-scrollbar { display: none; }
+.snapshot-chip {
+    background: rgba(255, 255, 255, 0.08);
+    border: 0.5px solid rgba(255, 255, 255, 0.16);
+    border-radius: 12px;
+    padding: 4px 8px;
+    color: var(--text-color);
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: transform 0.15s var(--ios-spring-bouncy), background 0.15s, border-color 0.15s, color 0.15s;
+    touch-action: manipulation;
+}
+.snapshot-chip:active {
+    transform: scale(0.94);
+}
+.snapshot-chip.active {
+    background: var(--accent-main);
+    color: #000;
+    border-color: transparent;
+    font-weight: 800;
+    box-shadow: 0 0 10px color-mix(in srgb, var(--accent-main) 35%, transparent);
+}
+body.light-mode .snapshot-chip {
+    background: rgba(0, 0, 0, 0.04);
+    border-color: rgba(0, 0, 0, 0.1);
+}
+body.light-mode .snapshot-chip.active {
+    background: var(--accent-main);
+    color: #000;
+}
+
+/* ─── 歷史紀錄今日總計卡片 (History Summary Card) ─── */
+.history-summary-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    border-radius: 16px;
+    background: linear-gradient(180deg, rgba(28, 34, 52, 0.6) 0%, rgba(14, 18, 28, 0.75) 100%);
+    border: 0.5px solid rgba(255, 255, 255, 0.18);
+    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: blur(14px);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25), inset 0 0.5px 0 rgba(255, 255, 255, 0.35);
+    margin-bottom: 10px;
+    flex-shrink: 0;
+}
+.history-summary-card.hidden {
+    display: none !important;
+}
+body.light-mode .history-summary-card {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.85) 0%, rgba(240, 245, 255, 0.75) 100%);
+    border-color: rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05), inset 0 0.5px 0 rgba(255, 255, 255, 0.9);
+}
+.summary-info-col {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.summary-title {
+    font-size: 10px;
+    font-weight: 800;
+    color: var(--text-muted);
+    letter-spacing: 0.5px;
+}
+.summary-val {
+    font-size: 16px;
+    font-weight: 900;
+    color: var(--accent-main);
+    letter-spacing: -0.2px;
+}
+.summary-count-badge {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-muted);
+    background: rgba(255, 255, 255, 0.08);
+    border: 0.5px solid rgba(255, 255, 255, 0.12);
+    padding: 3px 8px;
+    border-radius: 12px;
+}
+body.light-mode .summary-count-badge {
+    background: rgba(0, 0, 0, 0.05);
+    border-color: rgba(0, 0, 0, 0.08);
+}
+

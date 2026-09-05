@@ -1,0 +1,23 @@
+{
+  "short_name": "BusinessCalc",
+  "name": "Premium Business Calculator",
+  "icons": [
+    {
+      "src": "app_icon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "app_icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "./index.html",
+  "background_color": "#0f1015",
+  "theme_color": "#0f1015",
+  "display": "standalone",
+  "orientation": "any"
+}
