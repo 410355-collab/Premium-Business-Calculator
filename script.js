@@ -82,8 +82,10 @@
     const KEY_LANG = 'bCalc_lang';
     const KEY_KEYBOARD_LAYOUT = 'bCalc_keyboard_layout';
     const KEY_CATEGORY_BUBBLE = 'bCalc_category_bubble';
+    const KEY_LARGE_NUMBER_FORMAT = 'bCalc_large_number_format';
 
     let isCategoryBubbleEnabled = localStorage.getItem(KEY_CATEGORY_BUBBLE) !== 'false';
+    let largeNumberFormat = localStorage.getItem(KEY_LARGE_NUMBER_FORMAT) || 'full';
     let memoryValue = 0;
     let percentMode = localStorage.getItem(KEY_PERCENT_MODE) || 'commercial';
     let cursorPos = null; // null represents insertion point at end of expression
@@ -214,7 +216,9 @@
         { code: 'CNY', flag: 'cn' },
         { code: 'MYR', flag: 'my' },
         { code: 'SGD', flag: 'sg' },
-        { code: 'AUD', flag: 'au' }
+        { code: 'AUD', flag: 'au' },
+        { code: 'VND', flag: 'vn' },
+        { code: 'THB', flag: 'th' }
     ];
 
     function renderCurrencyUI() {
@@ -261,11 +265,11 @@
         }
     }
 
-    const DEFAULT_TAX_RATES = { TWD: 5, JPY: 10, KRW: 10, USD: 0, EUR: 20, CNY: 13, MYR: 8, SGD: 9, AUD: 10 };
+    const DEFAULT_TAX_RATES = { TWD: 5, JPY: 10, KRW: 10, USD: 0, EUR: 20, CNY: 13, MYR: 8, SGD: 9, AUD: 10, VND: 10, THB: 7 };
     const THEME_COLORS = ['#29b6f6', '#00e676', '#fbc02d', '#ff80ab', '#b388ff'];
 
-    let rates = { USD: 1, TWD: 32.5, JPY: 150.0, KRW: 1350.0, EUR: 0.92, CNY: 7.25, MYR: 4.45, SGD: 1.34, AUD: 1.55 };
-    const flags = { TWD: "tw", USD: "us", JPY: "jp", KRW: "kr", EUR: "eu", CNY: "cn", MYR: "my", SGD: "sg", AUD: "au" };
+    let rates = { USD: 1, TWD: 32.5, JPY: 150.0, KRW: 1350.0, EUR: 0.92, CNY: 7.25, MYR: 4.45, SGD: 1.34, AUD: 1.55, VND: 25000.0, THB: 35.0 };
+    const flags = { TWD: "tw", USD: "us", JPY: "jp", KRW: "kr", EUR: "eu", CNY: "cn", MYR: "my", SGD: "sg", AUD: "au", VND: "vn", THB: "th" };
     
     let baseRateCurrency = "USD"; 
     let lastValidConvertedValue = 0; 
@@ -713,6 +717,24 @@
     }
 
     function formatNumber(num) {
+        if (num === null || num === undefined) return "0";
+        if (num === "Error") return "Error";
+
+        // 科學記號模式：當數值為大數 (|bn| >= 1e12 或非零極小數 |bn| < 1e-6) 時，以標準科學記號格式化
+        if (largeNumberFormat === 'scientific') {
+            try {
+                const bn = math.isBigNumber(num) ? num : math.bignumber(String(num).replace(/,/g, ''));
+                if (bn.isFinite()) {
+                    const absBn = bn.abs();
+                    if (absBn.gte(math.bignumber('1e12')) || (!absBn.isZero() && absBn.lt(math.bignumber('1e-6')))) {
+                        return math.format(bn, { notation: 'exponential', precision: 10 });
+                    }
+                }
+            } catch (e) {
+                // fallback to regular format
+            }
+        }
+
         const str = stripFloatEpsilon(num);
         if (str === "Error") return "Error";
         const parts = str.split(".");
@@ -2443,6 +2465,32 @@
         }
     }
 
+    /* 大數字顯示方式切換機制 (直接顯示超大數字 / 科學記號) */
+    function setLargeNumberFormat(mode) {
+        triggerVibration();
+        largeNumberFormat = mode;
+        localStorage.setItem(KEY_LARGE_NUMBER_FORMAT, largeNumberFormat);
+
+        document.querySelectorAll('.number-format-btn').forEach(btn => {
+            if (btn.dataset.format === largeNumberFormat) btn.classList.add('active');
+            else btn.classList.remove('active');
+        });
+
+        requestAnimationFrame(() => updateGliders());
+        setTimeout(updateGliders, 50);
+
+        updateDisplay();
+        renderHistory();
+
+        const displayContainer = document.getElementById('display-container');
+        if (displayContainer) {
+            displayContainer.classList.remove('slide-refresh');
+            requestAnimationFrame(() => {
+                displayContainer.classList.add('slide-refresh');
+            });
+        }
+    }
+
     function updateTaxRate(code, val) {
         customTaxRates[code] = parseFloat(val) || 0;
         localStorage.setItem(KEY_TAX_RATES, JSON.stringify(customTaxRates));
@@ -2454,7 +2502,7 @@
         document.getElementById('rate-base-title').textContent = `${I18N[currentLang].basePrefix}${baseCurrText}`;
         const baseRateInUSD = rates[baseRateCurrency] || 1;
 
-        ['TWD', 'JPY', 'USD', 'KRW', 'EUR', 'CNY'].forEach(code => {
+        ['TWD', 'JPY', 'USD', 'KRW', 'EUR', 'CNY', 'MYR', 'SGD', 'AUD', 'VND', 'THB'].forEach(code => {
             const input = document.getElementById(`rate-input-${code}`);
             if (input) {
                 if (code === baseRateCurrency) {
@@ -2672,6 +2720,12 @@
         localStorage.removeItem(KEY_CATEGORY_BUBBLE);
         isCategoryBubbleEnabled = true;
         updateCategorySummaryVisibility();
+
+        localStorage.removeItem(KEY_LARGE_NUMBER_FORMAT);
+        largeNumberFormat = 'full';
+        document.querySelectorAll('.number-format-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.format === 'full');
+        });
 
         decimals = 2;
         document.getElementById('decimal-display').textContent = decimals;
@@ -3566,6 +3620,8 @@
                 else if (tz.includes('Kuala_Lumpur') || tz.includes('Kuching')) detectedCurrency = 'MYR';
                 else if (tz.includes('Singapore')) detectedCurrency = 'SGD';
                 else if (tz.includes('Sydney') || tz.includes('Melbourne') || tz.includes('Brisbane') || tz.includes('Perth') || tz.includes('Adelaide') || tz.includes('Darwin') || tz.includes('Hobart') || tz.startsWith('Australia/')) detectedCurrency = 'AUD';
+                else if (tz.includes('Ho_Chi_Minh') || tz.includes('Hanoi')) detectedCurrency = 'VND';
+                else if (tz.includes('Bangkok')) detectedCurrency = 'THB';
                 else if (tz.startsWith('America/')) detectedCurrency = 'USD';
                 else if (tz.startsWith('Europe/')) detectedCurrency = 'EUR';
             } catch (e) {}
@@ -3671,3 +3727,700 @@
         }
     }, 2000);
 
+    function initEvents() {
+        renderMainKeyboard();
+        setupKeyboardDragDrop();
+        setupMainKeyboardLongPress();
+
+        /* 🔥 電腦實體鍵盤快捷鍵綁定 */
+        window.addEventListener('keydown', (e) => {
+            if (e.target.tagName === 'INPUT') return;
+            const key = e.key;
+            if (key >= '0' && key <= '9') instantInput(null, 'inputNum', key);
+            else if (key === '.') instantInput(null, 'inputNum', '.');
+            else if (key === '+') instantInput(null, 'inputOperator', '+');
+            else if (key === '-') instantInput(null, 'inputOperator', '-');
+            else if (key === '*') instantInput(null, 'inputOperator', '×');
+            else if (key === '/') instantInput(null, 'inputOperator', '÷');
+            else if (key === '%') instantInput(null, 'inputOperator', '%');
+            else if (key === '(' || key === ')') instantInput(null, 'inputParenthesis');
+            else if (key === 'Enter' || key === '=') instantInput(null, 'evaluateExpr');
+            else if (key === 'Backspace') instantInput(null, 'backspace');
+            else if (key === 'Escape') instantInput(null, 'clearAll');
+        });
+
+        attachSmartTap(document.getElementById('trigger-from'), (e) => toggleDropdown('from', e));
+        attachSmartTap(document.getElementById('trigger-to'), (e) => toggleDropdown('to', e));
+        attachSmartTap(document.getElementById('btn-swap'), swapCurrencies);
+
+        /* 🔥 TAX 鍵長按快速設定稅率 / 短按切換含未稅模式 */
+        const taxBtn = document.getElementById('tax-btn');
+        if (taxBtn) {
+            let taxBtnTimer = null;
+            taxBtn.addEventListener('pointerdown', (e) => {
+                e.stopPropagation();
+                let startX = e.clientX, startY = e.clientY;
+                let didLongPress = false;
+                taxBtnTimer = setTimeout(() => {
+                    didLongPress = true;
+                    openQuickTaxModal(currentFrom);
+                }, 420);
+
+                const onUp = (ev) => {
+                    if (taxBtnTimer) {
+                        clearTimeout(taxBtnTimer);
+                        taxBtnTimer = null;
+                    }
+                    window.removeEventListener('pointerup', onUp);
+                    window.removeEventListener('pointercancel', onUp);
+                    if (!didLongPress && Math.hypot(ev.clientX - startX, ev.clientY - startY) < 10) {
+                        ev.stopPropagation();
+                        toggleTaxMode();
+                    }
+                };
+
+                window.addEventListener('pointerup', onUp);
+                window.addEventListener('pointercancel', onUp);
+            });
+        }
+        attachSmartTap(document.getElementById('btn-quick-tax-save'), saveQuickTaxModal);
+        attachSmartTap(document.getElementById('btn-quick-tax-cancel'), closeQuickTaxModal);
+
+        /* 📸 鍵盤佈局快照 (Snapshots) 切換與儲存 */
+        const KEY_KEYBOARD_SNAPSHOTS = 'bCalc_keyboard_snapshots';
+        const PRESET_SNAPSHOT_CONFIGS = {
+            'biz': {
+                grid: '4x5',
+                layout: ['clear', 'backspace', 'percent', 'divide', 'num_7', 'num_8', 'num_9', 'multiply', 'num_4', 'num_5', 'num_6', 'subtract', 'num_1', 'num_2', 'num_3', 'add', 'tax', 'num_0', 'dot', 'equal']
+            },
+            'travel': {
+                grid: '4x5',
+                layout: ['clear', 'backspace', 'swapCurrencies', 'divide', 'num_7', 'num_8', 'num_9', 'multiply', 'num_4', 'num_5', 'num_6', 'subtract', 'num_1', 'num_2', 'num_3', 'add', 'num_00', 'num_0', 'dot', 'equal']
+            },
+            'math': {
+                grid: '4x6',
+                layout: ['sin', 'cos', 'tan', 'power', 'clear', 'backspace', 'percent', 'divide', 'num_7', 'num_8', 'num_9', 'multiply', 'num_4', 'num_5', 'num_6', 'subtract', 'num_1', 'num_2', 'num_3', 'add', 'paren', 'num_0', 'dot', 'equal']
+            }
+        };
+
+        document.querySelectorAll('.snapshot-chip[data-snapshot]').forEach(btn => {
+            attachSmartTap(btn, () => {
+                triggerVibration();
+                const snapKey = btn.dataset.snapshot;
+                document.querySelectorAll('.snapshot-chip').forEach(c => c.classList.remove('active'));
+                btn.classList.add('active');
+
+                const cfg = PRESET_SNAPSHOT_CONFIGS[snapKey];
+                if (cfg) {
+                    currentKeyboardGrid = cfg.grid;
+                    currentKeyboardLayout = [...cfg.layout];
+                    localStorage.setItem(KEY_KEYBOARD_GRID, currentKeyboardGrid);
+                    localStorage.setItem(KEY_KEYBOARD_LAYOUT, JSON.stringify(currentKeyboardLayout));
+                    updateGridCols();
+                    renderCustomKeyboard();
+                    renderMainKeyboard();
+                    const name = btn.textContent.trim();
+                    showToastMsg((I18N[currentLang].toastSnapshotLoaded || "LOADED: {name}").replace('{name}', name));
+                }
+            });
+        });
+
+        const btnSnapshotSave = document.getElementById('btn-snapshot-save');
+        if (btnSnapshotSave) {
+            attachSmartTap(btnSnapshotSave, () => {
+                triggerVibration(true);
+                const snapshots = JSON.parse(localStorage.getItem(KEY_KEYBOARD_SNAPSHOTS) || '{}');
+                snapshots.custom = {
+                    grid: currentKeyboardGrid,
+                    layout: [...currentKeyboardLayout]
+                };
+                localStorage.setItem(KEY_KEYBOARD_SNAPSHOTS, JSON.stringify(snapshots));
+                showToastMsg(I18N[currentLang].toastSnapshotSaved || "SNAPSHOT SAVED!");
+            });
+        }
+
+        attachSmartTap(document.getElementById('btn-settings'), (e) => toggleMenu('settings', e));
+        attachSmartTap(document.getElementById('btn-history'), (e) => toggleMenu('history', e));
+        attachSmartTap(document.getElementById('btn-open-keyboard'), openKeyboardCustomizer);
+        attachSmartTap(document.getElementById('btn-keyboard-back'), () => {
+            // 檢查是否缺少 刪除鍵(backspace)、清除鍵(clear)、等於鍵(equal) 任一個
+            const missing = [];
+            if (!currentKeyboardLayout.includes('backspace')) missing.push(I18N[currentLang].keyNameBackspace);
+            if (!currentKeyboardLayout.includes('clear')) missing.push(I18N[currentLang].keyNameClear);
+            if (!currentKeyboardLayout.includes('equal')) missing.push(I18N[currentLang].keyNameEqual);
+
+            if (missing.length > 0) {
+                triggerVibration(true);
+                const separator = currentLang === 'zh' ? '、' : ', ';
+                const msg = I18N[currentLang].toastMissingKeys.replace('{keys}', missing.join(separator));
+                showToastMsg(msg);
+            } else {
+                triggerVibration(false);
+            }
+
+            // 點擊「完成」時，才自動縮減末尾全為空白的列
+            const config = GRID_CONFIGS[currentKeyboardGrid] || GRID_CONFIGS['4x5'];
+            const cols = config.cols;
+            while (currentKeyboardLayout.length > cols) {
+                const lastRow = currentKeyboardLayout.slice(-cols);
+                if (lastRow.every(k => k === 'blank')) {
+                    currentKeyboardLayout.splice(-cols);
+                } else {
+                    break;
+                }
+            }
+
+            // 自動同步對應規格按鈕（例如 24鍵自動縮為20鍵 -> 4x5）
+            Object.keys(GRID_CONFIGS).forEach(gk => {
+                if (GRID_CONFIGS[gk].cols === cols && GRID_CONFIGS[gk].total === currentKeyboardLayout.length) {
+                    currentKeyboardGrid = gk;
+                    localStorage.setItem(KEY_KEYBOARD_GRID, currentKeyboardGrid);
+                }
+            });
+
+            localStorage.setItem(KEY_KEYBOARD_LAYOUT, JSON.stringify(currentKeyboardLayout));
+            updateGridCols();
+            renderCustomKeyboard();
+            renderMainKeyboard();
+            navigateSubMenu('keyboard-settings-menu', 'settings-menu', 'backward');
+        });
+        attachSmartTap(document.getElementById('btn-keyboard-reset'), () => {
+            triggerVibration();
+            currentKeyboardLayout = [...(PRESET_DEFAULT_LAYOUTS[currentKeyboardGrid] || DEFAULT_KEYBOARD_LAYOUT)];
+            localStorage.setItem(KEY_KEYBOARD_LAYOUT, JSON.stringify(currentKeyboardLayout));
+            renderCustomKeyboard();
+            renderMainKeyboard();
+            showToastMsg(I18N[currentLang].toastKeyboardReset);
+        });
+
+        document.querySelectorAll('.grid-preset-btn').forEach(btn => {
+            attachSmartTap(btn, () => setGridPreset(btn.dataset.grid));
+        });
+
+        document.querySelectorAll('.pool-tab-btn').forEach(btn => {
+            attachSmartTap(btn, () => {
+                triggerVibration();
+                document.querySelectorAll('.pool-tab-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                updateGliders();
+                renderKeyPool(btn.dataset.category, true);
+            });
+        });
+
+        attachSmartTap(document.getElementById('btn-open-style'), () => {
+            navigateSubMenu('settings-menu', 'style-settings-menu', 'forward');
+            requestAnimationFrame(() => updateGliders());
+            setTimeout(updateGliders, 60);
+        });
+        attachSmartTap(document.getElementById('btn-style-back'), () => {
+            navigateSubMenu('style-settings-menu', 'settings-menu', 'backward');
+            requestAnimationFrame(() => updateGliders());
+            setTimeout(updateGliders, 60);
+        });
+
+        attachSmartTap(document.getElementById('btn-open-tax'), () => navigateSubMenu('settings-menu', 'tax-settings-menu', 'forward'));
+        attachSmartTap(document.getElementById('btn-tax-back'), () => navigateSubMenu('tax-settings-menu', 'settings-menu', 'backward'));
+
+        attachSmartTap(document.getElementById('btn-open-rates'), () => {
+            syncRateInputsUI();
+            navigateSubMenu('settings-menu', 'rate-settings-menu', 'forward');
+        });
+        attachSmartTap(document.getElementById('btn-rate-back'), () => navigateSubMenu('rate-settings-menu', 'settings-menu', 'backward'));
+        
+        attachSmartTap(document.getElementById('btn-rate-reset'), () => {
+            triggerVibration();
+            baseRateCurrency = "USD";
+            localStorage.removeItem(KEY_RATES);
+            localStorage.removeItem(KEY_RATES_TIME);
+            fetchRates(true);
+        });
+
+        attachSmartTap(document.getElementById('btn-settings-reset'), () => {
+            triggerVibration();
+            document.getElementById('confirm-reset-modal').classList.add('show');
+        });
+
+        /* 🔥 大數字顯示模式按鈕綁定 */
+        document.querySelectorAll('.number-format-btn').forEach(btn => {
+            attachSmartTap(btn, () => setLargeNumberFormat(btn.dataset.format));
+        });
+
+        document.getElementById('haptic-toggle').addEventListener('change', (e) => {
+            triggerVibration();
+            localStorage.setItem(KEY_HAPTIC, e.target.checked ? 'true' : 'false');
+        });
+
+        const bubbleToggle = document.getElementById('category-bubble-toggle');
+        if (bubbleToggle) {
+            bubbleToggle.addEventListener('change', (e) => {
+                triggerVibration();
+                isCategoryBubbleEnabled = e.target.checked;
+                localStorage.setItem(KEY_CATEGORY_BUBBLE, isCategoryBubbleEnabled ? 'true' : 'false');
+                if (!isCategoryBubbleEnabled) hideCategoryBubble();
+                updateCategorySummaryVisibility();
+            });
+        }
+
+        document.querySelectorAll('.lang-btn').forEach(btn => {
+            attachSmartTap(btn, () => setLanguage(btn.dataset.lang));
+        });
+
+        document.querySelectorAll('.font-btn').forEach(btn => {
+            attachSmartTap(btn, () => setFontStyle(btn.dataset.font));
+        });
+
+        document.querySelectorAll('.currency-btn-group').forEach(btn => {
+            attachSmartTap(btn, () => {
+                const code = btn.dataset.code;
+                setBaseCurrency(code);
+            });
+        });
+
+        document.querySelectorAll('input[type="number"], input[type="text"]').forEach(input => {
+            attachSmartTap(input, () => {
+                if (input.disabled) return;
+                input.removeAttribute('readonly');
+                input.focus();
+            });
+            input.addEventListener('blur', () => {
+                input.setAttribute('readonly', 'true');
+            });
+        });
+
+        document.querySelectorAll('.dropdown-options').forEach(el => {
+            attachSmartTap(el, (e, option) => {
+                const type = el.id.split('-')[1];
+                selectCurrency(type, option.dataset.code, option.dataset.flag);
+            }, { selector: '.dropdown-option' });
+        });
+
+        attachSmartTap(window, (e) => {
+            if (!e.target.closest('.custom-dropdown')) {
+                document.getElementById('options-from')?.classList.remove('show');
+                document.getElementById('options-to')?.classList.remove('show');
+                if (typeof updateDropdownBackdrop === 'function') updateDropdownBackdrop();
+            }
+        });
+
+        const dropdownBackdrop = document.getElementById('dropdown-backdrop');
+        if (dropdownBackdrop) {
+            attachSmartTap(dropdownBackdrop, () => {
+                document.getElementById('options-from')?.classList.remove('show');
+                document.getElementById('options-to')?.classList.remove('show');
+                if (typeof updateDropdownBackdrop === 'function') updateDropdownBackdrop();
+            });
+        }
+
+        attachSmartTap(document.getElementById('theme-palette'), (e, swatch) => {
+            if (swatch.classList.contains('custom-btn')) toggleCustomColorMenu();
+            else {
+                document.getElementById('custom-color-menu').classList.remove('show');
+                applyThemeColor(swatch.dataset.color);
+                renderThemePalette();
+            }
+        }, { selector: '.color-swatch' });
+        
+        const colorField = document.getElementById('color-field');
+        const hueSlider = document.getElementById('hue-slider-container');
+        
+        if (colorField && hueSlider) {
+            let colorFieldRaf = null;
+            let hueSliderRaf = null;
+
+            colorField.addEventListener('pointerdown', (e) => {
+                triggerVibration();
+                colorField.setPointerCapture(e.pointerId);
+                let cachedRect = colorField.getBoundingClientRect();
+
+                const moveHandler = (ev) => {
+                    if (colorFieldRaf) return;
+                    colorFieldRaf = requestAnimationFrame(() => {
+                        colorFieldRaf = null;
+                        if (cachedRect.width === 0 || cachedRect.height === 0) return;
+                        const x = Math.max(0, Math.min(ev.clientX - cachedRect.left, cachedRect.width));
+                        const y = Math.max(0, Math.min(ev.clientY - cachedRect.top, cachedRect.height));
+                        curS = x / cachedRect.width;
+                        curV = 1 - (y / cachedRect.height);
+                        updateCustomPicker();
+                    });
+                };
+                const upHandler = (ev) => {
+                    if (colorFieldRaf) { cancelAnimationFrame(colorFieldRaf); colorFieldRaf = null; }
+                    colorField.releasePointerCapture(ev.pointerId);
+                    colorField.removeEventListener('pointermove', moveHandler);
+                    colorField.removeEventListener('pointerup', upHandler);
+                    colorField.removeEventListener('pointercancel', upHandler);
+                };
+                colorField.addEventListener('pointermove', moveHandler, { passive: true });
+                colorField.addEventListener('pointerup', upHandler);
+                colorField.addEventListener('pointercancel', upHandler);
+                moveHandler(e);
+            });
+
+            hueSlider.addEventListener('pointerdown', (e) => {
+                triggerVibration();
+                hueSlider.setPointerCapture(e.pointerId);
+                let cachedRect = hueSlider.getBoundingClientRect();
+
+                const moveHandler = (ev) => {
+                    if (hueSliderRaf) return;
+                    hueSliderRaf = requestAnimationFrame(() => {
+                        hueSliderRaf = null;
+                        if (cachedRect.height === 0) return;
+                        const y = Math.max(0, Math.min(ev.clientY - cachedRect.top, cachedRect.height));
+                        curH = (y / cachedRect.height) * 360;
+                        updateCustomPicker();
+                    });
+                };
+                const upHandler = (ev) => {
+                    if (hueSliderRaf) { cancelAnimationFrame(hueSliderRaf); hueSliderRaf = null; }
+                    hueSlider.releasePointerCapture(ev.pointerId);
+                    hueSlider.removeEventListener('pointermove', moveHandler);
+                    hueSlider.removeEventListener('pointerup', upHandler);
+                    hueSlider.removeEventListener('pointercancel', upHandler);
+                };
+                hueSlider.addEventListener('pointermove', moveHandler, { passive: true });
+                hueSlider.addEventListener('pointerup', upHandler);
+                hueSlider.addEventListener('pointercancel', upHandler);
+                moveHandler(e);
+            });
+        }
+        document.getElementById('hex-input').addEventListener('change', updateFromHex);
+        document.getElementById('theme-toggle').addEventListener('change', toggleLightMode);
+        attachSmartTap(document.getElementById('btn-dec-minus'), () => changeDecimals(-1));
+        attachSmartTap(document.getElementById('btn-dec-plus'), () => changeDecimals(1));
+        
+        document.querySelectorAll('.percent-mode-btn').forEach(btn => {
+            attachSmartTap(btn, () => setPercentageMode(btn.dataset.percent));
+        });
+
+        const btnShareLine = document.getElementById('btn-history-share');
+        if (btnShareLine) attachSmartTap(btnShareLine, shareHistoryText);
+
+        const btnExportExcel = document.getElementById('btn-history-export-excel');
+        if (btnExportExcel) attachSmartTap(btnExportExcel, exportHistoryExcel);
+
+        // 綁定即時分類氣泡按鈕
+        document.querySelectorAll('#category-bubble .cat-chip').forEach(chip => {
+            attachSmartTap(chip, (e) => {
+                e.stopPropagation();
+                setLatestHistoryCategory(chip.dataset.cat);
+            });
+        });
+
+        // 綁定歷史 Modal 內的分類切換按鈕
+        document.querySelectorAll('#modal-category-picker .modal-cat-chip').forEach(chip => {
+            attachSmartTap(chip, (e) => {
+                e.stopPropagation();
+                changeHistoryItemCategory(chip.dataset.cat);
+            });
+        });
+
+        const memBadge = document.getElementById('mem-indicator');
+        if (memBadge) {
+            attachSmartTap(memBadge, () => {
+                instantInput(null, 'memoryRecall');
+            });
+        }
+
+        const resWrapper = document.getElementById('result-wrapper');
+        if (resWrapper) {
+            attachSmartTap(resWrapper, (e) => {
+                if (isEvaluated) return;
+                triggerVibration(false);
+                const resScreen = document.getElementById('result-screen');
+                if (!resScreen) return;
+                const rect = resScreen.getBoundingClientRect();
+                const clickX = e.clientX;
+                const totalChars = currentInput.length;
+                if (totalChars <= 1) {
+                    cursorPos = totalChars;
+                } else {
+                    const relX = Math.max(0, Math.min(clickX - rect.left, rect.width));
+                    const ratio = rect.width > 0 ? (relX / rect.width) : 1;
+                    cursorPos = Math.round(ratio * totalChars);
+                    cursorPos = Math.max(0, Math.min(cursorPos, totalChars));
+                }
+                updateDisplay();
+            });
+        }
+
+        ['TWD', 'JPY', 'USD', 'KRW', 'EUR', 'CNY', 'MYR', 'SGD', 'AUD', 'VND', 'THB'].forEach(code => {
+            const input = document.getElementById(`tax-input-${code}`);
+            if (input) input.addEventListener('change', (e) => updateTaxRate(code, e.target.value));
+
+            const rateInput = document.getElementById(`rate-input-${code}`);
+            if (rateInput) rateInput.addEventListener('change', (e) => updateCustomRate(code, e.target.value));
+        });
+
+        attachSmartTap(document.getElementById('refresh-rate-btn'), () => fetchRates(true));
+        attachSmartTap(document.getElementById('btn-settings-done'), (e) => toggleMenu('settings', e));
+
+        attachSmartTap(document.getElementById('history-container'), (e, item) => {
+            openHistoryModal(parseInt(item.dataset.index), e);
+        }, { selector: '.history-item' });
+        
+        attachSmartTap(document.getElementById('btn-history-clear'), () => {
+            triggerVibration();
+            document.getElementById('confirm-clear-modal').classList.add('show');
+        });
+        attachSmartTap(document.getElementById('btn-history-done'), (e) => toggleMenu('history', e));
+
+        attachSmartTap(document.getElementById('history-modal'), closeHistoryModal);
+        document.getElementById('history-modal-card').addEventListener('pointerdown', (e) => e.stopPropagation());
+        document.querySelectorAll('#history-modal-card .modal-btn').forEach(btn => {
+            attachSmartTap(btn, () => {
+                const action = btn.dataset.action;
+                if (action === 'cancel') closeHistoryModal();
+                else applyHistoryOption(action);
+            });
+        });
+
+        attachSmartTap(document.getElementById('confirm-clear-modal'), () => {
+            document.getElementById('confirm-clear-modal').classList.remove('show');
+        });
+        document.getElementById('confirm-modal-card').addEventListener('pointerdown', (e) => e.stopPropagation());
+        document.querySelectorAll('#confirm-modal-card .modal-btn').forEach(btn => {
+            attachSmartTap(btn, () => {
+                const action = btn.dataset.action;
+                if (action === 'confirm-clear') {
+                    triggerVibration();
+                    calcHistory = [];
+                    localStorage.removeItem(KEY_HISTORY);
+                    renderHistory();
+                    document.getElementById('confirm-clear-modal').classList.remove('show');
+                    toggleMenu('history');
+                    showToastMsg(I18N[currentLang].toastHistoryCleared);
+                } else if (action === 'cancel-clear') {
+                    triggerVibration();
+                    document.getElementById('confirm-clear-modal').classList.remove('show');
+                }
+            });
+        });
+
+        attachSmartTap(document.getElementById('confirm-reset-modal'), () => {
+            document.getElementById('confirm-reset-modal').classList.remove('show');
+        });
+        document.getElementById('confirm-reset-card').addEventListener('pointerdown', (e) => e.stopPropagation());
+        document.querySelectorAll('#confirm-reset-card .modal-btn').forEach(btn => {
+            attachSmartTap(btn, () => {
+                const action = btn.dataset.action;
+                if (action === 'confirm-reset') {
+                    resetAllSettings();
+                    document.getElementById('confirm-reset-modal').classList.remove('show');
+                } else if (action === 'cancel-reset') {
+                    triggerVibration();
+                    document.getElementById('confirm-reset-modal').classList.remove('show');
+                }
+            });
+        });
+
+        attachSmartTap(window, (e) => {
+            resetInactivityTimer();
+            const headerArea = document.getElementById('header-area');
+            const capsule = document.getElementById('top-capsule');
+            if (headerArea && !headerArea.classList.contains('collapsed')) {
+                if (capsule && !capsule.contains(e.target) && !e.target.closest('.action-bar') && !e.target.closest('.overlay-menu')) {
+                    setCapsuleCollapsed(true);
+                }
+            }
+        });
+        window.addEventListener('mousemove', resetInactivityTimer);
+        window.addEventListener('keydown', resetInactivityTimer);
+        window.addEventListener('touchstart', resetInactivityTimer);
+
+        attachSmartTap(document.getElementById('top-capsule'), (e) => {
+            const headerArea = document.getElementById('header-area');
+            if (headerArea) {
+                if (headerArea.classList.contains('collapsed')) {
+                    if (e.target.closest('#tax-btn')) return;
+                    e.stopPropagation();
+                    e.preventDefault();
+                    setCapsuleCollapsed(false);
+                    resetInactivityTimer();
+                } else {
+                    const isInteractive = e.target.closest('.dropdown-trigger') || 
+                                          e.target.closest('.dropdown-options') || 
+                                          e.target.closest('#btn-swap') || 
+                                          e.target.closest('#tax-btn') || 
+                                          e.target.closest('#same-currency-label');
+                    if (!isInteractive) {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        setCapsuleCollapsed(true);
+                    }
+                }
+            }
+        });
+
+        /* 監聽視窗尺寸改變 */
+        window.addEventListener('resize', () => {
+            autoScaleText('result-scaler', 'result-wrapper');
+            autoScaleText('formula-scaler', 'formula-wrapper');
+            autoScaleText('converted-scaler', 'converted-wrapper');
+            updateGliders();
+        });
+    }
+
+    let waitingServiceWorker = null;
+
+    window.addEventListener('DOMContentLoaded', () => {
+        if (typeof DOM !== 'undefined' && DOM.init) DOM.init();
+        renderCurrencyUI();
+
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('./sw.js', { scope: './' }).then((reg) => {
+                reg.addEventListener('updatefound', () => {
+                    const newWorker = reg.installing;
+                    if (!newWorker) return;
+                    newWorker.addEventListener('statechange', () => {
+                        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                            waitingServiceWorker = newWorker;
+                            const banner = document.getElementById('pwa-update-banner');
+                            if (banner) banner.classList.add('show');
+                        }
+                    });
+                });
+
+                if (reg.waiting && navigator.serviceWorker.controller) {
+                    waitingServiceWorker = reg.waiting;
+                    const banner = document.getElementById('pwa-update-banner');
+                    if (banner) banner.classList.add('show');
+                }
+            }).catch((err) => console.warn('[Service Worker] Registration failed:', err));
+
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+                window.location.reload();
+            });
+
+            const updateBtn = document.getElementById('pwa-update-btn');
+            if (updateBtn) {
+                attachSmartTap(updateBtn, () => {
+                    triggerVibration(false);
+                    if (waitingServiceWorker) {
+                        waitingServiceWorker.postMessage({ type: 'SKIP_WAITING' });
+                    } else {
+                        window.location.reload();
+                    }
+                });
+            }
+        }
+
+        if (localStorage.getItem(KEY_LIGHT_MODE) === 'true') {
+            document.body.classList.add('light-mode');
+            document.getElementById('theme-toggle').checked = true;
+        }
+
+        if (localStorage.getItem(KEY_HAPTIC) !== null) {
+            document.getElementById('haptic-toggle').checked = (localStorage.getItem(KEY_HAPTIC) === 'true');
+        }
+
+        if (localStorage.getItem(KEY_CATEGORY_BUBBLE) !== null) {
+            const catToggle = document.getElementById('category-bubble-toggle');
+            if (catToggle) catToggle.checked = (localStorage.getItem(KEY_CATEGORY_BUBBLE) !== 'false');
+        }
+
+        document.getElementById('decimal-display').textContent = decimals;
+
+        // 初始化大數字顯示模式按鈕狀態
+        document.querySelectorAll('.number-format-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.format === largeNumberFormat);
+        });
+
+        const isFirstTimeUser = (localStorage.getItem(KEY_CURRENCY_FROM) === null);
+
+        setLanguage(currentLang);
+        setFontStyle(fontStyle);
+
+        Object.keys(customTaxRates).forEach(k => {
+            const el = document.getElementById(`tax-input-${k}`);
+            if (el) el.value = customTaxRates[k];
+        });
+
+        initEvents();
+        updateMemoryIndicator();
+        updateCategorySummaryVisibility();
+        renderThemePalette();
+        fetchRates();
+        
+        checkSameCurrency();
+        updateDisplay();
+        updateHistoryButtonUI();
+        resetInactivityTimer();
+        setTimeout(updateGliders, 80);
+
+        detectLocationCurrency(isFirstTimeUser).then(() => {
+            checkSameCurrency();
+            updateDisplay();
+            const headerArea = document.getElementById('header-area');
+            if (currentFrom === currentTo) {
+                if (inactivityTimer) clearTimeout(inactivityTimer);
+                if (headerArea) setCapsuleCollapsed(true, { animate: false });
+            }
+        });
+        
+        setupDragToScroll('result-wrapper');
+        setupDragToScroll('formula-wrapper');
+        setupDragToScroll('converted-wrapper');
+
+        setupCopyFeature('result-wrapper', () => isEvaluated ? document.getElementById('result-screen').textContent.replace(/,/g, '') : currentInput, 'toastResultCopied');
+        setupCopyFeature('formula-wrapper', () => {
+            let formulaText = document.getElementById('formula-screen').textContent;
+            return formulaText ? formulaText.replace(' =', '') : null;
+        }, 'toastFormulaCopied');
+
+        setupToastSwipeDismiss();
+
+        // 通用 PWA Install Prompt 邏輯 (支援 Android, iOS 及 Desktop)
+        const setupInstallPrompt = () => {
+            const prompt = document.getElementById('ios-install-prompt');
+            const closeBtn = document.getElementById('ios-prompt-close');
+            if (!prompt || !closeBtn) return;
+
+            let deferredPrompt = null;
+            const isStandalone = window.matchMedia('(display-mode: standalone)').matches || ('standalone' in window.navigator && window.navigator.standalone);
+            const isDismissed = localStorage.getItem('app_pwa_prompt_dismissed') === 'true';
+
+            // 監聽 Android/Chrome 的原生的安裝事件
+            window.addEventListener('beforeinstallprompt', (e) => {
+                e.preventDefault();
+                deferredPrompt = e;
+                if (!isStandalone && !isDismissed) {
+                    setTimeout(() => { prompt.classList.add('show'); }, 2000);
+                }
+            });
+
+            // 若不是已安裝的 Standalone 模式，且未關閉過彈窗
+            if (!isStandalone && !isDismissed) {
+                // 若未收到 beforeinstallprompt（如 iOS 或一般桌面瀏覽器），3秒後主動彈出提示
+                setTimeout(() => {
+                    if (!prompt.classList.contains('show')) {
+                        prompt.classList.add('show');
+                    }
+                }, 3000);
+            }
+
+            // 點擊彈窗主體：如果是在支援原生觸發安裝的瀏覽器 (Android/Chrome)，記錄點擊觸發系統安裝
+            attachSmartTap(prompt, (e) => {
+                if (e.target === closeBtn || closeBtn.contains(e.target)) return;
+                if (deferredPrompt) {
+                    deferredPrompt.prompt();
+                    deferredPrompt.userChoice.then((choiceResult) => {
+                        if (choiceResult.outcome === 'accepted') {
+                            prompt.classList.remove('show');
+                        }
+                        deferredPrompt = null;
+                    });
+                }
+            });
+
+            attachSmartTap(closeBtn, (e) => {
+                e.stopPropagation();
+                triggerVibration();
+                prompt.classList.remove('show');
+                localStorage.setItem('app_pwa_prompt_dismissed', 'true');
+            });
+        };
+        setupInstallPrompt();
+
+    }); // DOMContentLoaded

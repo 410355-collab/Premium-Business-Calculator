@@ -423,16 +423,11 @@
                 inset 0 0 16px rgba(255, 255, 255, 0.08); 
             z-index: 1000;
             min-width: 135px; padding: 8px 6px 12px 6px;
-            max-height: 380px;
-            overflow-y: auto;
-            overflow-x: hidden;
-            scrollbar-width: none;
-            -ms-overflow-style: none;
             touch-action: pan-y;
             opacity: 0; visibility: hidden; pointer-events: none;
             transition: transform 0.22s var(--ios-spring-bouncy), opacity 0.16s ease, visibility 0.22s;
         }
-        .dropdown-options::-webkit-scrollbar { display: none; }
+
 
         .dropdown-options.show { 
             opacity: 1; visibility: visible; pointer-events: auto;
@@ -2534,9 +2529,9 @@
             .display-container {
                 padding: 4px 16px !important;
                 min-height: 0;
-                flex: 0 1 auto; /* 根據內容自適應，但不強制撐開 */
+                flex: 1 1 auto !important; /* 自動吸收剩餘高度，將鍵盤推至貼底 */
                 flex-direction: column;
-                justify-content: flex-end;
+                justify-content: flex-end !important; /* 內容貼向鍵盤上方 */
                 align-items: flex-end;
                 gap: 1px !important;
                 overflow: hidden;
@@ -2549,11 +2544,12 @@
                 grid-template-columns: repeat(var(--grid-cols, 4), 1fr);
                 grid-template-rows: repeat(var(--grid-rows, 5), 1fr); /* 均分網格行數 */
                 gap: 6px !important; /* 確保上下左右間距完全相同 */
-                padding: 4px 12px 10px 12px !important; /* 直接寫死底部間距，不准用 max(env...) */
-                flex: 0 0 55%; /* 強制鍵盤最多只准佔視窗高度的 55% */
-                max-height: 350px;
+                padding: 4px 12px max(env(safe-area-inset-bottom, 8px), 8px) 12px !important; /* 貼地緊湊邊界 */
+                flex: 0 0 auto !important; /* 自然貼底，不懸空 */
+                max-height: none !important;
                 min-height: 0;
                 width: 100%;
+                margin-top: auto; /* 確保徹底貼地 */
             }
             .keyboard .key {
                 aspect-ratio: auto !important; /* 取消正圓形限制 */
@@ -2566,12 +2562,6 @@
                 min-width: 0;
                 place-self: stretch !important; /* 填滿整個網格單元格 */
             }
-            .display-container {
-                padding: 4px 16px !important;
-                flex: 1;
-                justify-content: center; /* 在扁平模式下，內容居中比靠下對齊更安全 */
-            }
-            .result-display { font-size: clamp(24px, 7vh, 44px) !important; line-height: 1.16 !important; padding-bottom: 4px; }
             .setting-box { border-radius: 12px !important; }
             .done-btn, .clear-btn { border-radius: 12px !important; }
         }
@@ -2795,42 +2785,96 @@
             .done-btn, .clear-btn { border-radius: 12px !important; }
         }
 
-        /* Mode F: 極矮直向視窗模式 (UltraCompact Portrait Mode | Height <= 420px & Portrait) */
+        /* ==========================================================================
+           Mode F：極矮直向視窗模式
+           觸發條件：高度小於等於 420px 且呈直向顯示。
+           排版特點：自動隱藏算式與匯率副文字，僅保留主計算結果，大幅節省縱向空間。
+           ========================================================================== */
         @media (max-height: 420px) and (orientation: portrait) {
             :root {
-                --capsule-height: 30px;
-                --capsule-padding-y: 3px;
+                --capsule-height: 28px;
+                --capsule-padding-y: 2px;
                 --capsule-padding-x: 5px;
-                --capsule-btn-height: 22px;
+                --capsule-btn-height: 20px;
             }
-            .phone-container { max-width: 100% !important; width: 100% !important; }
-            .keyboard { padding: 4px 0 max(calc(env(safe-area-inset-bottom, 8px) + 4px), 10px) 0; }
-            .left-panel { min-height: calc(max(env(safe-area-inset-top, 6px), 6px) + 34px); flex: 0 0 auto; }
-            .display-container { padding: 2px 16px 6px !important; min-height: 32px; }
-            .result-display { font-size: 32px !important; line-height: 1.12 !important; padding-bottom: 2px !important; }
-            #formula-wrapper, #converted-wrapper { display: none !important; }
-            .header-area { padding-top: max(env(safe-area-inset-top, 6px), 6px); }
-            .action-bar { height: var(--capsule-height); min-height: var(--capsule-height); }
-            .capsule-wrapper, .header-area.collapsed .capsule-wrapper { height: var(--capsule-height); }
-            .header-area.collapsed .capsule { height: var(--capsule-height); padding: 0 4px 0 8px !important; gap: 3px !important; }
+            .phone-container {
+                max-width: 100% !important;
+                width: 100% !important;
+                height: 100% !important;
+                justify-content: space-between !important;
+            }
+            .left-panel {
+                min-height: 0 !important;
+                flex: 1 1 auto !important; /* 撐滿鍵盤上方剩餘空間 */
+                display: flex !important;
+                flex-direction: column !important;
+                width: 100%;
+            }
+            .header-area {
+                padding-top: max(env(safe-area-inset-top, 4px), 4px) !important;
+                padding-left: 12px !important;
+                padding-right: 12px !important;
+                gap: 2px !important;
+            }
+            .action-bar {
+                height: var(--capsule-height) !important;
+                min-height: var(--capsule-height) !important;
+            }
+            .capsule-wrapper, .header-area.collapsed .capsule-wrapper { height: var(--capsule-height) !important; }
+            .header-area.collapsed .capsule { height: var(--capsule-height) !important; padding: 0 4px 0 8px !important; gap: 3px !important; }
             .toast { height: var(--capsule-height) !important; padding: 0 8px !important; font-size: 11px !important; border-radius: calc(var(--capsule-height) / 2) !important; }
-            .icon-btn svg { width: 21.6px; height: 21.6px; }
-            .key {
+            .icon-btn svg { width: 20px !important; height: 20px !important; }
+
+            .display-container {
+                padding: 2px 14px !important;
+                min-height: 0 !important;
+                flex: 1 1 auto !important;
+                display: flex !important;
+                flex-direction: column !important;
+                justify-content: center !important; /* 在空白處垂直置中 */
+                align-items: flex-end !important;
+                gap: 1px !important;
+            }
+            .result-display {
+                font-size: clamp(22px, 6vh, 32px) !important;
+                line-height: 1.12 !important;
+                padding-bottom: 0px !important;
+            }
+            #formula-wrapper, #converted-wrapper { display: none !important; }
+
+            .keyboard {
+                display: grid !important;
+                grid-template-columns: repeat(var(--grid-cols, 4), 1fr) !important;
+                grid-template-rows: repeat(var(--grid-rows, 5), 1fr) !important;
+                gap: 5px !important;
+                padding: 4px 10px max(env(safe-area-inset-bottom, 6px), 6px) 10px !important;
+                flex: 0 0 65% !important; /* 鍵盤穩定佔據 65% 高度 */
+                max-height: 280px !important;
+                min-height: 0 !important;
+                width: 100% !important;
+                margin-top: auto !important;
+            }
+            .keyboard .key {
                 aspect-ratio: auto !important;
-                border-radius: clamp(12px, 3.5vh, 20px) !important;
+                border-radius: 14px !important;
                 width: 100% !important;
                 height: 100% !important;
                 max-width: 100% !important;
-                min-height: 0 !important;
                 max-height: none !important;
+                min-width: 0 !important;
+                min-height: 0 !important;
                 place-self: stretch !important;
             }
             .setting-box { border-radius: 16px !important; }
             .done-btn, .clear-btn { border-radius: 16px !important; }
         }
 
-        /* Mode G: Android 通用分割畫面與低高度視窗調優 (Android Split Screen & Low Height Viewports <= 560px) */
-        @media (max-height: 560px) {
+        /* ==========================================================================
+           Mode G：低高度視窗調優模式
+           觸發條件：高度小於等於 560px 且呈直向/方塊比例（W/H <= 3/2）。
+           排版特點：頂部膠囊收縮為 32px，按鍵全面改為扁方形圓角矩形貼底排版，數字列於上方空白處垂直置中，選單與彈窗超緊湊適應。
+           ========================================================================== */
+        @media (max-height: 560px) and (max-aspect-ratio: 3/2) {
             :root {
                 --capsule-height: 32px;
                 --capsule-padding-y: 3px;
@@ -2848,11 +2892,42 @@
             .toast { height: var(--capsule-height) !important; padding: 0 10px !important; font-size: 11px !important; border-radius: calc(var(--capsule-height) / 2) !important; }
 
             .display-container {
-                padding: 4px 16px 6px !important;
+                padding: 4px 16px !important;
                 gap: 2px !important;
+                flex: 1 1 auto !important;
+                min-height: 0 !important;
+                display: flex !important;
+                flex-direction: column !important;
+                justify-content: center !important; /* 於空白處上下垂直置中 */
+                align-items: flex-end !important;
             }
             .result-display { font-size: clamp(26px, 6.5vh, 42px) !important; line-height: 1.15 !important; padding-bottom: 3px !important; }
             .formula, .converted-small { font-size: clamp(12px, 2.2vh, 15px) !important; min-height: 18px !important; }
+
+            /* 高度 560px 以下全面改用扁方形按鍵，緊湊貼底排版 */
+            .keyboard {
+                display: grid !important;
+                grid-template-columns: repeat(var(--grid-cols, 4), 1fr) !important;
+                grid-template-rows: repeat(var(--grid-rows, 5), 1fr) !important;
+                gap: clamp(4px, 1.2vh, 6px) !important;
+                padding: 4px 12px max(env(safe-area-inset-bottom, 8px), 8px) 12px !important;
+                flex: 0 0 auto !important;
+                max-height: none !important;
+                min-height: 0 !important;
+                width: 100% !important;
+                margin-top: auto !important;
+            }
+            .keyboard .key {
+                aspect-ratio: auto !important;
+                border-radius: 14px !important;
+                width: 100% !important;
+                height: 100% !important;
+                max-width: 100% !important;
+                max-height: none !important;
+                min-width: 0 !important;
+                min-height: 28px !important;
+                place-self: stretch !important;
+            }
 
             /* 設定選單與彈窗超緊湊適應 */
             .overlay-menu {

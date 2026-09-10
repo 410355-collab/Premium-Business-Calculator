@@ -1,4 +1,4 @@
-const CACHE_NAME = 'business-calc-v21';
+const CACHE_NAME = 'business-calc-v22';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
