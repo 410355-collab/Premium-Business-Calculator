@@ -434,6 +434,54 @@
             transform: translate(-50%, 0) scale(1); 
         }
 
+        /* ─── 🍏 iOS 選項切換器滑塊 (Option Selector Glider) ─── */
+        .option-selector {
+            position: relative;
+            display: flex;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.25);
+            border: 0.5px solid rgba(255, 255, 255, 0.12);
+            border-radius: 20px;
+            padding: 3px;
+            gap: 2px;
+            box-sizing: border-box;
+            isolation: isolate;
+        }
+        body.light-mode .option-selector {
+            background: rgba(0, 0, 0, 0.05);
+            border-color: rgba(0, 0, 0, 0.08);
+        }
+        .selector-glider {
+            position: absolute;
+            top: 3px;
+            bottom: 3px;
+            left: 0;
+            border-radius: 17px;
+            background: var(--accent-main);
+            box-shadow: 0 0 10px color-mix(in srgb, var(--accent-main) 35%, transparent);
+            transition: transform 0.25s var(--ios-spring-snappy), width 0.25s var(--ios-spring-snappy), opacity 0.2s ease;
+            pointer-events: none;
+            z-index: 1;
+        }
+        .selector-btn {
+            position: relative;
+            z-index: 2;
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            font-size: 11px;
+            font-weight: 800;
+            padding: 5px 8px;
+            border-radius: 17px;
+            cursor: pointer;
+            transition: color 0.2s ease;
+            text-align: center;
+        }
+        .selector-btn.active {
+            color: #000 !important;
+        }
+
         body.light-mode .dropdown-options {
             background: linear-gradient(180deg, rgba(255, 255, 255, 0.65) 0%, rgba(240, 245, 255, 0.58) 100%);
             border: 0.5px solid rgba(0, 0, 0, 0.12);
@@ -693,10 +741,16 @@
             position: relative;
         }
 
-        /* 當設定選單、歷史選單或彈窗開啟時，隱藏計算機數字顯示區，徹底杜絕數字列透出干擾 */
+        /* 當設定選單、歷史選單或彈窗開啟時，隱藏計算機數字顯示區與頂部圖示按鈕 (⚙️/🕒)，徹底杜絕透穿干擾 */
         .phone-container:has(.overlay-menu.show) .display-container,
         .phone-container:has(.modal-overlay.show) .display-container,
-        .phone-container.menu-open .display-container {
+        .phone-container.menu-open .display-container,
+        .phone-container:has(.overlay-menu.show) .action-bar .icon-btn,
+        .phone-container:has(.modal-overlay.show) .action-bar .icon-btn,
+        .phone-container.menu-open .action-bar .icon-btn,
+        .phone-container:has(.overlay-menu.show) .action-bar .capsule-wrapper,
+        .phone-container:has(.modal-overlay.show) .action-bar .capsule-wrapper,
+        .phone-container.menu-open .action-bar .capsule-wrapper {
             opacity: 0 !important;
             pointer-events: none !important;
             transition: opacity 0.2s ease;
@@ -765,7 +819,7 @@
             border-radius: 50%;
             aspect-ratio: 1 / 1;
             width: 100%;
-            height: auto;
+            height: 100%;
             max-width: min(80px, calc((100dvh - 240px) / var(--grid-rows, 5) - 6px), calc((100vw - 32px) / var(--grid-cols, 4) - 6px));
             max-height: min(80px, calc((100dvh - 240px) / var(--grid-rows, 5) - 6px), calc((100vw - 32px) / var(--grid-cols, 4) - 6px));
             min-width: 0;
@@ -906,66 +960,145 @@
         }
         body.light-mode .key:active { filter: brightness(0.92); }
 
-        /* ─── 🍏 編輯模式：高質感穩固細白邊 + 表面「霧面 / 亮面」呼吸交替 (Matte / Glossy Surface Luster Cycle) ─── */
+        /* ─── 🍏 編輯模式：極致 Apple Liquid Glass 雙相非對稱呼吸光澤 ─── */
         @keyframes surfaceMatteGlossyDark {
-            0%, 100% {
-                filter: brightness(0.97) contrast(0.99);
+            0% {
+                filter: brightness(0.95) contrast(0.98);
             }
-            50% {
-                filter: brightness(1.04) contrast(1.02);
+            45% {
+                filter: brightness(1.08) contrast(1.04);
+            }
+            100% {
+                filter: brightness(0.95) contrast(0.98);
             }
         }
 
         @keyframes surfaceGlossLayerDark {
-            0%, 100% {
-                /* 柔和基底：消弭死黑空窗期，保持晶瑩透感 */
-                opacity: 0.16;
-                box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.10);
-            }
-            50% {
-                /* 流體正弦曲線：到達頂點即順暢回落，告別生硬長停留，質感細膩 */
-                opacity: 0.65;
+            0% {
+                opacity: 0.12;
                 box-shadow: 
-                    inset 1.2px 1.2px 1px rgba(255, 255, 255, 0.42),
-                    inset -1.2px -1.2px 2px rgba(0, 0, 0, 0.2),
-                    -0.5px -0.5px 6px rgba(255, 255, 255, 0.08);
+                    inset 0.5px 0.5px 0.5px rgba(255, 255, 255, 0.1),
+                    inset 0 0 4px rgba(0, 229, 255, 0.03);
+            }
+            42% {
+                opacity: 0.75;
+                box-shadow: 
+                    inset 0.5px 0.5px 1px rgba(255, 255, 255, 0.45),
+                    inset -0.5px -0.5px 1.5px rgba(0, 0, 0, 0.15),
+                    0 0 10px rgba(0, 229, 255, 0.2),
+                    -0.5px -0.5px 4px rgba(255, 255, 255, 0.15);
+            }
+            100% {
+                opacity: 0.12;
+                box-shadow: 
+                    inset 0.5px 0.5px 0.5px rgba(255, 255, 255, 0.1),
+                    inset 0 0 4px rgba(0, 229, 255, 0.03);
             }
         }
 
         @keyframes surfaceMatteGlossyLight {
-            0%, 100% {
-                filter: brightness(0.98) contrast(0.99);
+            0% {
+                filter: brightness(0.97) contrast(0.99);
             }
-            50% {
-                filter: brightness(1.03) contrast(1.02);
+            45% {
+                filter: brightness(1.05) contrast(1.03);
+            }
+            100% {
+                filter: brightness(0.97) contrast(0.99);
             }
         }
 
         @keyframes surfaceGlossLayerLight {
-            0%, 100% {
-                opacity: 0.16;
-                box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.03);
+            0% {
+                opacity: 0.15;
+                box-shadow: inset 0.5px 0.5px 0.5px rgba(255, 255, 255, 0.3);
             }
-            50% {
-                opacity: 0.65;
+            42% {
+                opacity: 0.75;
                 box-shadow: 
-                    inset 1.2px 1.2px 1px rgba(255, 255, 255, 0.68),
-                    inset -1px -1px 2px rgba(0, 0, 0, 0.05),
-                    -0.5px -0.5px 6px rgba(255, 255, 255, 0.25);
+                    inset 0.5px 0.5px 1px rgba(255, 255, 255, 0.6),
+                    inset -0.5px -0.5px 1px rgba(0, 0, 0, 0.05),
+                    0 0 8px rgba(0, 150, 255, 0.18),
+                    -0.5px -0.5px 4px rgba(255, 255, 255, 0.25);
+            }
+            100% {
+                opacity: 0.15;
+                box-shadow: inset 0.5px 0.5px 0.5px rgba(255, 255, 255, 0.3);
             }
         }
 
-        /* 穩固白色細邊（維持不閃動）與按鍵容器 */
-        .jiggle-mode .key:not(.blank), 
+        /* ─── 🍏 1. iOS 原態擬真隨機抖動 (4 軌非同步晃動與錯開旋轉軸) ─── */
+        @keyframes iosJiggleTrack1 {
+            0% { rotate: -1.3deg; }
+            33% { rotate: 0.8deg; }
+            66% { rotate: 1.5deg; }
+            100% { rotate: -1.3deg; }
+        }
+        @keyframes iosJiggleTrack2 {
+            0% { rotate: 1.4deg; }
+            40% { rotate: -1.2deg; }
+            80% { rotate: 0.6deg; }
+            100% { rotate: 1.4deg; }
+        }
+        @keyframes iosJiggleTrack3 {
+            0% { rotate: -1.6deg; }
+            50% { rotate: 1.1deg; }
+            100% { rotate: -1.6deg; }
+        }
+        @keyframes iosJiggleTrack4 {
+            0% { rotate: 1.1deg; }
+            45% { rotate: -1.5deg; }
+            90% { rotate: 0.9deg; }
+            100% { rotate: 1.1deg; }
+        }
+
+        /* ─── 🍏 2. 編輯模式按鈕「浮空立體感」與深層陰影 ─── */
+        .jiggle-mode .key:not(.blank),
         .custom-keyboard-grid .key:not(.blank) {
             position: relative;
             overflow: hidden;
-            border: 0.5px solid rgba(255, 255, 255, 0.38) !important;
+            border: 0.5px solid rgba(255, 255, 255, 0.32) !important;
+            /* 編輯模式立體懸浮暗色陰影（產生與底層網格的高度落差空間感） */
             box-shadow: 
-                0 0 0 0.5px rgba(255, 255, 255, 0.22),
-                0 3px 8px rgba(0, 0, 0, 0.25) !important;
-            transform: none !important;
-            animation: surfaceMatteGlossyDark 0.85s infinite ease-in-out !important;
+                0 10px 28px rgba(0, 0, 0, 0.48),
+                0 3px 8px rgba(0, 0, 0, 0.28),
+                inset 0 0.5px 0.5px rgba(255, 255, 255, 0.4),
+                0 0 12px rgba(0, 229, 255, 0.15) !important;
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            animation: surfaceMatteGlossyDark 1.6s infinite cubic-bezier(0.22, 1, 0.36, 1),
+                       iosJiggleTrack1 0.24s infinite ease-in-out !important;
+            transform-origin: 50% 50%;
+            transition: transform 0.28s var(--ios-spring-snappy), opacity 0.22s ease;
+            will-change: rotate, filter;
+            backface-visibility: hidden;
+            contain: layout style;
+        }
+
+        /* 隨機軌道與多樣化 Transform-Origin 分發 (擺動重心錯開，告別原地齒輪旋轉感) */
+        .custom-keyboard-grid .key.jiggle-track-1:not(.blank),
+        .jiggle-mode .key.jiggle-track-1:not(.blank) {
+            animation: surfaceMatteGlossyDark 1.6s infinite cubic-bezier(0.22, 1, 0.36, 1),
+                       iosJiggleTrack1 0.23s infinite ease-in-out !important;
+            transform-origin: 42% 58%;
+        }
+        .custom-keyboard-grid .key.jiggle-track-2:not(.blank),
+        .jiggle-mode .key.jiggle-track-2:not(.blank) {
+            animation: surfaceMatteGlossyDark 1.6s infinite cubic-bezier(0.22, 1, 0.36, 1),
+                       iosJiggleTrack2 0.27s infinite ease-in-out !important;
+            transform-origin: 58% 44%;
+        }
+        .custom-keyboard-grid .key.jiggle-track-3:not(.blank),
+        .jiggle-mode .key.jiggle-track-3:not(.blank) {
+            animation: surfaceMatteGlossyDark 1.6s infinite cubic-bezier(0.22, 1, 0.36, 1),
+                       iosJiggleTrack3 0.25s infinite ease-in-out !important;
+            transform-origin: 46% 46%;
+        }
+        .custom-keyboard-grid .key.jiggle-track-4:not(.blank),
+        .jiggle-mode .key.jiggle-track-4:not(.blank) {
+            animation: surfaceMatteGlossyDark 1.6s infinite cubic-bezier(0.22, 1, 0.36, 1),
+                       iosJiggleTrack4 0.29s infinite ease-in-out !important;
+            transform-origin: 54% 56%;
         }
 
         /* 亮面鏡面反射層 (Gloss Specular Overlay - 左上方鏡面晶體微高光) */
@@ -977,8 +1110,9 @@
             border-radius: inherit;
             pointer-events: none;
             z-index: 1;
-            background: radial-gradient(circle at 26% 24%, rgba(255, 255, 255, 0.26) 0%, rgba(255, 255, 255, 0.08) 32%, rgba(255, 255, 255, 0) 65%);
-            animation: surfaceGlossLayerDark 0.85s infinite ease-in-out;
+            background: radial-gradient(circle at 26% 24%, rgba(255, 255, 255, 0.35) 0%, rgba(0, 229, 255, 0.12) 35%, rgba(255, 255, 255, 0) 70%);
+            animation: surfaceGlossLayerDark 1.6s infinite cubic-bezier(0.22, 1, 0.36, 1);
+            will-change: opacity, box-shadow;
         }
 
         /* 確保字體與圖標置於亮面反光層上方，清晰立體 */
@@ -992,12 +1126,15 @@
 
         body.light-mode .jiggle-mode .key:not(.blank),
         body.light-mode .custom-keyboard-grid .key:not(.blank) {
-            border: 0.5px solid rgba(0, 0, 0, 0.22) !important;
+            border: 0.5px solid rgba(0, 0, 0, 0.18) !important;
             box-shadow: 
-                0 0 0 0.5px rgba(0, 0, 0, 0.12),
-                0 2px 6px rgba(0, 0, 0, 0.08) !important;
-            transform: none !important;
-            animation: surfaceMatteGlossyLight 0.85s infinite ease-in-out !important;
+                0 6px 18px rgba(0, 0, 0, 0.12),
+                0 2px 5px rgba(0, 0, 0, 0.06),
+                inset 0 0.5px 0.5px rgba(255, 255, 255, 0.9) !important;
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            animation: surfaceMatteGlossyLight 0.85s infinite ease-in-out,
+                       iosJiggleTrack1 0.24s infinite ease-in-out !important;
         }
 
         body.light-mode .jiggle-mode .key:not(.blank)::after,
@@ -1008,15 +1145,16 @@
 
         .custom-keyboard-grid .key.blank {
             animation: none !important;
-            transform: none !important;
         }
         .custom-keyboard-grid .key.blank::after {
             display: none !important;
         }
 
-        /* 拖曳中與佔位狀態 */
+        /* ─── 🍏 中階裝置拖曳零遲滯優化：拖曳時暫停背景多重高斯運算與將重排層提升至獨立 GPU 合成層 ─── */
         .custom-keyboard-grid.is-dragging-active .key {
             animation: none !important;
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
         }
         .custom-keyboard-grid.is-dragging-active .key::after,
         .key.is-dragging::after {
@@ -1035,8 +1173,14 @@
             max-height: var(--drag-size, 40px) !important;
             min-width: var(--drag-size, 40px) !important;
             min-height: var(--drag-size, 40px) !important;
-            box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45), 0 0 12px color-mix(in srgb, var(--accent-main) 35%, transparent) !important;
-            opacity: 0.95 !important;
+            box-shadow: 
+                0 18px 40px rgba(0, 0, 0, 0.55),
+                0 6px 14px rgba(0, 0, 0, 0.35),
+                0 0 20px color-mix(in srgb, var(--accent-main) 50%, transparent) !important;
+            border: 0.5px solid rgba(255, 255, 255, 0.7) !important;
+            backdrop-filter: blur(30px) saturate(210%);
+            -webkit-backdrop-filter: blur(30px) saturate(210%);
+            opacity: 0.98 !important;
             pointer-events: none !important;
             box-sizing: border-box !important;
             margin: 0 !important;
@@ -1093,12 +1237,12 @@
 
         /* ─── 鍵盤自訂專屬選單佈局 (極致黃金比例：清晰真實預覽 + 寬敞按鍵庫) ─── */
         #keyboard-settings-menu {
-            padding: max(env(safe-area-inset-top, 20px), 20px) clamp(10px, 3.5vw, 16px) max(env(safe-area-inset-bottom, 16px), 16px);
+            padding: max(env(safe-area-inset-top, 14px), 14px) clamp(8px, 3vw, 14px) max(env(safe-area-inset-bottom, 12px), 12px);
         }
 
         #keyboard-settings-menu .overlay-title {
-            margin-bottom: 4px;
-            font-size: clamp(16px, 4vw, 19px);
+            margin-bottom: 3px;
+            font-size: clamp(15px, 3.8vw, 18px);
             letter-spacing: 1.5px;
         }
 
@@ -1108,10 +1252,10 @@
             flex-direction: column;
             flex: 1;
             min-height: 0;
-            gap: 6px;
+            gap: 5px;
             overflow-y: auto;
             overflow-x: hidden;
-            margin-bottom: 4px;
+            margin-bottom: 3px;
             padding: 1px;
             scrollbar-width: none;
             -ms-overflow-style: none;
@@ -1121,30 +1265,73 @@
 
         .custom-hint-badge {
             text-align: center;
-            font-size: 9.5px;
+            font-size: 9px;
             font-weight: 700;
             color: var(--accent-main);
             background: color-mix(in srgb, var(--accent-main) 12%, transparent);
             border: 0.5px solid color-mix(in srgb, var(--accent-main) 25%, transparent);
-            padding: 3px 10px;
+            padding: 2.5px 8px;
             border-radius: 12px;
-            margin: 0 auto 2px auto;
-            letter-spacing: 0.3px;
-            flex-shrink: 0;
+            margin: 0 auto 1px auto;
             text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
             line-height: 1.2;
         }
 
-        .grid-preset-selector {
-            margin: 0 auto 2px auto;
-            max-width: 100%;
+        .custom-top-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 6px;
             width: 100%;
+            margin-bottom: 6px;
+            flex-shrink: 0;
+        }
+
+        .compact-grid-selector {
+            flex: 0 0 auto;
+            margin: 0;
             padding: 2px;
         }
 
+        .snapshot-selector-bar.compact-snapshot-bar {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 6px;
+            width: auto;
+            flex: 0 0 auto;
+            margin: 0;
+            padding: 0;
+            border: none;
+            background: transparent;
+        }
+
+        .compact-snapshot-bar .snapshot-label {
+            font-size: 10px;
+            margin: 0;
+            white-space: nowrap;
+            letter-spacing: 0.5px;
+        }
+
+        .compact-snapshot-bar .snapshot-btn-group {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            overflow: visible;
+            flex-wrap: nowrap;
+        }
+
+        .compact-snapshot-bar .snapshot-chip {
+            padding: 2.5px 7px;
+            font-size: 10px;
+            border-radius: 9px;
+            white-space: nowrap;
+        }
+
         .grid-preset-btn {
-            font-size: clamp(9px, 2.4vw, 10.5px);
-            padding: 4px 6px;
+            font-size: 9.5px;
+            padding: 2.5px 5px;
+            white-space: nowrap;
         }
 
         @keyframes keyGridMorph {
@@ -1167,22 +1354,23 @@
             gap: 6px;
             width: 100%;
             align-items: stretch;
-            flex-shrink: 0;
+            flex: 1 1 auto;
+            min-height: 0;
         }
 
-        /* 頂部左側：自訂鍵盤網格預覽區 */
+        /* 頂部左側：自訂鍵盤網格預覽區 (大幅提高飽和佔比，消除空隙) */
         .custom-grid-container {
             background: linear-gradient(180deg, rgba(28, 34, 52, 0.30) 0%, rgba(16, 20, 32, 0.38) 100%);
             border: 0.5px solid rgba(255, 255, 255, 0.18);
             border-radius: 16px;
-            padding: 5px 8px 6px 8px;
+            padding: 6px 8px;
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: flex-start;
-            gap: 3px;
-            flex: 0 0 64%;
-            max-width: 64%;
+            justify-content: center;
+            gap: 2px;
+            flex: 0 0 62%;
+            max-width: 62%;
             box-shadow: 
                 0 4px 14px rgba(0, 0, 0, 0.25),
                 inset 0 0.5px 0 rgba(255, 255, 255, 0.35),
@@ -1200,16 +1388,24 @@
             max-width: 52%;
         }
         .keyboard-custom-wrapper[data-grid="4x4"] .custom-grid-container {
-            flex: 0 0 60%;
-            max-width: 60%;
+            flex: 0 0 58%;
+            max-width: 58%;
         }
         .keyboard-custom-wrapper[data-grid="4x5"] .custom-grid-container {
-            flex: 0 0 64%;
-            max-width: 64%;
+            flex: 0 0 62%;
+            max-width: 62%;
         }
         .keyboard-custom-wrapper[data-grid="4x6"] .custom-grid-container {
-            flex: 0 0 66%;
-            max-width: 66%;
+            flex: 0 0 65%;
+            max-width: 65%;
+        }
+        .keyboard-custom-wrapper[data-grid="5x4"] .custom-grid-container {
+            flex: 0 0 70%;
+            max-width: 70%;
+        }
+        .keyboard-custom-wrapper[data-grid="6x4"] .custom-grid-container {
+            flex: 0 0 74%;
+            max-width: 74%;
         }
 
         body.light-mode .custom-grid-container {
@@ -1222,8 +1418,9 @@
             display: grid;
             grid-template-columns: repeat(var(--grid-cols, 4), 1fr);
             grid-template-rows: repeat(var(--grid-rows, 5), 1fr);
-            gap: 3.5px;
+            gap: 5px;
             width: 100%;
+            height: 100%;
             justify-items: center;
             align-items: center;
             user-select: none;
@@ -1233,13 +1430,13 @@
 
         .custom-keyboard-grid .key {
             width: 100%;
-            max-width: 38px;
-            max-height: 38px;
+            max-width: 52px;
+            max-height: 52px;
             aspect-ratio: 1 / 1;
             border-radius: 50% !important;
             cursor: grab;
             touch-action: none;
-            font-size: clamp(11.5px, 3vw, 14.5px);
+            font-size: clamp(14px, 3.8vw, 18px);
             place-self: center;
         }
         .custom-keyboard-grid .key:active {
@@ -1256,7 +1453,7 @@
             border: 0.5px solid rgba(255, 255, 255, 0.16);
             border-radius: 16px;
             padding: 5px 6px;
-            gap: 3px;
+            gap: 2px;
             box-shadow: 
                 0 4px 14px rgba(0, 0, 0, 0.25),
                 inset 0 0.5px 0 rgba(255, 255, 255, 0.35),
@@ -1273,7 +1470,7 @@
         }
 
         .pool-shelf-label {
-            font-size: 8px;
+            font-size: 8.5px;
             font-weight: 800;
             color: var(--accent-main);
             text-align: center;
@@ -1285,7 +1482,7 @@
 
         .side-pool-scroll {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(30px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(34px, 1fr));
             gap: 4px 3px;
             overflow-y: auto;
             flex: 1;
@@ -1321,12 +1518,12 @@
             display: flex;
             flex-direction: column;
             flex: 1 1 0;
-            min-height: 110px;
+            min-height: 120px;
             background: linear-gradient(180deg, rgba(24, 28, 44, 0.48) 0%, rgba(16, 20, 32, 0.56) 100%);
             border: 0.5px solid rgba(255, 255, 255, 0.16);
             border-radius: 16px;
-            padding: 6px 8px;
-            gap: 4px;
+            padding: 5px 8px;
+            gap: 3px;
             box-shadow: 
                 0 4px 14px rgba(0, 0, 0, 0.25),
                 inset 0 0.5px 0 rgba(255, 255, 255, 0.35),
@@ -1355,13 +1552,13 @@
         }
 
         .pool-tab-btn {
-            font-size: clamp(8.5px, 2.2vw, 10px);
+            font-size: clamp(9px, 2.3vw, 10.5px);
             padding: 3px 4px;
         }
 
         .key-pool-scroll {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(34px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(38px, 1fr));
             gap: 5px 3px;
             overflow-y: auto;
             flex: 1;
@@ -1384,42 +1581,77 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            gap: 1.5px;
+            gap: 2px;
             cursor: grab;
             touch-action: none;
             min-width: 0;
         }
         .pool-key-item .key {
-            width: 32px;
-            height: 32px;
-            max-width: 32px;
-            max-height: 32px;
+            width: 38px;
+            height: 38px;
+            max-width: 38px;
+            max-height: 38px;
             aspect-ratio: 1 / 1;
             border-radius: 50% !important;
-            font-size: 12.5px;
+            font-size: 14px;
         }
         .pool-key-label {
-            font-size: 7.5px;
+            font-size: 8px;
             font-weight: 700;
             color: var(--text-muted);
             white-space: nowrap;
             text-align: center;
             width: 100%;
-            max-width: 42px;
+            max-width: 44px;
             overflow: hidden;
             text-overflow: ellipsis;
             line-height: 1.1;
         }
 
         #keyboard-settings-menu .btn-group {
-            margin-top: 4px;
+            margin-top: 3px;
             gap: 8px;
+            align-items: center;
+        }
+        .undo-redo-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.05) 100%);
+            border: 0.5px solid rgba(255, 255, 255, 0.22);
+            color: var(--text-color);
+            font-size: 16px;
+            font-weight: 800;
+            cursor: pointer;
+            user-select: none;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2), inset 0 0.5px 0 rgba(255, 255, 255, 0.35);
+            transition: transform 0.15s var(--ios-spring-bouncy), opacity 0.2s ease, background 0.2s, border-color 0.2s;
+            touch-action: manipulation;
+        }
+        .undo-redo-btn:active:not(.disabled) {
+            transform: scale(0.92);
+            background: color-mix(in srgb, var(--accent-main) 30%, transparent);
+            border-color: var(--accent-main);
+        }
+        .undo-redo-btn.disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
+            pointer-events: none;
+            box-shadow: none;
+        }
+        body.light-mode .undo-redo-btn {
+            background: linear-gradient(180deg, rgba(0, 0, 0, 0.06) 0%, rgba(0, 0, 0, 0.02) 100%);
+            border-color: rgba(0, 0, 0, 0.12);
         }
         #keyboard-settings-menu .clear-btn,
         #keyboard-settings-menu .done-btn {
-            padding: 11px 8px;
-            font-size: 15px;
-            border-radius: 24px;
+            flex: 1;
+            padding: 9px 8px;
+            font-size: 14px;
+            border-radius: 38px;
         }
 
         @keyframes menuOpen { 
@@ -1504,9 +1736,21 @@
         .setting-label { font-size: clamp(11px, 2.8vw, 13px); font-weight: 700; color: var(--text-color); white-space: nowrap; flex-shrink: 1; min-width: 0; }
 
         .setting-row.clickable {
-            cursor: pointer; padding: 4px 0; border-radius: 12px; transition: opacity 0.2s;
+            cursor: pointer; padding: 4px 0; border-radius: 12px; transition: opacity 0.2s, filter 0.2s;
         }
         .setting-row.clickable:active { opacity: 0.6; }
+        .setting-row.clickable.disabled-row {
+            opacity: 0.38 !important;
+            cursor: not-allowed !important;
+            filter: grayscale(0.8) !important;
+        }
+        .setting-row.clickable.disabled-row:active {
+            opacity: 0.38 !important;
+            transform: none !important;
+        }
+        .setting-row.clickable.disabled-row .setting-arrow-link {
+            color: var(--text-muted) !important;
+        }
         .setting-arrow-link { font-size: 18px; font-weight: 900; color: var(--accent-main); }
 
         .option-selector {
@@ -1526,7 +1770,7 @@
         .selector-glider {
             position: absolute;
             top: 3px;
-            left: 3px;
+            left: 0;
             height: calc(100% - 6px);
             background: var(--accent-main);
             border-radius: 9px;
@@ -2657,23 +2901,200 @@
                 background: transparent;
                 grid-template-columns: repeat(var(--grid-cols, 4), 1fr);
                 grid-template-rows: repeat(var(--grid-rows, 5), 1fr);
-                align-content: stretch;
+                justify-items: center;
+                align-items: center;
+                align-content: center;
                 width: 100%;
             }
 
             .key {
                 aspect-ratio: 1 / 1 !important;
                 border-radius: 50% !important;
-                width: auto !important;
-                height: 100% !important;
-                max-width: 100% !important;
-                max-height: 100% !important;
-                min-width: 0;
-                min-height: 0;
+                width: 100% !important;
+                height: auto !important;
+                max-width: min(calc((100vh - 40px) / var(--grid-rows, 5) - 10px), calc((50vw - 40px) / var(--grid-cols, 4) - 10px)) !important;
+                max-height: min(calc((100vh - 40px) / var(--grid-rows, 5) - 10px), calc((50vw - 40px) / var(--grid-cols, 4) - 10px)) !important;
+                min-width: 0 !important;
+                min-height: 0 !important;
                 place-self: center !important;
             }
             .setting-box { border-radius: 38px !important; }
             .done-btn, .clear-btn { border-radius: 38px !important; }
+
+            /* ─── 橫向模式：自訂鍵盤介面橫向重排 ─── */
+            #keyboard-settings-menu {
+                padding: max(env(safe-area-inset-top, 6px), 6px) clamp(8px, 2vw, 14px) max(env(safe-area-inset-bottom, 6px), 6px) !important;
+                display: flex !important;
+                flex-direction: column !important;
+                overflow: hidden !important;
+            }
+            #keyboard-settings-menu .overlay-title {
+                font-size: clamp(12px, 2.2vh, 15px) !important;
+                margin-bottom: 4px !important;
+                letter-spacing: 1px !important;
+                flex-shrink: 0;
+            }
+            #keyboard-settings-menu .custom-top-toolbar {
+                display: flex !important;
+                flex-direction: row !important;
+                align-items: center !important;
+                justify-content: space-between !important;
+                gap: 8px !important;
+                margin-bottom: 4px !important;
+                flex-shrink: 0;
+                width: 100% !important;
+            }
+            #keyboard-settings-menu .grid-preset-selector {
+                margin: 0 !important;
+                flex: 0 0 auto !important;
+            }
+            #keyboard-settings-menu .compact-snapshot-bar {
+                margin: 0 !important;
+                flex: 0 0 auto !important;
+                width: auto !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: flex-end !important;
+            }
+            #keyboard-settings-menu .btn-group {
+                margin-top: 4px !important;
+                gap: 8px !important;
+                flex-shrink: 0;
+            }
+            #keyboard-settings-menu .clear-btn,
+            #keyboard-settings-menu .done-btn {
+                padding: 7px 12px !important;
+                font-size: 13px !important;
+                border-radius: 16px !important;
+            }
+            .keyboard-custom-wrapper {
+                flex-direction: row !important;
+                gap: 10px !important;
+                overflow: hidden !important;
+                overflow-y: hidden !important;
+                flex: 1;
+                min-height: 0;
+                height: 100% !important;
+            }
+            /* 舒適優雅分界：左側依網格規格貼身緊湊包裹，右側按鍵庫最大化擴展 */
+            .custom-top-split {
+                flex: 0 0 auto !important;
+                width: auto !important;
+                max-width: 66% !important;
+                min-width: 0 !important;
+                height: 100% !important;
+                min-height: 0 !important;
+                flex-direction: column !important;
+                overflow: hidden !important;
+                transition: none !important;
+            }
+
+            .custom-grid-container {
+                flex: 1 1 auto !important;
+                height: 100% !important;
+                width: -webkit-fit-content !important;
+                width: -moz-fit-content !important;
+                width: fit-content !important;
+                max-width: 100% !important;
+                min-height: 0 !important;
+                overflow: hidden !important;
+                padding: 6px 8px !important;
+                display: flex !important;
+                flex-direction: column !important;
+                align-items: center !important;
+                justify-content: center !important;
+            }
+            .custom-keyboard-grid {
+                height: 100% !important;
+                width: -webkit-fit-content !important;
+                width: -moz-fit-content !important;
+                width: fit-content !important;
+                justify-items: center !important;
+                align-items: center !important;
+                align-content: center !important;
+                justify-content: center !important;
+                gap: 6px !important; /* 上下左右間隙完全相等且均勻 */
+                padding: 2px !important;
+                --calc-key-size: min(calc((66vh - 44px) / var(--grid-rows, 4)), 62px);
+            }
+            .keyboard-custom-wrapper[data-grid="6x4"] .custom-keyboard-grid {
+                --calc-key-size: min(calc((66vh - 44px) / 4), calc((50vw - 40px) / 6), 58px);
+                gap: 6px !important;
+            }
+            .keyboard-custom-wrapper[data-grid="5x4"] .custom-keyboard-grid {
+                --calc-key-size: min(calc((66vh - 44px) / 4), calc((46vw - 40px) / 5), 60px);
+                gap: 6px !important;
+            }
+            .keyboard-custom-wrapper[data-grid="4x6"] .custom-keyboard-grid {
+                --calc-key-size: min(calc((66vh - 44px) / 6), 46px);
+                gap: 5px !important;
+            }
+            .keyboard-custom-wrapper[data-grid="4x5"] .custom-keyboard-grid {
+                --calc-key-size: min(calc((66vh - 44px) / 5), 54px);
+                gap: 6px !important;
+            }
+            .keyboard-custom-wrapper[data-grid="4x4"] .custom-keyboard-grid {
+                --calc-key-size: min(calc((66vh - 44px) / 4), 62px);
+                gap: 7px !important;
+            }
+            .keyboard-custom-wrapper[data-grid="3x4"] .custom-keyboard-grid {
+                --calc-key-size: min(calc((66vh - 44px) / 4), 64px);
+                gap: 8px !important;
+            }
+            .custom-keyboard-grid .key {
+                width: var(--calc-key-size, 54px) !important;
+                height: var(--calc-key-size, 54px) !important;
+                max-width: var(--calc-key-size, 54px) !important;
+                max-height: var(--calc-key-size, 54px) !important;
+                aspect-ratio: 1 / 1 !important;
+                border-radius: 50% !important;
+                place-self: center !important;
+                font-size: calc(var(--calc-key-size, 54px) * 0.32) !important;
+                margin: 0 !important;
+            }
+            /* 橫向時隱藏 side-pool-section */
+            .side-pool-section {
+                display: none !important;
+            }
+            /* 右欄：省下的所有空間全數讓給按鍵庫擴大展示 */
+            .pool-section {
+                flex: 1 1 0 !important;
+                min-width: 0 !important;
+                min-height: 0 !important;
+                height: 100% !important;
+                max-height: 100% !important;
+                padding: 6px 10px !important;
+                overflow: hidden !important;
+            }
+            .pool-tab-btn {
+                font-size: clamp(9px, 1.8vw, 11px) !important;
+                padding: 3.5px 8px !important;
+            }
+            .key-pool-scroll {
+                grid-template-columns: repeat(auto-fill, minmax(46px, 1fr)) !important;
+                gap: 6px 6px !important;
+                align-content: start !important;
+                overflow-y: auto !important;
+                padding: 2px 4px !important;
+            }
+            .pool-key-item {
+                aspect-ratio: unset !important;
+                width: 100% !important;
+                gap: 1.5px !important;
+            }
+            .pool-key-item .key {
+                width: 44px !important;
+                height: 44px !important;
+                max-width: 44px !important;
+                max-height: 44px !important;
+                aspect-ratio: 1 / 1 !important;
+                border-radius: 50% !important;
+                font-size: clamp(12px, 2.4vh, 15px) !important;
+                place-self: center !important;
+            }
+            .pool-key-label {
+                font-size: clamp(8px, 1.4vh, 9.5px) !important;
+            }
         }
 
         /* 💻 窄視窗全螢幕橫向修飾 (< 600px 寬) */
@@ -2685,21 +3106,22 @@
             }
         }
 
-        /* 💻 Mode D 子斷點：視窗縮窄至 850px 以下時，圓形按鍵太小，改為扁圓角矩形 */
-        @media (min-aspect-ratio: 3/2) and (max-width: 850px) {
+        /* 💻 橫向模式按鍵造型：保持經典標準正圓形 (border-radius: 50%) */
+        @media (min-aspect-ratio: 4/3), (orientation: landscape) {
             .keyboard {
-                gap: 8px !important;     /* 縮小 gap，確保按鍵有足夠空間 */
+                gap: 8px !important;
                 padding: 10px 10px max(env(safe-area-inset-bottom, 6px), 6px) 10px !important;
             }
-            .key {
-                aspect-ratio: auto !important;   /* 取消正方形限制 */
-                border-radius: 18px !important;  /* 改為大圓角膠囊感矩形 */
+            .keyboard .key {
+                aspect-ratio: 1 / 1 !important;
+                border-radius: 50% !important;
                 width: 100% !important;
-                height: 100% !important;
-                max-width: 100% !important;
-                max-height: 100% !important;
+                height: auto !important;
+                max-width: min(calc((100vh - 40px) / var(--grid-rows, 5) - 10px), calc((50vw - 40px) / var(--grid-cols, 4) - 10px)) !important;
+                max-height: min(calc((100vh - 40px) / var(--grid-rows, 5) - 10px), calc((50vw - 40px) / var(--grid-cols, 4) - 10px)) !important;
+                min-width: 0 !important;
                 min-height: 0 !important;
-                place-self: stretch !important;  /* 填滿網格格，讓 gap 統一管理間距 */
+                place-self: center !important;
             }
             .setting-box { border-radius: 16px !important; }
             .done-btn, .clear-btn { border-radius: 16px !important; }
@@ -2783,6 +3205,33 @@
             }
             .setting-box { border-radius: 12px !important; }
             .done-btn, .clear-btn { border-radius: 12px !important; }
+
+            /* Mode E 自訂鍵盤超緊湊 */
+            #keyboard-settings-menu .overlay-title {
+                font-size: 11px !important;
+                margin-bottom: 3px !important;
+            }
+            #keyboard-settings-menu {
+                padding: max(env(safe-area-inset-top, 4px), 4px) 8px max(env(safe-area-inset-bottom, 4px), 4px) !important;
+            }
+            #keyboard-settings-menu .btn-group {
+                margin-top: 3px !important;
+            }
+            #keyboard-settings-menu .clear-btn,
+            #keyboard-settings-menu .done-btn {
+                padding: 6px 8px !important;
+                font-size: 11px !important;
+            }
+            .custom-keyboard-grid .key {
+                max-width: 22px !important;
+                max-height: 22px !important;
+            }
+            .side-pool-section {
+                max-height: 60px !important;
+            }
+            .pool-section {
+                flex: 0 0 36% !important;
+            }
         }
 
         /* ==========================================================================
@@ -2855,15 +3304,15 @@
                 margin-top: auto !important;
             }
             .keyboard .key {
-                aspect-ratio: auto !important;
-                border-radius: 14px !important;
+                aspect-ratio: 1 / 1 !important;
+                border-radius: 50% !important;
                 width: 100% !important;
                 height: 100% !important;
                 max-width: 100% !important;
-                max-height: none !important;
+                max-height: 100% !important;
                 min-width: 0 !important;
                 min-height: 0 !important;
-                place-self: stretch !important;
+                place-self: center !important;
             }
             .setting-box { border-radius: 16px !important; }
             .done-btn, .clear-btn { border-radius: 16px !important; }
@@ -2872,7 +3321,7 @@
         /* ==========================================================================
            Mode G：低高度視窗調優模式
            觸發條件：高度小於等於 560px 且呈直向/方塊比例（W/H <= 3/2）。
-           排版特點：頂部膠囊收縮為 32px，按鍵全面改為扁方形圓角矩形貼底排版，數字列於上方空白處垂直置中，選單與彈窗超緊湊適應。
+           排版特點：頂部膠囊收縮為 32px，按鍵保持標準正圓形貼底排版，數字列於上方空白處垂直置中，選單與彈窗超緊湊適應。
            ========================================================================== */
         @media (max-height: 560px) and (max-aspect-ratio: 3/2) {
             :root {
@@ -2904,7 +3353,7 @@
             .result-display { font-size: clamp(26px, 6.5vh, 42px) !important; line-height: 1.15 !important; padding-bottom: 3px !important; }
             .formula, .converted-small { font-size: clamp(12px, 2.2vh, 15px) !important; min-height: 18px !important; }
 
-            /* 高度 560px 以下全面改用扁方形按鍵，緊湊貼底排版 */
+            /* 高度 560px 以下保持標準正圓形按鍵，緊湊貼底排版 */
             .keyboard {
                 display: grid !important;
                 grid-template-columns: repeat(var(--grid-cols, 4), 1fr) !important;
@@ -2918,15 +3367,15 @@
                 margin-top: auto !important;
             }
             .keyboard .key {
-                aspect-ratio: auto !important;
-                border-radius: 14px !important;
-                width: 100% !important;
+                aspect-ratio: 1 / 1 !important;
+                border-radius: 50% !important;
+                width: auto !important;
                 height: 100% !important;
                 max-width: 100% !important;
-                max-height: none !important;
+                max-height: 100% !important;
                 min-width: 0 !important;
-                min-height: 28px !important;
-                place-self: stretch !important;
+                min-height: 0 !important;
+                place-self: center !important;
             }
 
             /* 設定選單與彈窗超緊湊適應 */
@@ -3171,6 +3620,19 @@ body.light-mode .quick-tax-input-wrap {
     color: var(--text-muted);
 }
 
+/* ─── 鍵盤自訂網格按鍵平滑位移與動畫 (Smooth Reflow & Absorption) ─── */
+.custom-keyboard-grid .key {
+    transition: transform 0.22s var(--ios-spring-snappy), opacity 0.18s ease, filter 0.18s ease;
+    will-change: transform, opacity;
+}
+.custom-keyboard-grid .key.is-placeholder {
+    opacity: 0 !important;
+    visibility: hidden !important;
+}
+.custom-keyboard-grid .key.is-shifting {
+    transition: transform 0.22s var(--ios-spring-snappy), opacity 0.18s ease !important;
+}
+
 /* ─── 鍵盤自訂網格中空白格 (Blank Key) 視覺化 ─── */
 #custom-keyboard-grid .key.blank {
     background: rgba(255, 255, 255, 0.03) !important;
@@ -3203,7 +3665,7 @@ body.light-mode #custom-keyboard-grid .key.blank {
     justify-content: space-between;
     gap: 8px;
     width: 100%;
-    margin-bottom: 8px;
+    margin-bottom: 4px;
     padding: 0 2px;
 }
 .snapshot-label {
@@ -3305,5 +3767,103 @@ body.light-mode .history-summary-card {
 body.light-mode .summary-count-badge {
     background: rgba(0, 0, 0, 0.05);
     border-color: rgba(0, 0, 0, 0.08);
+}
+
+/* ─── 🍏 iOS / Android PWA 安裝提示浮窗 (iOS PWA Install Prompt Card) ─── */
+.ios-prompt-overlay {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%) translateY(120%);
+    width: calc(100% - 32px);
+    max-width: 420px;
+    z-index: 99999;
+    opacity: 0;
+    pointer-events: none;
+    transition: transform 0.4s var(--ios-spring-bouncy), opacity 0.3s ease;
+}
+.ios-prompt-overlay.show {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
+    pointer-events: auto;
+}
+.ios-prompt-card {
+    background: linear-gradient(180deg, rgba(28, 34, 52, 0.92) 0%, rgba(14, 18, 28, 0.96) 100%);
+    border: 0.5px solid rgba(255, 255, 255, 0.22);
+    border-radius: 20px;
+    padding: 16px;
+    backdrop-filter: blur(20px) saturate(190%);
+    -webkit-backdrop-filter: blur(20px) saturate(190%);
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.45), inset 0 0.5px 0 rgba(255, 255, 255, 0.4);
+    color: var(--text-color);
+}
+body.light-mode .ios-prompt-card {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(240, 245, 255, 0.92) 100%);
+    border-color: rgba(0, 0, 0, 0.12);
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.15), inset 0 0.5px 0 rgba(255, 255, 255, 0.9);
+}
+.ios-prompt-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+.ios-prompt-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+    flex-shrink: 0;
+}
+.ios-prompt-title-group {
+    flex: 1;
+    min-width: 0;
+}
+.ios-prompt-title {
+    font-size: 15px;
+    font-weight: 800;
+    letter-spacing: -0.2px;
+}
+.ios-prompt-subtitle {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 1px;
+}
+.ios-prompt-close {
+    background: rgba(255, 255, 255, 0.12);
+    border: none;
+    color: var(--text-muted);
+    font-size: 18px;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    line-height: 1;
+}
+.ios-prompt-body {
+    font-size: 12px;
+    color: var(--text-muted);
+    line-height: 1.4;
+}
+.ios-prompt-instruction {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+    background: rgba(255, 255, 255, 0.06);
+    padding: 8px 10px;
+    border-radius: 10px;
+    border: 0.5px solid rgba(255, 255, 255, 0.08);
+}
+body.light-mode .ios-prompt-instruction {
+    background: rgba(0, 0, 0, 0.04);
+    border-color: rgba(0, 0, 0, 0.06);
+}
+.ios-share-svg, .ios-add-svg {
+    stroke: var(--accent-main);
+    flex-shrink: 0;
 }
 

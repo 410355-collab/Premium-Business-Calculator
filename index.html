@@ -1,9 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
-    
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
+
     <!-- Android / iOS Universal PWA Support -->
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -17,30 +19,37 @@
 
     <title>Premium Business Calculator</title>
     <!-- 引入多元字體家族 -->
-    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;700&amp;family=Inter:wght@600;800&amp;family=Noto+Sans+TC:wght@500;700;900&amp;family=Noto+Serif+TC:wght@600;900&amp;family=Orbitron:wght@500;700;900&amp;family=Rajdhani:wght@600;700&amp;family=ZCOOL+KuaiLe&amp;display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;700&amp;family=Inter:wght@600;800&amp;family=Noto+Sans+TC:wght@500;700;900&amp;family=Noto+Serif+TC:wght@600;900&amp;family=Orbitron:wght@500;700;900&amp;family=Rajdhani:wght@600;700&amp;family=ZCOOL+KuaiLe&amp;display=swap"
+        rel="stylesheet">
     <link rel="stylesheet" href="./style.css">
 </head>
+
 <body class="font-tech">
 
     <!-- SVG Optical Filter Definitions for Apple Liquid Glass Refraction (CSS + SVG Liquid Glass Effect) -->
-    <svg class="liquid-glass-svg-defs" aria-hidden="true" style="position: absolute; width: 0; height: 0; overflow: hidden; pointer-events: none;">
+    <svg class="liquid-glass-svg-defs" aria-hidden="true"
+        style="position: absolute; width: 0; height: 0; overflow: hidden; pointer-events: none;">
         <defs>
             <!-- 通用液態玻璃濾鏡 (General Liquid Glass Filter) -->
-            <filter id="liquid_glass_filter" x="-20%" y="-20%" width="140%" height="140%" color-interpolation-filters="sRGB">
+            <filter id="liquid_glass_filter" x="-20%" y="-20%" width="140%" height="140%"
+                color-interpolation-filters="sRGB">
                 <feTurbulence type="fractalNoise" baseFrequency="0.003" numOctaves="2" seed="7" result="noise" />
                 <feGaussianBlur in="noise" stdDeviation="1.5" result="map" />
                 <feDisplacementMap in="SourceGraphic" in2="map" scale="28" xChannelSelector="R" yChannelSelector="B" />
             </filter>
 
             <!-- 按鍵專用液態玻璃濾鏡 (Calculator Keys Liquid Glass Filter) -->
-            <filter id="liquid_glass_btn_filter" x="-20%" y="-20%" width="140%" height="140%" color-interpolation-filters="sRGB">
+            <filter id="liquid_glass_btn_filter" x="-20%" y="-20%" width="140%" height="140%"
+                color-interpolation-filters="sRGB">
                 <feTurbulence type="fractalNoise" baseFrequency="0.006" numOctaves="2" seed="12" result="noise" />
                 <feGaussianBlur in="noise" stdDeviation="1.2" result="map" />
                 <feDisplacementMap in="SourceGraphic" in2="map" scale="16" xChannelSelector="R" yChannelSelector="B" />
             </filter>
 
             <!-- 選單與彈窗專用液態玻璃濾鏡 (Menus & Modals Liquid Glass Filter) -->
-            <filter id="liquid_glass_menu_filter" x="-20%" y="-20%" width="140%" height="140%" color-interpolation-filters="sRGB">
+            <filter id="liquid_glass_menu_filter" x="-20%" y="-20%" width="140%" height="140%"
+                color-interpolation-filters="sRGB">
                 <feTurbulence type="fractalNoise" baseFrequency="0.003" numOctaves="2" seed="5" result="noise" />
                 <feGaussianBlur in="noise" stdDeviation="1.8" result="map" />
                 <feDisplacementMap in="SourceGraphic" in2="map" scale="35" xChannelSelector="R" yChannelSelector="B" />
@@ -49,449 +58,514 @@
     </svg>
 
     <!-- iOS 18 Safari Native Haptic Feedback Switch -->
-    <input type="checkbox" switch id="ios-haptic-switch" style="position:fixed;top:0;left:0;width:1px;height:1px;opacity:0.001;pointer-events:none;z-index:-9999;" aria-hidden="true" tabindex="-1">
+    <input type="checkbox" switch id="ios-haptic-switch"
+        style="position:fixed;top:0;left:0;width:1px;height:1px;opacity:0.001;pointer-events:none;z-index:-9999;"
+        aria-hidden="true" tabindex="-1">
 
-<div class="phone-container">
+    <div class="phone-container">
 
-    <!-- iOS PWA Install Prompt -->
-    <div id="ios-install-prompt" class="ios-prompt-overlay">
-        <div class="ios-prompt-card">
-            <div class="ios-prompt-header">
-                <img src="app_icon.png" class="ios-prompt-icon" alt="App Icon">
-                <div class="ios-prompt-title-group">
-                    <div class="ios-prompt-title" data-i18n="iosPromptTitle">Install Premium Calc</div>
-                    <div class="ios-prompt-subtitle" data-i18n="iosPromptSubtitle">Add to home screen for offline access</div>
-                </div>
-                <button class="ios-prompt-close" id="ios-prompt-close">&times;</button>
-            </div>
-            <div class="ios-prompt-body">
-                <p data-i18n="iosPromptBody1">To install, tap the Share icon in Safari:</p>
-                <div class="ios-prompt-instruction">
-                    <svg class="ios-share-svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path>
-                        <polyline points="16 6 12 2 8 6"></polyline>
-                        <line x1="12" y1="2" x2="12" y2="15"></line>
-                    </svg>
-                    <span data-i18n="iosPromptBody2">Tap <strong>Share</strong> in the toolbar.</span>
-                </div>
-                <div class="ios-prompt-instruction">
-                    <svg class="ios-add-svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                        <line x1="12" y1="8" x2="12" y2="16"></line>
-                        <line x1="8" y1="12" x2="16" y2="12"></line>
-                    </svg>
-                    <span data-i18n="iosPromptBody3">Then scroll down and tap <strong>Add to Home Screen</strong>.</span>
-                </div>
-            </div>
-        </div>
-    </div>
-    <!-- 貨幣下拉選單全域背景模糊遮罩（完全對齊設定選單 .overlay-menu 背景 14px 毛玻璃與通透暗色） -->
-    <div class="dropdown-backdrop" id="dropdown-backdrop"></div>
-
-    <!-- 左欄 / 頂部面板（自適應） -->
-    <div class="left-panel">
-        <div class="header-area" id="header-area">
-            <div class="action-bar">
-                <div class="icon-btn settings-btn" id="btn-settings" aria-label="Settings">
-                    <svg viewBox="0 0 24 24"><path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.06-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.73,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.06,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.43-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.49-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/></svg>
-                </div>
-                <div class="capsule-wrapper" id="capsule-wrapper">
-                    <div class="capsule" id="top-capsule">
-                        <div class="custom-dropdown">
-                        <div class="dropdown-trigger" id="trigger-from">
-                            <img src="./flags/kr.svg" class="flag-img" alt="KRW"> <span id="label-from">韓元</span> <span class="arrow-down">▼</span>
-                        </div>
-                        <div class="dropdown-options" id="options-from">
-                        </div>
+        <!-- iOS PWA Install Prompt -->
+        <div id="ios-install-prompt" class="ios-prompt-overlay">
+            <div class="ios-prompt-card">
+                <div class="ios-prompt-header">
+                    <img src="app_icon.png" class="ios-prompt-icon" alt="App Icon">
+                    <div class="ios-prompt-title-group">
+                        <div class="ios-prompt-title" data-i18n="iosPromptTitle">Install Premium Calc</div>
+                        <div class="ios-prompt-subtitle" data-i18n="iosPromptSubtitle">Add to home screen for offline
+                            access</div>
                     </div>
-                    <span class="swap-arrow" id="btn-swap">⇄</span>
-                    <span class="collapsed-arrow">➔</span>
-                    <div class="custom-dropdown">
-                        <div class="dropdown-trigger" id="trigger-to">
-                            <img src="./flags/tw.svg" class="flag-img" alt="TWD"> <span id="label-to">新台幣</span> <span class="arrow-down">▼</span>
-                        </div>
-                        <div class="dropdown-options" id="options-to">
-                        </div>
+                    <button class="ios-prompt-close" id="ios-prompt-close">&times;</button>
+                </div>
+                <div class="ios-prompt-body">
+                    <p data-i18n="iosPromptBody1">To install, tap the Share icon in Safari:</p>
+                    <div class="ios-prompt-instruction">
+                        <svg class="ios-share-svg" viewBox="0 0 24 24" width="20" height="20" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path>
+                            <polyline points="16 6 12 2 8 6"></polyline>
+                            <line x1="12" y1="2" x2="12" y2="15"></line>
+                        </svg>
+                        <span data-i18n="iosPromptBody2">Tap <strong>Share</strong> in the toolbar.</span>
                     </div>
-                    <div class="tax-badge" id="tax-btn">TAX</div>
-                    <div class="same-currency-label" id="same-currency-label"><span data-i18n="normalCalculator">本地模式</span> <span>▼</span></div>
-                </div>
-            </div>
-            <!-- 計算完成即時分類快速標記氣泡 (與頂部膠囊等高對齊居中) -->
-            <div class="category-bubble" id="category-bubble">
-                <button class="cat-chip" data-cat="food"><span class="cat-emoji">🍜</span><span class="cat-name" data-i18n="catFood">食</span></button>
-                <button class="cat-chip" data-cat="clothing"><span class="cat-emoji">👕</span><span class="cat-name" data-i18n="catClothing">衣</span></button>
-                <button class="cat-chip" data-cat="housing"><span class="cat-emoji">🏠</span><span class="cat-name" data-i18n="catHousing">住</span></button>
-                <button class="cat-chip" data-cat="transport"><span class="cat-emoji">🚗</span><span class="cat-name" data-i18n="catTransport">行</span></button>
-                <button class="cat-chip" data-cat="business"><span class="cat-emoji">💼</span><span class="cat-name" data-i18n="catBusiness">商務</span></button>
-                <button class="cat-chip" data-cat="other"><span class="cat-emoji">🏷️</span><span class="cat-name" data-i18n="catOther">一般</span></button>
-            </div>
-            <div class="toast" id="global-toast">COPIED!</div>
-            <div class="icon-btn history-btn" id="btn-history" aria-label="History">
-                <svg viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>
-            </div>
-        </div>
-        </div>
-
-        <div class="display-container" id="display-container">
-            <div class="display-indicators">
-                <div class="mem-indicator" id="mem-indicator" title="Memory (M)">M</div>
-            </div>
-            <div class="text-wrapper" id="formula-wrapper">
-                <div class="text-scaler" id="formula-scaler">
-                    <div class="formula" id="formula-screen">0</div>
-                </div>
-            </div>
-            <div class="text-wrapper" id="result-wrapper">
-                <div class="text-scaler" id="result-scaler">
-                    <div class="result-display" id="result-screen">0</div>
-                </div>
-            </div>
-            <div class="text-wrapper" id="converted-wrapper">
-                <div class="text-scaler" id="converted-scaler">
-                    <div class="converted-small" id="converted-screen">≈ 0.00 TWD</div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- 右欄 / 鍵盤面板（自適應） -->
-    <div class="keyboard" id="main-keyboard">
-        <button class="key cyan" data-action="clearAll" aria-label="Clear"><span class="key-text">C</span></button>
-        <button class="key red-back" data-action="backspace" aria-label="Backspace">
-            <svg viewBox="0 0 24 24"><path d="M22 3H7c-.69 0-1.23.35-1.59.88L0 12l5.41 8.11c.36.53.9.89 1.59.89h15c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-3 12.59L17.59 17 14 13.41 10.41 17 9 15.59 12.59 12 9 8.41 10.41 7 14 10.59 17.59 7 19 8.41 15.41 12 19 15.59z"/></svg>
-        </button>
-        <button class="key cyan" data-action="inputOperator" data-param="%" aria-label="Percent"><span class="key-text">%</span></button>
-        <button class="key operator" data-action="inputOperator" data-param="÷" aria-label="Divide"><span class="key-text">÷</span></button>
-        <button class="key" data-action="inputNum" data-param="7" aria-label="7"><span class="key-text">7</span></button>
-        <button class="key" data-action="inputNum" data-param="8" aria-label="8"><span class="key-text">8</span></button>
-        <button class="key" data-action="inputNum" data-param="9" aria-label="9"><span class="key-text">9</span></button>
-        <button class="key operator" data-action="inputOperator" data-param="×" aria-label="Multiply"><span class="key-text">×</span></button>
-        <button class="key" data-action="inputNum" data-param="4" aria-label="4"><span class="key-text">4</span></button>
-        <button class="key" data-action="inputNum" data-param="5" aria-label="5"><span class="key-text">5</span></button>
-        <button class="key" data-action="inputNum" data-param="6" aria-label="6"><span class="key-text">6</span></button>
-        <button class="key operator" data-action="inputOperator" data-param="-" aria-label="Subtract"><span class="key-text">-</span></button>
-        <button class="key" data-action="inputNum" data-param="1" aria-label="1"><span class="key-text">1</span></button>
-        <button class="key" data-action="inputNum" data-param="2" aria-label="2"><span class="key-text">2</span></button>
-        <button class="key" data-action="inputNum" data-param="3" aria-label="3"><span class="key-text">3</span></button>
-        <button class="key operator" data-action="inputOperator" data-param="+" aria-label="Add"><span class="key-text">+</span></button>
-        <button class="key paren-key" data-action="inputParenthesis" aria-label="Parenthesis"><span class="key-text">()</span></button> 
-        <button class="key" data-action="inputNum" data-param="0" aria-label="0"><span class="key-text">0</span></button>
-        <button class="key" data-action="inputNum" data-param="." aria-label="Decimal point"><span class="key-text">.</span></button>
-        <button class="key equal" data-action="evaluateExpr" aria-label="Equals"><span class="key-text">=</span></button>
-    </div>
-
-    <!-- 主設定選單 -->
-    <div class="overlay-menu" id="settings-menu">
-        <div class="overlay-title" data-i18n="settingsTitle">SETTINGS</div>
-        <div class="setting-box" role="dialog">
-            <div class="setting-row">
-                <span class="setting-label" data-i18n="labelLanguage">LANGUAGE</span>
-                <div class="option-selector">
-                    <button class="selector-btn lang-btn active" data-lang="en">ENG</button>
-                    <button class="selector-btn lang-btn" data-lang="zh">中文</button>
-                </div>
-            </div>
-
-            <div class="setting-row">
-                <span class="setting-label" data-i18n="labelDecimals">DECIMALS</span>
-                <div class="stepper">
-                    <button id="btn-dec-minus">-</button>
-                    <span id="decimal-display">2</span>
-                    <button id="btn-dec-plus">+</button>
-                </div>
-            </div>
-
-            <div class="setting-row">
-                <span class="setting-label" data-i18n="labelLargeNumberFormat">LARGE NUMBERS</span>
-                <div class="option-selector">
-                    <button class="selector-btn number-format-btn active" data-format="full" data-i18n="numFormatFull">DIRECT</button>
-                    <button class="selector-btn number-format-btn" data-format="scientific" data-i18n="numFormatSci">SCI</button>
-                </div>
-            </div>
-            
-            <div class="setting-row">
-                <span class="setting-label" data-i18n="labelHaptic">HAPTIC FEEDBACK</span>
-                <label class="switch"><input type="checkbox" id="haptic-toggle" checked><span class="slider"></span></label>
-            </div>
-
-            <div class="setting-row">
-                <span class="setting-label" data-i18n="labelCategoryBubble">INSTANT BOOKKEEPING</span>
-                <label class="switch"><input type="checkbox" id="category-bubble-toggle" checked><span class="slider"></span></label>
-            </div>
-
-            <div class="setting-row clickable" id="btn-open-keyboard">
-                <span class="setting-label" data-i18n="labelKeyboardLayout">KEYBOARD LAYOUT</span>
-                <div class="setting-arrow-link">❯</div>
-            </div>
-
-            <div class="setting-row clickable" id="btn-open-style">
-                <span class="setting-label" data-i18n="labelStyleSettings">STYLE & THEME</span>
-                <div class="setting-arrow-link">❯</div>
-            </div>
-
-            <div class="setting-row clickable" id="btn-open-tax">
-                <span class="setting-label" data-i18n="labelTaxRates">TAX RATES</span>
-                <div class="setting-arrow-link">❯</div>
-            </div>
-
-            <div class="setting-row clickable" id="btn-open-rates">
-                <span class="setting-label" data-i18n="labelExchangeRates">EXCHANGE RATES</span>
-                <div class="setting-arrow-link">❯</div>
-            </div>
-
-            <div class="setting-row" style="margin-top: 14px; border-top: var(--capsule-border); padding-top: 14px;">
-                <div>
-                    <span class="setting-label" data-i18n="labelUpdateRates">UPDATE RATES</span>
-                    <div class="api-status" id="last-updated">Updating...</div>
-                </div>
-                <button class="refresh-btn" id="refresh-rate-btn" data-i18n="btnRefresh">REFRESH</button>
-            </div>
-        </div>
-        <div class="btn-group">
-            <div class="clear-btn" id="btn-settings-reset" data-i18n="btnReset">RESET</div>
-            <div class="done-btn" id="btn-settings-done" data-i18n="btnDone">DONE</div>
-        </div>
-    </div>
-
-    <!-- 獨立鍵盤自訂頁面 -->
-    <div class="overlay-menu" id="keyboard-settings-menu">
-        <div class="overlay-title" data-i18n="keyboardTitle">CUSTOMIZE KEYBOARD</div>
-        <div class="keyboard-custom-wrapper layout-l-wrap" id="keyboard-custom-wrapper">
-            <div class="custom-hint-badge" data-i18n="keyboardHint">拖曳按鍵順延排版，或拖出網格移除為空白格</div>
-            
-            <!-- 網格規格切換 (4x6, 4x5, 4x4, 3x4) -->
-            <div class="option-selector grid-preset-selector">
-                <button class="selector-btn grid-preset-btn" data-grid="4x6">4 × 6</button>
-                <button class="selector-btn grid-preset-btn active" data-grid="4x5">4 × 5</button>
-                <button class="selector-btn grid-preset-btn" data-grid="4x4">4 × 4</button>
-                <button class="selector-btn grid-preset-btn" data-grid="3x4">3 × 4</button>
-            </div>
-
-            <!-- 佈局快照切換器 (Snapshots) -->
-            <div class="snapshot-selector-bar">
-                <span class="snapshot-label" data-i18n="snapshotTitle">SNAPSHOTS</span>
-                <div class="snapshot-btn-group">
-                    <button class="snapshot-chip active" data-snapshot="biz" data-i18n="snapshotBiz">💼 Business</button>
-                    <button class="snapshot-chip" data-snapshot="travel" data-i18n="snapshotTravel">✈️ Travel</button>
-                    <button class="snapshot-chip" data-snapshot="math" data-i18n="snapshotMath">📐 Math</button>
-                </div>
-            </div>
-
-            <!-- L 型上半部：左側自訂鍵盤 + 右側候選庫 (Side Shelf) -->
-            <div class="custom-top-split">
-                <!-- 左側：自訂鍵盤網格 -->
-                <div class="custom-grid-container" id="custom-grid-container">
-                    <div class="pool-shelf-label" id="grid-shelf-label" data-i18n="gridShelfTitle">當前鍵盤</div>
-                    <div class="custom-keyboard-grid" id="custom-keyboard-grid">
-                        <!-- 由 JS 動態生成 -->
+                    <div class="ios-prompt-instruction">
+                        <svg class="ios-add-svg" viewBox="0 0 24 24" width="20" height="20" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                            <line x1="12" y1="8" x2="12" y2="16"></line>
+                            <line x1="8" y1="12" x2="16" y2="12"></line>
+                        </svg>
+                        <span data-i18n="iosPromptBody3">Then scroll down and tap <strong>Add to Home
+                                Screen</strong>.</span>
                     </div>
                 </div>
+            </div>
+        </div>
+        <!-- 貨幣下拉選單全域背景模糊遮罩（完全對齊設定選單 .overlay-menu 背景 14px 毛玻璃與通透暗色） -->
+        <div class="dropdown-backdrop" id="dropdown-backdrop"></div>
 
-                <!-- 右側：側邊候選按鍵庫 (L型右翼) -->
-                <div class="side-pool-section" id="side-pool-section">
-                    <div class="pool-shelf-label" data-i18n="sidePoolTitle">常用庫</div>
-                    <div class="side-pool-scroll" id="side-pool-scroll">
-                        <!-- 由 JS 動態生成 -->
+        <!-- 左欄 / 頂部面板（自適應） -->
+        <div class="left-panel">
+            <div class="header-area" id="header-area">
+                <div class="action-bar">
+                    <div class="icon-btn settings-btn" id="btn-settings" aria-label="Settings">
+                        <svg viewBox="0 0 24 24">
+                            <path
+                                d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.06-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.73,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.06,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.43-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.49-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z" />
+                        </svg>
+                    </div>
+                    <div class="capsule-wrapper" id="capsule-wrapper">
+                        <div class="capsule" id="top-capsule">
+                            <div class="custom-dropdown">
+                                <div class="dropdown-trigger" id="trigger-from">
+                                    <img src="./flags/kr.svg" class="flag-img" alt="KRW"> <span
+                                        id="label-from">韓元</span> <span class="arrow-down">▼</span>
+                                </div>
+                                <div class="dropdown-options" id="options-from">
+                                </div>
+                            </div>
+                            <span class="swap-arrow" id="btn-swap">⇄</span>
+                            <span class="collapsed-arrow">➔</span>
+                            <div class="custom-dropdown">
+                                <div class="dropdown-trigger" id="trigger-to">
+                                    <img src="./flags/tw.svg" class="flag-img" alt="TWD"> <span id="label-to">新台幣</span>
+                                    <span class="arrow-down">▼</span>
+                                </div>
+                                <div class="dropdown-options" id="options-to">
+                                </div>
+                            </div>
+                            <div class="tax-badge" id="tax-btn">TAX</div>
+                            <div class="same-currency-label" id="same-currency-label"><span
+                                    data-i18n="normalCalculator">本地模式</span> <span>▼</span></div>
+                        </div>
+                    </div>
+                    <!-- 計算完成即時分類快速標記氣泡 (與頂部膠囊等高對齊居中) -->
+                    <div class="category-bubble" id="category-bubble">
+                        <button class="cat-chip" data-cat="food"><span class="cat-emoji">🍜</span><span class="cat-name"
+                                data-i18n="catFood">食</span></button>
+                        <button class="cat-chip" data-cat="clothing"><span class="cat-emoji">👕</span><span
+                                class="cat-name" data-i18n="catClothing">衣</span></button>
+                        <button class="cat-chip" data-cat="housing"><span class="cat-emoji">🏠</span><span
+                                class="cat-name" data-i18n="catHousing">住</span></button>
+                        <button class="cat-chip" data-cat="transport"><span class="cat-emoji">🚗</span><span
+                                class="cat-name" data-i18n="catTransport">行</span></button>
+                        <button class="cat-chip" data-cat="business"><span class="cat-emoji">💼</span><span
+                                class="cat-name" data-i18n="catBusiness">商務</span></button>
+                        <button class="cat-chip" data-cat="other"><span class="cat-emoji">🏷️</span><span
+                                class="cat-name" data-i18n="catOther">一般</span></button>
+                    </div>
+                    <div class="toast" id="global-toast">COPIED!</div>
+                    <div class="icon-btn history-btn" id="btn-history" aria-label="History">
+                        <svg viewBox="0 0 24 24">
+                            <path
+                                d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z" />
+                        </svg>
                     </div>
                 </div>
             </div>
 
-            <!-- L 型下半部：底部全寬擴充按鍵庫 (L型底翼) -->
-            <div class="pool-section" id="pool-drop-target">
-                <div class="option-selector pool-category-tabs">
-                    <button class="selector-btn pool-tab-btn active" data-category="all" data-i18n="categoryAll">ALL</button>
-                    <button class="selector-btn pool-tab-btn" data-category="biz" data-i18n="categoryBiz">BIZ</button>
-                    <button class="selector-btn pool-tab-btn" data-category="math" data-i18n="categoryMath">MATH</button>
-                    <button class="selector-btn pool-tab-btn" data-category="mem" data-i18n="categoryMem">MEM</button>
-                    <button class="selector-btn pool-tab-btn" data-category="util" data-i18n="categoryUtil">UTIL</button>
+            <div class="display-container" id="display-container">
+                <div class="display-indicators">
+                    <div class="mem-indicator" id="mem-indicator" title="Memory (M)">M</div>
                 </div>
-                <div class="key-pool-scroll" id="key-pool-scroll">
-                    <!-- 由 JS 動態生成按鍵庫項目 -->
-                </div>
-            </div>
-        </div>
-        <div class="btn-group">
-            <div class="clear-btn" id="btn-keyboard-reset" data-i18n="btnReset">RESET</div>
-            <div class="done-btn" id="btn-keyboard-back" data-i18n="btnDone">DONE</div>
-        </div>
-    </div>
-
-    <!-- 獨立風格設定頁面 -->
-    <div class="overlay-menu" id="style-settings-menu">
-        <div class="overlay-title" data-i18n="styleTitle">STYLE & THEME</div>
-        <div class="setting-box" role="dialog">
-            <div class="setting-row">
-                <span class="setting-label" data-i18n="labelFontStyle">FONT STYLE</span>
-                <div class="option-selector">
-                    <button class="selector-btn font-btn tech-f active" data-font="tech" data-i18n="fontTech">TECH</button>
-                    <button class="selector-btn font-btn biz-f" data-font="business" data-i18n="fontBiz">BIZ</button>
-                    <button class="selector-btn font-btn cute-f" data-font="cute" data-i18n="fontCute">CUTE</button>
-                </div>
-            </div>
-
-            <div class="setting-row" style="flex-direction: column; align-items: flex-start; gap: 8px;">
-                <div style="display: flex; justify-content: space-between; width: 100%; align-items: center;">
-                    <span class="setting-label" data-i18n="labelThemeColor">THEME COLOR</span>
-                    <div class="color-palette" id="theme-palette"></div>
-                </div>
-                <div class="custom-color-menu" id="custom-color-menu">
-                    <div class="picker-main-row">
-                        <div class="color-field" id="color-field">
-                            <div class="color-field-white"></div>
-                            <div class="color-field-black"></div>
-                            <div class="color-field-handle" id="color-field-handle"></div>
-                        </div>
-                        <div class="hue-slider-container" id="hue-slider-container">
-                            <div class="hue-slider-track"></div>
-                            <div class="hue-slider-handle" id="hue-slider-handle"></div>
-                        </div>
+                <div class="text-wrapper" id="formula-wrapper">
+                    <div class="text-scaler" id="formula-scaler">
+                        <div class="formula" id="formula-screen">0</div>
                     </div>
-                    <div class="picker-values-row">
-                        <div class="value-item hex-item">
-                            <span class="value-label">#</span>
-                            <input type="text" id="hex-input" class="hex-input" maxlength="7" readonly>
-                        </div>
-                        <div class="value-item">
-                            <span class="value-label r-label">R</span>
-                            <span class="value-val" id="val-r">0</span>
-                        </div>
-                        <div class="value-item">
-                            <span class="value-label g-label">G</span>
-                            <span class="value-val" id="val-g">255</span>
-                        </div>
-                        <div class="value-item">
-                            <span class="value-label b-label">B</span>
-                            <span class="value-val" id="val-b">255</span>
-                        </div>
+                </div>
+                <div class="text-wrapper" id="result-wrapper">
+                    <div class="text-scaler" id="result-scaler">
+                        <div class="result-display" id="result-screen">0</div>
+                    </div>
+                </div>
+                <div class="text-wrapper" id="converted-wrapper">
+                    <div class="text-scaler" id="converted-scaler">
+                        <div class="converted-small" id="converted-screen">≈ 0.00 TWD</div>
                     </div>
                 </div>
             </div>
+        </div>
 
-            <div class="setting-row">
-                <span class="setting-label" data-i18n="labelLightMode">LIGHT MODE</span>
-                <label class="switch"><input type="checkbox" id="theme-toggle"><span class="slider"></span></label>
-            </div>
+        <!-- 右欄 / 鍵盤面板（自適應） -->
+        <div class="keyboard" id="main-keyboard">
+            <button class="key cyan" data-action="clearAll" aria-label="Clear"><span class="key-text">C</span></button>
+            <button class="key red-back" data-action="backspace" aria-label="Backspace">
+                <svg viewBox="0 0 24 24">
+                    <path
+                        d="M22 3H7c-.69 0-1.23.35-1.59.88L0 12l5.41 8.11c.36.53.9.89 1.59.89h15c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-3 12.59L17.59 17 14 13.41 10.41 17 9 15.59 12.59 12 9 8.41 10.41 7 14 10.59 17.59 7 19 8.41 15.41 12 19 15.59z" />
+                </svg>
+            </button>
+            <button class="key cyan" data-action="inputOperator" data-param="%" aria-label="Percent"><span
+                    class="key-text">%</span></button>
+            <button class="key operator" data-action="inputOperator" data-param="÷" aria-label="Divide"><span
+                    class="key-text">÷</span></button>
+            <button class="key" data-action="inputNum" data-param="7" aria-label="7"><span
+                    class="key-text">7</span></button>
+            <button class="key" data-action="inputNum" data-param="8" aria-label="8"><span
+                    class="key-text">8</span></button>
+            <button class="key" data-action="inputNum" data-param="9" aria-label="9"><span
+                    class="key-text">9</span></button>
+            <button class="key operator" data-action="inputOperator" data-param="×" aria-label="Multiply"><span
+                    class="key-text">×</span></button>
+            <button class="key" data-action="inputNum" data-param="4" aria-label="4"><span
+                    class="key-text">4</span></button>
+            <button class="key" data-action="inputNum" data-param="5" aria-label="5"><span
+                    class="key-text">5</span></button>
+            <button class="key" data-action="inputNum" data-param="6" aria-label="6"><span
+                    class="key-text">6</span></button>
+            <button class="key operator" data-action="inputOperator" data-param="-" aria-label="Subtract"><span
+                    class="key-text">-</span></button>
+            <button class="key" data-action="inputNum" data-param="1" aria-label="1"><span
+                    class="key-text">1</span></button>
+            <button class="key" data-action="inputNum" data-param="2" aria-label="2"><span
+                    class="key-text">2</span></button>
+            <button class="key" data-action="inputNum" data-param="3" aria-label="3"><span
+                    class="key-text">3</span></button>
+            <button class="key operator" data-action="inputOperator" data-param="+" aria-label="Add"><span
+                    class="key-text">+</span></button>
+            <button class="key paren-key" data-action="inputParenthesis" aria-label="Parenthesis"><span
+                    class="key-text">()</span></button>
+            <button class="key" data-action="inputNum" data-param="0" aria-label="0"><span
+                    class="key-text">0</span></button>
+            <button class="key" data-action="inputNum" data-param="." aria-label="Decimal point"><span
+                    class="key-text">.</span></button>
+            <button class="key equal" data-action="evaluateExpr" aria-label="Equals"><span
+                    class="key-text">=</span></button>
         </div>
-        <div class="btn-group">
-            <div class="done-btn" id="btn-style-back" data-i18n="btnBack">BACK</div>
-        </div>
-    </div>
 
-    <!-- 獨立稅率設定頁面 -->
-    <div class="overlay-menu" id="tax-settings-menu">
-        <div class="overlay-title" data-i18n="taxTitle">TAX RATES (%)</div>
-        <div class="setting-box">
-            <div class="tax-grid">
-            </div>
-        </div>
-        <div class="btn-group">
-            <div class="done-btn" id="btn-tax-back" data-i18n="btnBack">BACK</div>
-        </div>
-    </div>
-
-    <!-- 獨立匯率自定頁面 -->
-    <div class="overlay-menu" id="rate-settings-menu">
-        <div class="overlay-title" data-i18n="ratesTitle">EXCHANGE RATES</div>
-        <div class="setting-box">
-            <div id="rate-base-title" style="text-align: center; color: var(--text-muted); font-size: 12px; margin-bottom: 12px; font-weight: 700;">BASE: 1.00 USD</div>
-            <div class="rate-grid">
-            </div>
-        </div>
-        <div class="btn-group">
-            <div class="clear-btn" id="btn-rate-reset" data-i18n="btnReset">RESET</div>
-            <div class="done-btn" id="btn-rate-back" data-i18n="btnBack">BACK</div>
-        </div>
-    </div>
-
-    <!-- 歷史紀錄選單 -->
-    <div class="overlay-menu" id="history-menu">
-        <div class="overlay-title" data-i18n="historyTitle">HISTORY</div>
-        <!-- 今日總計 / 列表累計摘要卡片 -->
-        <div class="history-summary-card" id="history-summary-card">
-            <div class="summary-info-col">
-                <span class="summary-title" data-i18n="historyTodayTotal">TODAY'S TOTAL</span>
-                <span class="summary-val" id="history-today-amount">0.00 TWD</span>
-            </div>
-            <div class="summary-badge-col">
-                <span class="summary-count-badge" id="history-total-count">0 records</span>
-            </div>
-        </div>
-        <div class="history-list" id="history-container"></div>
-        <div class="btn-group history-btn-group">
-            <div class="clear-btn" id="btn-history-clear" data-i18n="btnClear">CLEAR</div>
-            <div class="share-btn share-line-btn" id="btn-history-share" data-i18n="btnShareLine">COPY ALL</div>
-            <div class="share-btn excel-btn" id="btn-history-export-excel" data-i18n="btnExportExcel">EXCEL</div>
-            <div class="done-btn" id="btn-history-done" data-i18n="btnClose">CLOSE</div>
-        </div>
-    </div>
-
-    <!-- 快速設定稅率 Modal (長按 TAX 鍵呼叫) -->
-    <div class="modal-overlay" id="quick-tax-modal">
-        <div class="modal-card" id="quick-tax-card">
-            <div class="modal-section-label" id="quick-tax-title" data-i18n="quickTaxTitle">SET TAX RATE (%)</div>
-            <div class="quick-tax-input-wrap">
-                <div class="quick-tax-curr-tag" id="quick-tax-curr-tag">
-                    <img id="quick-tax-flag" src="./flags/tw.svg" class="flag-img" alt="TWD">
-                    <span id="quick-tax-code">TWD</span>
+        <!-- 主設定選單 -->
+        <div class="overlay-menu" id="settings-menu">
+            <div class="overlay-title" data-i18n="settingsTitle">SETTINGS</div>
+            <div class="setting-box" role="dialog">
+                <div class="setting-row">
+                    <span class="setting-label" data-i18n="labelLanguage">LANGUAGE</span>
+                    <div class="option-selector">
+                        <button class="selector-btn lang-btn active" data-lang="en">ENG</button>
+                        <button class="selector-btn lang-btn" data-lang="zh">中文</button>
+                    </div>
                 </div>
-                <input type="number" step="any" min="0" max="100" id="quick-tax-input" class="quick-tax-input" placeholder="0">
-                <span class="quick-tax-percent">%</span>
+
+                <div class="setting-row">
+                    <span class="setting-label" data-i18n="labelDecimals">DECIMALS</span>
+                    <div class="stepper">
+                        <button id="btn-dec-minus">-</button>
+                        <span id="decimal-display">2</span>
+                        <button id="btn-dec-plus">+</button>
+                    </div>
+                </div>
+
+                <div class="setting-row">
+                    <span class="setting-label" data-i18n="labelLargeNumberFormat">LARGE NUMBERS</span>
+                    <div class="option-selector">
+                        <button class="selector-btn number-format-btn active" data-format="full"
+                            data-i18n="numFormatFull">DIRECT</button>
+                        <button class="selector-btn number-format-btn" data-format="scientific"
+                            data-i18n="numFormatSci">SCI</button>
+                    </div>
+                </div>
+
+                <div class="setting-row">
+                    <span class="setting-label" data-i18n="labelHaptic">HAPTIC FEEDBACK</span>
+                    <label class="switch"><input type="checkbox" id="haptic-toggle" checked><span
+                            class="slider"></span></label>
+                </div>
+
+                <div class="setting-row">
+                    <span class="setting-label" data-i18n="labelCategoryBubble">INSTANT BOOKKEEPING</span>
+                    <label class="switch"><input type="checkbox" id="category-bubble-toggle" checked><span
+                            class="slider"></span></label>
+                </div>
+
+                <div class="setting-row clickable" id="btn-open-keyboard">
+                    <span class="setting-label" data-i18n="labelKeyboardLayout">KEYBOARD LAYOUT</span>
+                    <div class="setting-arrow-link">❯</div>
+                </div>
+
+                <div class="setting-row clickable" id="btn-open-style">
+                    <span class="setting-label" data-i18n="labelStyleSettings">STYLE & THEME</span>
+                    <div class="setting-arrow-link">❯</div>
+                </div>
+
+                <div class="setting-row clickable" id="btn-open-tax">
+                    <span class="setting-label" data-i18n="labelTaxRates">TAX RATES</span>
+                    <div class="setting-arrow-link">❯</div>
+                </div>
+
+                <div class="setting-row clickable" id="btn-open-rates">
+                    <span class="setting-label" data-i18n="labelExchangeRates">EXCHANGE RATES</span>
+                    <div class="setting-arrow-link">❯</div>
+                </div>
+
+                <div class="setting-row"
+                    style="margin-top: 14px; border-top: var(--capsule-border); padding-top: 14px;">
+                    <div>
+                        <span class="setting-label" data-i18n="labelUpdateRates">UPDATE RATES</span>
+                        <div class="api-status" id="last-updated">Updating...</div>
+                    </div>
+                    <button class="refresh-btn" id="refresh-rate-btn" data-i18n="btnRefresh">REFRESH</button>
+                </div>
             </div>
-            <div class="modal-btn" id="btn-quick-tax-save" data-i18n="btnDone">SAVE</div>
-            <div class="modal-btn cancel" id="btn-quick-tax-cancel" data-i18n="btnCancel">CANCEL</div>
-        </div>
-    </div>
-
-    <!-- 歷史紀錄選項 Modal -->
-    <div class="modal-overlay" id="history-modal">
-        <div class="modal-card" id="history-modal-card">
-            <div class="modal-section-label" data-i18n="labelChangeCategory">CHANGE CATEGORY</div>
-            <div class="modal-category-picker" id="modal-category-picker">
-                <button class="modal-cat-chip" data-cat="food">🍜 <span data-i18n="catFood">食</span></button>
-                <button class="modal-cat-chip" data-cat="clothing">👕 <span data-i18n="catClothing">衣</span></button>
-                <button class="modal-cat-chip" data-cat="housing">🏠 <span data-i18n="catHousing">住</span></button>
-                <button class="modal-cat-chip" data-cat="transport">🚗 <span data-i18n="catTransport">行</span></button>
-                <button class="modal-cat-chip" data-cat="business">💼 <span data-i18n="catBusiness">商務</span></button>
-                <button class="modal-cat-chip" data-cat="other">🏷️ <span data-i18n="catOther">一般</span></button>
+            <div class="btn-group">
+                <div class="clear-btn" id="btn-settings-reset" data-i18n="btnReset">RESET</div>
+                <div class="done-btn" id="btn-settings-done" data-i18n="btnDone">DONE</div>
             </div>
-            <div class="modal-btn" data-action="result" data-i18n="insertResult">INSERT RESULT</div>
-            <div class="modal-btn" data-action="formula" data-i18n="insertFormula">INSERT FORMULA</div>
-            <div class="modal-btn danger" data-action="delete-single" data-i18n="deleteResult">DELETE</div>
-            <div class="modal-btn cancel" data-action="cancel" data-i18n="btnCancel">CANCEL</div>
+        </div>
+
+        <!-- 獨立鍵盤自訂頁面 -->
+        <div class="overlay-menu" id="keyboard-settings-menu">
+            <div class="overlay-title" data-i18n="keyboardTitle">CUSTOMIZE KEYBOARD</div>
+
+            <!-- 頂部智慧緊湊控制列 (整合提示、網格規格切換與佈局快照) -->
+            <div class="custom-top-toolbar">
+                <div class="option-selector grid-preset-selector compact-grid-selector">
+                    <button class="selector-btn grid-preset-btn" data-grid="6x4">6×4</button>
+                    <button class="selector-btn grid-preset-btn" data-grid="5x4">5×4</button>
+                    <button class="selector-btn grid-preset-btn" data-grid="4x6">4×6</button>
+                    <button class="selector-btn grid-preset-btn active" data-grid="4x5">4×5</button>
+                    <button class="selector-btn grid-preset-btn" data-grid="4x4">4×4</button>
+                </div>
+
+                <div class="snapshot-selector-bar compact-snapshot-bar">
+                    <span class="snapshot-label" data-i18n="snapshotTitle">SNAPSHOT</span>
+                    <div class="snapshot-btn-group">
+                        <button class="snapshot-chip active" data-snapshot="biz" data-i18n="snapshotBiz">💼 Biz</button>
+                        <button class="snapshot-chip" data-snapshot="travel" data-i18n="snapshotTravel">✈️ Trip</button>
+                        <button class="snapshot-chip" data-snapshot="math" data-i18n="snapshotMath">📐 Math</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="keyboard-custom-wrapper layout-l-wrap" id="keyboard-custom-wrapper">
+                <!-- L 型上半部：左側自訂鍵盤 + 右側候選庫 (Side Shelf) -->
+                <div class="custom-top-split">
+                    <!-- 左側：自訂鍵盤網格 -->
+                    <div class="custom-grid-container" id="custom-grid-container">
+                        <div class="pool-shelf-label" id="grid-shelf-label" data-i18n="gridShelfTitle">當前鍵盤</div>
+                        <div class="custom-keyboard-grid" id="custom-keyboard-grid">
+                            <!-- 由 JS 動態生成 -->
+                        </div>
+                    </div>
+
+                    <!-- 右側：側邊候選按鍵庫 (L型右翼) -->
+                    <div class="side-pool-section" id="side-pool-section">
+                        <div class="pool-shelf-label" data-i18n="sidePoolTitle">常用庫</div>
+                        <div class="side-pool-scroll" id="side-pool-scroll">
+                            <!-- 由 JS 動態生成 -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- L 型下半部：底部全寬擴充按鍵庫 (L型底翼) -->
+                <div class="pool-section" id="pool-drop-target">
+                    <div class="option-selector pool-category-tabs">
+                        <button class="selector-btn pool-tab-btn active" data-category="all"
+                            data-i18n="categoryAll">ALL</button>
+                        <button class="selector-btn pool-tab-btn" data-category="biz"
+                            data-i18n="categoryBiz">BIZ</button>
+                        <button class="selector-btn pool-tab-btn" data-category="math"
+                            data-i18n="categoryMath">MATH</button>
+                        <button class="selector-btn pool-tab-btn" data-category="mem"
+                            data-i18n="categoryMem">MEM</button>
+                        <button class="selector-btn pool-tab-btn" data-category="util"
+                            data-i18n="categoryUtil">UTIL</button>
+                    </div>
+                    <div class="key-pool-scroll" id="key-pool-scroll">
+                        <!-- 由 JS 動態生成按鍵庫項目 -->
+                    </div>
+                </div>
+            </div>
+            <div class="btn-group">
+                <div class="undo-redo-btn disabled" id="btn-keyboard-undo" title="Undo" data-i18n-title="btnUndo">↩</div>
+                <div class="undo-redo-btn disabled" id="btn-keyboard-redo" title="Redo" data-i18n-title="btnRedo">↪</div>
+                <div class="clear-btn" id="btn-keyboard-reset" data-i18n="btnReset">RESET</div>
+                <div class="done-btn" id="btn-keyboard-back" data-i18n="btnDone">DONE</div>
+            </div>
+        </div>
+
+        <!-- 獨立風格設定頁面 -->
+        <div class="overlay-menu" id="style-settings-menu">
+            <div class="overlay-title" data-i18n="styleTitle">STYLE & THEME</div>
+            <div class="setting-box" role="dialog">
+                <div class="setting-row">
+                    <span class="setting-label" data-i18n="labelFontStyle">FONT STYLE</span>
+                    <div class="option-selector">
+                        <button class="selector-btn font-btn tech-f active" data-font="tech"
+                            data-i18n="fontTech">TECH</button>
+                        <button class="selector-btn font-btn biz-f" data-font="business"
+                            data-i18n="fontBiz">BIZ</button>
+                        <button class="selector-btn font-btn cute-f" data-font="cute" data-i18n="fontCute">CUTE</button>
+                    </div>
+                </div>
+
+                <div class="setting-row" style="flex-direction: column; align-items: flex-start; gap: 8px;">
+                    <div style="display: flex; justify-content: space-between; width: 100%; align-items: center;">
+                        <span class="setting-label" data-i18n="labelThemeColor">THEME COLOR</span>
+                        <div class="color-palette" id="theme-palette"></div>
+                    </div>
+                    <div class="custom-color-menu" id="custom-color-menu">
+                        <div class="picker-main-row">
+                            <div class="color-field" id="color-field">
+                                <div class="color-field-white"></div>
+                                <div class="color-field-black"></div>
+                                <div class="color-field-handle" id="color-field-handle"></div>
+                            </div>
+                            <div class="hue-slider-container" id="hue-slider-container">
+                                <div class="hue-slider-track"></div>
+                                <div class="hue-slider-handle" id="hue-slider-handle"></div>
+                            </div>
+                        </div>
+                        <div class="picker-values-row">
+                            <div class="value-item hex-item">
+                                <span class="value-label">#</span>
+                                <input type="text" id="hex-input" class="hex-input" maxlength="7" readonly>
+                            </div>
+                            <div class="value-item">
+                                <span class="value-label r-label">R</span>
+                                <span class="value-val" id="val-r">0</span>
+                            </div>
+                            <div class="value-item">
+                                <span class="value-label g-label">G</span>
+                                <span class="value-val" id="val-g">255</span>
+                            </div>
+                            <div class="value-item">
+                                <span class="value-label b-label">B</span>
+                                <span class="value-val" id="val-b">255</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="setting-row">
+                    <span class="setting-label" data-i18n="labelLightMode">LIGHT MODE</span>
+                    <label class="switch"><input type="checkbox" id="theme-toggle"><span class="slider"></span></label>
+                </div>
+            </div>
+            <div class="btn-group">
+                <div class="done-btn" id="btn-style-back" data-i18n="btnBack">BACK</div>
+            </div>
+        </div>
+
+        <!-- 獨立稅率設定頁面 -->
+        <div class="overlay-menu" id="tax-settings-menu">
+            <div class="overlay-title" data-i18n="taxTitle">TAX RATES (%)</div>
+            <div class="setting-box">
+                <div class="tax-grid">
+                </div>
+            </div>
+            <div class="btn-group">
+                <div class="done-btn" id="btn-tax-back" data-i18n="btnBack">BACK</div>
+            </div>
+        </div>
+
+        <!-- 獨立匯率自定頁面 -->
+        <div class="overlay-menu" id="rate-settings-menu">
+            <div class="overlay-title" data-i18n="ratesTitle">EXCHANGE RATES</div>
+            <div class="setting-box">
+                <div id="rate-base-title"
+                    style="text-align: center; color: var(--text-muted); font-size: 12px; margin-bottom: 12px; font-weight: 700;">
+                    BASE: 1.00 USD</div>
+                <div class="rate-grid">
+                </div>
+            </div>
+            <div class="btn-group">
+                <div class="clear-btn" id="btn-rate-reset" data-i18n="btnReset">RESET</div>
+                <div class="done-btn" id="btn-rate-back" data-i18n="btnBack">BACK</div>
+            </div>
+        </div>
+
+        <!-- 歷史紀錄選單 -->
+        <div class="overlay-menu" id="history-menu">
+            <div class="overlay-title" data-i18n="historyTitle">HISTORY</div>
+            <!-- 今日總計 / 列表累計摘要卡片 -->
+            <div class="history-summary-card" id="history-summary-card">
+                <div class="summary-info-col">
+                    <span class="summary-title" data-i18n="historyTodayTotal">TODAY'S TOTAL</span>
+                    <span class="summary-val" id="history-today-amount">0.00 TWD</span>
+                </div>
+                <div class="summary-badge-col">
+                    <span class="summary-count-badge" id="history-total-count">0 records</span>
+                </div>
+            </div>
+            <div class="history-list" id="history-container"></div>
+            <div class="btn-group history-btn-group">
+                <div class="clear-btn" id="btn-history-clear" data-i18n="btnClear">CLEAR</div>
+                <div class="share-btn share-line-btn" id="btn-history-share" data-i18n="btnShareLine">COPY ALL</div>
+                <div class="share-btn excel-btn" id="btn-history-export-excel" data-i18n="btnExportExcel">EXCEL</div>
+                <div class="done-btn" id="btn-history-done" data-i18n="btnClose">CLOSE</div>
+            </div>
+        </div>
+
+        <!-- 快速設定稅率 Modal (長按 TAX 鍵呼叫) -->
+        <div class="modal-overlay" id="quick-tax-modal">
+            <div class="modal-card" id="quick-tax-card">
+                <div class="modal-section-label" id="quick-tax-title" data-i18n="quickTaxTitle">SET TAX RATE (%)</div>
+                <div class="quick-tax-input-wrap">
+                    <div class="quick-tax-curr-tag" id="quick-tax-curr-tag">
+                        <img id="quick-tax-flag" src="./flags/tw.svg" class="flag-img" alt="TWD">
+                        <span id="quick-tax-code">TWD</span>
+                    </div>
+                    <input type="number" step="any" min="0" max="100" id="quick-tax-input" class="quick-tax-input"
+                        placeholder="0">
+                    <span class="quick-tax-percent">%</span>
+                </div>
+                <div class="modal-btn" id="btn-quick-tax-save" data-i18n="btnDone">SAVE</div>
+                <div class="modal-btn cancel" id="btn-quick-tax-cancel" data-i18n="btnCancel">CANCEL</div>
+            </div>
+        </div>
+
+        <!-- 歷史紀錄選項 Modal -->
+        <div class="modal-overlay" id="history-modal">
+            <div class="modal-card" id="history-modal-card">
+                <div class="modal-section-label" data-i18n="labelChangeCategory">CHANGE CATEGORY</div>
+                <div class="modal-category-picker" id="modal-category-picker">
+                    <button class="modal-cat-chip" data-cat="food">🍜 <span data-i18n="catFood">食</span></button>
+                    <button class="modal-cat-chip" data-cat="clothing">👕 <span
+                            data-i18n="catClothing">衣</span></button>
+                    <button class="modal-cat-chip" data-cat="housing">🏠 <span data-i18n="catHousing">住</span></button>
+                    <button class="modal-cat-chip" data-cat="transport">🚗 <span
+                            data-i18n="catTransport">行</span></button>
+                    <button class="modal-cat-chip" data-cat="business">💼 <span
+                            data-i18n="catBusiness">商務</span></button>
+                    <button class="modal-cat-chip" data-cat="other">🏷️ <span data-i18n="catOther">一般</span></button>
+                </div>
+                <div class="modal-btn" data-action="result" data-i18n="insertResult">INSERT RESULT</div>
+                <div class="modal-btn" data-action="formula" data-i18n="insertFormula">INSERT FORMULA</div>
+                <div class="modal-btn danger" data-action="delete-single" data-i18n="deleteResult">DELETE</div>
+                <div class="modal-btn cancel" data-action="cancel" data-i18n="btnCancel">CANCEL</div>
+            </div>
+        </div>
+
+        <!-- 清除歷史紀錄 Modal -->
+        <div class="modal-overlay" id="confirm-clear-modal">
+            <div class="modal-card" id="confirm-modal-card">
+                <div class="modal-title danger-title" data-i18n="clearHistoryTitle">CLEAR HISTORY?</div>
+                <div class="modal-desc" data-i18n="clearHistoryDesc">All saved calculations will be deleted.</div>
+                <div class="modal-btn danger" data-action="confirm-clear" data-i18n="btnClear">CLEAR</div>
+                <div class="modal-btn cancel" data-action="cancel-clear" data-i18n="btnCancel">CANCEL</div>
+            </div>
+        </div>
+
+        <!-- 重置設定 Modal -->
+        <div class="modal-overlay" id="confirm-reset-modal">
+            <div class="modal-card" id="confirm-reset-card">
+                <div class="modal-title danger-title" data-i18n="resetSettingsTitle">RESET SETTINGS?</div>
+                <div class="modal-desc" data-i18n="resetSettingsDesc">Theme, decimals, tax rates and exchange rates will
+                    be restored to defaults.</div>
+                <div class="modal-btn danger" data-action="confirm-reset" data-i18n="btnReset">RESET</div>
+                <div class="modal-btn cancel" data-action="cancel-reset" data-i18n="btnCancel">CANCEL</div>
+            </div>
+        </div>
+
+        <!-- PWA Update Notification Banner -->
+        <div class="pwa-update-banner" id="pwa-update-banner">
+            <span class="pwa-update-text" data-i18n="pwaUpdateMsg">✨ New version available</span>
+            <button class="pwa-update-btn" id="pwa-update-btn" data-i18n="pwaUpdateBtn">REFRESH</button>
         </div>
     </div>
-
-    <!-- 清除歷史紀錄 Modal -->
-    <div class="modal-overlay" id="confirm-clear-modal">
-        <div class="modal-card" id="confirm-modal-card">
-            <div class="modal-title danger-title" data-i18n="clearHistoryTitle">CLEAR HISTORY?</div>
-            <div class="modal-desc" data-i18n="clearHistoryDesc">All saved calculations will be deleted.</div>
-            <div class="modal-btn danger" data-action="confirm-clear" data-i18n="btnClear">CLEAR</div>
-            <div class="modal-btn cancel" data-action="cancel-clear" data-i18n="btnCancel">CANCEL</div>
-        </div>
-    </div>
-
-    <!-- 重置設定 Modal -->
-    <div class="modal-overlay" id="confirm-reset-modal">
-        <div class="modal-card" id="confirm-reset-card">
-            <div class="modal-title danger-title" data-i18n="resetSettingsTitle">RESET SETTINGS?</div>
-            <div class="modal-desc" data-i18n="resetSettingsDesc">Theme, decimals, tax rates and exchange rates will be restored to defaults.</div>
-            <div class="modal-btn danger" data-action="confirm-reset" data-i18n="btnReset">RESET</div>
-            <div class="modal-btn cancel" data-action="cancel-reset" data-i18n="btnCancel">CANCEL</div>
-        </div>
-    </div>
-
-    <!-- PWA Update Notification Banner -->
-    <div class="pwa-update-banner" id="pwa-update-banner">
-        <span class="pwa-update-text" data-i18n="pwaUpdateMsg">✨ New version available</span>
-        <button class="pwa-update-btn" id="pwa-update-btn" data-i18n="pwaUpdateBtn">REFRESH</button>
-    </div>
-</div>
 
     <script src="./xlsx.full.min.js"></script>
     <script src="./math.min.js"></script>
     <script src="./i18n.js"></script>
     <script src="./script.js"></script>
 </body>
+
 </html>

@@ -37,12 +37,52 @@
         if (DOM.convertedWrapper) cachedWidths['convertedWrapper'] = DOM.convertedWrapper.clientWidth;
     }
 
+    function isScreenTooSmall() {
+        const w = window.innerWidth;
+        const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+        return (w < 340 || h < 340);
+    }
+
+    function checkSmallScreenThreshold() {
+        const isTooSmall = isScreenTooSmall();
+        ['btn-open-keyboard', 'btn-open-style', 'btn-open-tax', 'btn-open-rates'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                if (isTooSmall) {
+                    el.classList.add('disabled-row');
+                } else {
+                    el.classList.remove('disabled-row');
+                }
+            }
+        });
+    }
+
+    function guardSubMenuOpen(callback) {
+        return function(e) {
+            if (isScreenTooSmall()) {
+                triggerVibration(true);
+                showToastMsg(I18N[currentLang].toastScreenTooSmall || "Screen size too small");
+                return;
+            }
+            if (typeof callback === 'function') callback(e);
+        };
+    }
+
     function handleWindowResize() {
         // 優先使用 window.visualViewport.height 獲取真實高度
         const actualHeight = window.visualViewport ? window.visualViewport.height : window.innerHeight;
         document.documentElement.style.setProperty('--true-height', `${actualHeight}px`);
 
         updateCachedWidths();
+        checkSmallScreenThreshold();
+
+        // 螢幕方向改變時，即時同步當前模式之鍵盤佈局與網格
+        syncKeyboardState();
+        if (typeof updateGridCols === 'function') updateGridCols();
+        if (typeof renderMainKeyboard === 'function') renderMainKeyboard();
+        if (document.getElementById('keyboard-settings-menu')?.classList.contains('show')) {
+            if (typeof renderCustomKeyboard === 'function') renderCustomKeyboard();
+        }
 
         // 延遲約 100ms 確保系統轉場動畫完成後再進行重算與文字縮放
         setTimeout(() => {
@@ -54,15 +94,20 @@
     }
     window.addEventListener('resize', handleWindowResize);
     window.addEventListener('orientationchange', handleWindowResize);
-    window.addEventListener('load', handleWindowResize);
+    window.addEventListener('load', () => {
+        handleWindowResize();
+        checkSmallScreenThreshold();
+    });
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', () => {
             DOM.init();
             handleWindowResize();
+            checkSmallScreenThreshold();
         });
     } else {
         DOM.init();
         handleWindowResize();
+        checkSmallScreenThreshold();
     }
 
     /* 持久化 Keys 定義 */
@@ -163,6 +208,18 @@
     };
 
     const PRESET_DEFAULT_LAYOUTS = {
+        '6x4': [
+            'clear', 'backspace', 'percent', 'divide', 'multiply', 'subtract',
+            'num_7', 'num_8', 'num_9', 'add', 'paren', 'sqrt',
+            'num_4', 'num_5', 'num_6', 'double_zero', 'plus_minus', 'power',
+            'num_1', 'num_2', 'num_3', 'num_0', 'dot', 'equal'
+        ],
+        '5x4': [
+            'clear', 'backspace', 'percent', 'divide', 'multiply',
+            'num_7', 'num_8', 'num_9', 'subtract', 'add',
+            'num_4', 'num_5', 'num_6', 'paren', 'equal',
+            'num_1', 'num_2', 'num_3', 'num_0', 'dot'
+        ],
         '4x6': [
             'sin', 'cos', 'tan', 'power',
             'clear', 'backspace', 'percent', 'divide',
@@ -195,6 +252,8 @@
     const DEFAULT_KEYBOARD_LAYOUT = PRESET_DEFAULT_LAYOUTS['4x5'];
 
     const GRID_CONFIGS = {
+        '6x4': { cols: 6, rows: 4, total: 24 },
+        '5x4': { cols: 5, rows: 4, total: 20 },
         '4x6': { cols: 4, rows: 6, total: 24 },
         '4x5': { cols: 4, rows: 5, total: 20 },
         '4x4': { cols: 4, rows: 4, total: 16 },
@@ -202,10 +261,71 @@
     };
 
     const KEY_KEYBOARD_GRID = 'bCalc_keyboard_grid';
-    let currentKeyboardGrid = localStorage.getItem(KEY_KEYBOARD_GRID) || '4x5';
-    if (!GRID_CONFIGS[currentKeyboardGrid]) currentKeyboardGrid = '4x5';
+    const KEY_KEYBOARD_LAYOUT_LANDSCAPE = 'bCalc_keyboard_layout_landscape';
+    const KEY_KEYBOARD_GRID_LANDSCAPE = 'bCalc_keyboard_grid_landscape';
 
-    let currentKeyboardLayout = JSON.parse(localStorage.getItem(KEY_KEYBOARD_LAYOUT)) || [...(PRESET_DEFAULT_LAYOUTS[currentKeyboardGrid] || DEFAULT_KEYBOARD_LAYOUT)];
+    function isLandscapeMode() {
+        return window.innerWidth > window.innerHeight;
+    }
+
+    let activeEditOrientation = isLandscapeMode() ? 'landscape' : 'portrait';
+
+    function getKeyboardGrid(orientation = (isLandscapeMode() ? 'landscape' : 'portrait')) {
+        const isLand = (orientation === 'landscape');
+        const defaultGrid = isLand ? '6x4' : '4x5';
+        const key = isLand ? KEY_KEYBOARD_GRID_LANDSCAPE : KEY_KEYBOARD_GRID;
+        let g = localStorage.getItem(key) || defaultGrid;
+        if (!GRID_CONFIGS[g]) g = defaultGrid;
+        return g;
+    }
+
+    function getKeyboardLayout(orientation = (isLandscapeMode() ? 'landscape' : 'portrait')) {
+        const grid = getKeyboardGrid(orientation);
+        const isLand = (orientation === 'landscape');
+        const key = isLand ? KEY_KEYBOARD_LAYOUT_LANDSCAPE : KEY_KEYBOARD_LAYOUT;
+        const saved = localStorage.getItem(key);
+        if (saved) {
+            try { return JSON.parse(saved); } catch(e) {}
+        }
+        return [...(PRESET_DEFAULT_LAYOUTS[grid] || DEFAULT_KEYBOARD_LAYOUT)];
+    }
+
+    function autoSaveSnapshot(orientation = activeEditOrientation) {
+        try {
+            const KEY_KEYBOARD_SNAPSHOTS = 'bCalc_keyboard_snapshots';
+            const snapshots = JSON.parse(localStorage.getItem(KEY_KEYBOARD_SNAPSHOTS)) || {};
+            if (!snapshots[orientation]) snapshots[orientation] = {};
+            const activeKey = snapshots[orientation].activeSnapshot || 'biz';
+            snapshots[orientation][activeKey] = {
+                grid: currentKeyboardGrid,
+                layout: [...currentKeyboardLayout]
+            };
+            snapshots[orientation].activeSnapshot = activeKey;
+            localStorage.setItem(KEY_KEYBOARD_SNAPSHOTS, JSON.stringify(snapshots));
+        } catch (e) {}
+    }
+
+    function saveKeyboardGrid(grid, orientation = activeEditOrientation) {
+        const key = (orientation === 'landscape') ? KEY_KEYBOARD_GRID_LANDSCAPE : KEY_KEYBOARD_GRID;
+        localStorage.setItem(key, grid);
+        autoSaveSnapshot(orientation);
+    }
+
+    function saveKeyboardLayout(layout, orientation = activeEditOrientation) {
+        const key = (orientation === 'landscape') ? KEY_KEYBOARD_LAYOUT_LANDSCAPE : KEY_KEYBOARD_LAYOUT;
+        localStorage.setItem(key, JSON.stringify(layout));
+        autoSaveSnapshot(orientation);
+    }
+
+    let currentKeyboardGrid = getKeyboardGrid(isLandscapeMode() ? 'landscape' : 'portrait');
+    let currentKeyboardLayout = getKeyboardLayout(isLandscapeMode() ? 'landscape' : 'portrait');
+
+    function syncKeyboardState(targetOrientation = null) {
+        const isCustomizerOpen = document.getElementById('keyboard-settings-menu')?.classList.contains('show');
+        const orient = targetOrientation || (isCustomizerOpen ? activeEditOrientation : (isLandscapeMode() ? 'landscape' : 'portrait'));
+        currentKeyboardGrid = getKeyboardGrid(orient);
+        currentKeyboardLayout = getKeyboardLayout(orient);
+    }
 
     const SUPPORTED_CURRENCIES = [
         { code: 'TWD', flag: 'tw' },
@@ -2373,13 +2493,16 @@
                 glider.className = 'selector-glider';
                 selector.prepend(glider);
             }
-            const activeBtn = selector.querySelector('.selector-btn.active, .lang-btn.active, .font-btn.active, .grid-preset-btn.active, .pool-tab-btn.active');
+            const activeBtn = selector.querySelector('.selector-btn.active, .lang-btn.active, .font-btn.active, .grid-preset-btn.active, .pool-tab-btn.active, .mode-btn.active');
             if (activeBtn && activeBtn.offsetWidth > 0) {
                 const sRect = selector.getBoundingClientRect();
                 const bRect = activeBtn.getBoundingClientRect();
                 const targetLeft = bRect.left - sRect.left;
                 glider.style.width = `${bRect.width}px`;
-                glider.style.transform = `translate3d(${targetLeft - 3}px, 0, 0)`;
+                glider.style.transform = `translate3d(${targetLeft}px, 0, 0)`;
+                glider.style.opacity = '1';
+            } else {
+                glider.style.opacity = '0';
             }
         });
     }
@@ -2749,8 +2872,9 @@
 
         localStorage.removeItem(KEY_KEYBOARD_LAYOUT);
         localStorage.removeItem(KEY_KEYBOARD_GRID);
-        currentKeyboardGrid = '4x5';
-        currentKeyboardLayout = [...DEFAULT_KEYBOARD_LAYOUT];
+        localStorage.removeItem(KEY_KEYBOARD_LAYOUT_LANDSCAPE);
+        localStorage.removeItem(KEY_KEYBOARD_GRID_LANDSCAPE);
+        syncKeyboardState();
         updateGridCols();
         renderMainKeyboard();
 
@@ -2828,7 +2952,7 @@
         if (!GRID_CONFIGS[gridKey]) return;
         triggerVibration();
         currentKeyboardGrid = gridKey;
-        localStorage.setItem(KEY_KEYBOARD_GRID, currentKeyboardGrid);
+        saveKeyboardGrid(currentKeyboardGrid, activeEditOrientation);
 
         if (PRESET_DEFAULT_LAYOUTS[gridKey]) {
             currentKeyboardLayout = [...PRESET_DEFAULT_LAYOUTS[gridKey]];
@@ -2848,7 +2972,8 @@
             currentKeyboardLayout = currentKeyboardLayout.slice(0, 24);
         }
 
-        localStorage.setItem(KEY_KEYBOARD_LAYOUT, JSON.stringify(currentKeyboardLayout));
+        saveKeyboardLayout(currentKeyboardLayout, activeEditOrientation);
+        pushUndoState();
         updateGridCols();
         renderCustomKeyboard();
         renderMainKeyboard();
@@ -2862,6 +2987,91 @@
                 if (customKb) customKb.classList.remove('is-morphing');
             }, 260);
         }
+    }
+
+    /* ─── ↩ / ↪ 鍵盤自訂 Undo (復原) & Redo (重做) 歷史紀錄引擎 ─── */
+    let undoStack = [];
+    let redoStack = [];
+
+    function pushUndoState() {
+        const state = {
+            layout: [...currentKeyboardLayout],
+            grid: currentKeyboardGrid,
+            orientation: activeEditOrientation
+        };
+        // 避免連續重複壓入同一個狀態
+        if (undoStack.length > 0) {
+            const lastState = undoStack[undoStack.length - 1];
+            if (lastState.orientation === state.orientation &&
+                lastState.grid === state.grid &&
+                JSON.stringify(lastState.layout) === JSON.stringify(state.layout)) {
+                return;
+            }
+        }
+        undoStack.push(state);
+        if (undoStack.length > 40) undoStack.shift(); // 限制最多 40 步歷史
+        redoStack = []; // 清空重做堆疊
+        updateUndoRedoUI();
+    }
+
+    function updateUndoRedoUI() {
+        const undoBtn = document.getElementById('btn-keyboard-undo');
+        const redoBtn = document.getElementById('btn-keyboard-redo');
+        if (undoBtn) {
+            if (undoStack.length > 1) {
+                undoBtn.classList.remove('disabled');
+            } else {
+                undoBtn.classList.add('disabled');
+            }
+        }
+        if (redoBtn) {
+            if (redoStack.length > 0) {
+                redoBtn.classList.remove('disabled');
+            } else {
+                redoBtn.classList.add('disabled');
+            }
+        }
+    }
+
+    function performUndo() {
+        if (undoStack.length <= 1) return;
+        triggerVibration();
+        const currentState = undoStack.pop();
+        redoStack.push(currentState);
+
+        const targetState = undoStack[undoStack.length - 1];
+        activeEditOrientation = targetState.orientation;
+        currentKeyboardGrid = targetState.grid;
+        currentKeyboardLayout = [...targetState.layout];
+
+        saveKeyboardGrid(currentKeyboardGrid, activeEditOrientation);
+        saveKeyboardLayout(currentKeyboardLayout, activeEditOrientation);
+
+        updateOrientationModeBtnsUI();
+        updateGridCols();
+        renderCustomKeyboard();
+        renderMainKeyboard();
+        updateUndoRedoUI();
+    }
+
+    function performRedo() {
+        if (redoStack.length === 0) return;
+        triggerVibration();
+        const targetState = redoStack.pop();
+        undoStack.push(targetState);
+
+        activeEditOrientation = targetState.orientation;
+        currentKeyboardGrid = targetState.grid;
+        currentKeyboardLayout = [...targetState.layout];
+
+        saveKeyboardGrid(currentKeyboardGrid, activeEditOrientation);
+        saveKeyboardLayout(currentKeyboardLayout, activeEditOrientation);
+
+        updateOrientationModeBtnsUI();
+        updateGridCols();
+        renderCustomKeyboard();
+        renderMainKeyboard();
+        updateUndoRedoUI();
     }
 
     function getKeyLabel(keyId) {
@@ -3007,6 +3217,12 @@
         gridEl.innerHTML = '';
         currentKeyboardLayout.forEach((keyId, idx) => {
             const btn = generateKeyElement(keyId, idx);
+            // 擬真隨機抖動：隨機分配 4 種不同角度與週期的抖動軌道，並帶入負 delay 徹底錯開全體時間軸
+            const jiggleTrack = `jiggle-track-${(idx % 4) + 1}`;
+            btn.classList.add(jiggleTrack);
+            // 採用多段式負時間差（animation-delay），消除機械同步感
+            const delays = ['-0.08s', '-0.17s', '-0.23s', '-0.04s', '-0.19s', '-0.12s', '-0.27s', '-0.02s'];
+            btn.style.animationDelay = delays[idx % delays.length];
             gridEl.appendChild(btn);
         });
     }
@@ -3078,7 +3294,24 @@
         }
     }
 
+    function updateOrientationModeBtnsUI() {
+        document.querySelectorAll('.orientation-mode-selector .mode-btn').forEach(btn => {
+            if (btn.dataset.orientation === activeEditOrientation) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        });
+    }
+
     function openKeyboardCustomizer() {
+        activeEditOrientation = isLandscapeMode() ? 'landscape' : 'portrait';
+        updateOrientationModeBtnsUI();
+        syncKeyboardState(activeEditOrientation);
+        if (typeof updateSnapshotUI === 'function') updateSnapshotUI(activeEditOrientation);
+        undoStack = [];
+        redoStack = [];
+        pushUndoState();
         updateGridCols();
         renderCustomKeyboard();
         renderKeyPool(activePoolCategory, false);
@@ -3122,14 +3355,14 @@
                     keyEl.classList.add('is-shifting');
 
                     if (i === sourceIndex) {
-                        // 起點鍵被提起拖曳，在網格中淡出讓位，由 indicatorEl 在目標槽位精確顯示預期虛線圓框
+                        // 被拿起的原按鍵淡出隱藏
                         keyEl.style.opacity = '0';
                         keyEl.style.visibility = 'hidden';
                         keyEl.style.transform = 'translate3d(0, 0, 0)';
                     } else {
-                        // 其他按鍵根據起點與落點進行推擠讓位
+                        // 其他按鍵根據起點 (sourceIndex) 與當前懸停目標 (hoverIdx) 實時推擠讓位
                         let targetSlot = i;
-                        if (hoverIdx >= 0) {
+                        if (hoverIdx >= 0 && hoverIdx !== sourceIndex) {
                             if (sourceIndex < hoverIdx) {
                                 if (i > sourceIndex && i <= hoverIdx) {
                                     targetSlot = i - 1; // 往前挪移一格補位
@@ -3140,6 +3373,7 @@
                                 }
                             }
                         }
+
                         if (targetSlot !== i && targetSlot >= 0 && targetSlot < N) {
                             const dx = slotRects[targetSlot].left - slotRects[i].left;
                             const dy = slotRects[targetSlot].top - slotRects[i].top;
@@ -3147,7 +3381,7 @@
                             keyEl.style.opacity = '1';
                             keyEl.style.visibility = 'visible';
                         } else {
-                            keyEl.style.transform = `translate3d(0, 0, 0)`;
+                            keyEl.style.transform = 'translate3d(0, 0, 0)';
                             keyEl.style.opacity = '1';
                             keyEl.style.visibility = 'visible';
                         }
@@ -3155,7 +3389,7 @@
                 });
             } else {
                 if (hoverIdx < 0 || hoverIdx >= N) {
-                    // 未懸停於網格上，全部重設回原位
+                    // 未懸停於網格上，全部按鍵回到初始原位
                     gridKeys.forEach(keyEl => {
                         keyEl.classList.add('is-shifting');
                         keyEl.style.transform = 'translate3d(0, 0, 0)';
@@ -3166,48 +3400,67 @@
                     return;
                 }
 
-                // 智慧空白格推擠吸收判定：
-                const blankIdxAfter = currentKeyboardLayout.indexOf('blank', hoverIdx);
-                const blankIdxBefore = (blankIdxAfter === -1) ? currentKeyboardLayout.lastIndexOf('blank', hoverIdx - 1) : -1;
+                // 從庫存區拖入網格：智慧空白格定向吸收動態讓位
+                let targetBlankIdx = -1;
+                let minDistToBlank = Infinity;
+                currentKeyboardLayout.forEach((kId, idx) => {
+                    if (kId === 'blank') {
+                        const dist = Math.abs(idx - hoverIdx);
+                        if (dist < minDistToBlank) {
+                            minDistToBlank = dist;
+                            targetBlankIdx = idx;
+                        }
+                    }
+                });
 
                 gridKeys.forEach((keyEl, i) => {
                     keyEl.classList.add('is-shifting');
 
-                    if (blankIdxAfter !== -1) {
-                        if (i >= hoverIdx && i < blankIdxAfter) {
-                            const targetSlot = i + 1;
-                            const dx = slotRects[targetSlot].left - slotRects[i].left;
-                            const dy = slotRects[targetSlot].top - slotRects[i].top;
-                            keyEl.style.transform = `translate3d(${dx}px, ${dy}px, 0)`;
-                            keyEl.style.opacity = '1';
-                            keyEl.style.visibility = 'visible';
-                        } else if (i === blankIdxAfter) {
-                            keyEl.style.transform = 'translate3d(0, 0, 0)';
-                            keyEl.style.opacity = '0';
-                            keyEl.style.visibility = 'hidden';
+                    if (targetBlankIdx !== -1) {
+                        if (targetBlankIdx > hoverIdx) {
+                            // 空白格在落點後方：[hoverIdx ... targetBlankIdx-1] 往後順延挪移一格讓出 hoverIdx 槽位
+                            if (i >= hoverIdx && i < targetBlankIdx) {
+                                const targetSlot = i + 1;
+                                const dx = slotRects[targetSlot].left - slotRects[i].left;
+                                const dy = slotRects[targetSlot].top - slotRects[i].top;
+                                keyEl.style.transform = `translate3d(${dx}px, ${dy}px, 0)`;
+                                keyEl.style.opacity = '1';
+                                keyEl.style.visibility = 'visible';
+                            } else if (i === targetBlankIdx) {
+                                keyEl.style.transform = 'translate3d(0, 0, 0)';
+                                keyEl.style.opacity = '0';
+                                keyEl.style.visibility = 'hidden';
+                            } else {
+                                keyEl.style.transform = 'translate3d(0, 0, 0)';
+                                keyEl.style.opacity = '1';
+                                keyEl.style.visibility = 'visible';
+                            }
+                        } else if (targetBlankIdx < hoverIdx) {
+                            // 空白格在落點前方：[targetBlankIdx+1 ... hoverIdx] 往前順延挪移一格讓出 hoverIdx 槽位
+                            if (i > targetBlankIdx && i <= hoverIdx) {
+                                const targetSlot = i - 1;
+                                const dx = slotRects[targetSlot].left - slotRects[i].left;
+                                const dy = slotRects[targetSlot].top - slotRects[i].top;
+                                keyEl.style.transform = `translate3d(${dx}px, ${dy}px, 0)`;
+                                keyEl.style.opacity = '1';
+                                keyEl.style.visibility = 'visible';
+                            } else if (i === targetBlankIdx) {
+                                keyEl.style.transform = 'translate3d(0, 0, 0)';
+                                keyEl.style.opacity = '0';
+                                keyEl.style.visibility = 'hidden';
+                            } else {
+                                keyEl.style.transform = 'translate3d(0, 0, 0)';
+                                keyEl.style.opacity = '1';
+                                keyEl.style.visibility = 'visible';
+                            }
                         } else {
-                            keyEl.style.transform = 'translate3d(0, 0, 0)';
-                            keyEl.style.opacity = '1';
-                            keyEl.style.visibility = 'visible';
-                        }
-                    } else if (blankIdxBefore !== -1) {
-                        if (i > blankIdxBefore && i <= hoverIdx) {
-                            const targetSlot = i - 1;
-                            const dx = slotRects[targetSlot].left - slotRects[i].left;
-                            const dy = slotRects[targetSlot].top - slotRects[i].top;
-                            keyEl.style.transform = `translate3d(${dx}px, ${dy}px, 0)`;
-                            keyEl.style.opacity = '1';
-                            keyEl.style.visibility = 'visible';
-                        } else if (i === blankIdxBefore) {
-                            keyEl.style.transform = 'translate3d(0, 0, 0)';
-                            keyEl.style.opacity = '0';
-                            keyEl.style.visibility = 'hidden';
-                        } else {
+                            // 正好移到空白格上：直接讓出該格
                             keyEl.style.transform = 'translate3d(0, 0, 0)';
                             keyEl.style.opacity = '1';
                             keyEl.style.visibility = 'visible';
                         }
                     } else {
+                        // 無空白格時：[hoverIdx ...] 所有按鍵往後遞推讓位
                         if (i >= hoverIdx) {
                             const targetSlot = i + 1;
                             if (targetSlot < N) {
@@ -3247,7 +3500,7 @@
 
         const processPointerMove = () => {
             if (!dragState || dragState.isFinalizing) return;
-            const { floatingEl, keyRect, offsetX, offsetY, slotCenters, slotRects, gridRect, isFromGrid, pendingEvent } = dragState;
+            const { floatingEl, keyRect, offsetX, offsetY, slotCenters, slotRects, gridRect, isFromGrid, pendingEvent, touchLiftY } = dragState;
             if (!pendingEvent) return;
 
             const targetX = pendingEvent.clientX - keyRect.width / 2 - offsetX;
@@ -3259,11 +3512,12 @@
             // 純 GPU 合成位移，零 Reflow，維持 1:1 自然大小不放大
             floatingEl.style.transform = `translate3d(${targetX}px, ${targetY}px, 0) scale(1)`;
 
-            const floatingCenterX = targetX + keyRect.width / 2;
-            const floatingCenterY = targetY + keyRect.height / 2;
+            // 以真實觸控/游標點（含 touchLiftY 微調）作為碰撞判定核心
+            const pointerX = pendingEvent.clientX;
+            const pointerY = pendingEvent.clientY - touchLiftY;
             
-            // 判定是否拖出網格 (移向右側側邊庫或下方庫存區)
-            const isOutsideGrid = (floatingCenterX < gridRect.left - 12 || floatingCenterX > gridRect.right + 12 || floatingCenterY < gridRect.top - 12 || floatingCenterY > gridRect.bottom + 12);
+            // 判定是否拖出網格 (適度擴張碰撞感應區 32px，使邊界滑動極致靈敏)
+            const isOutsideGrid = (pointerX < gridRect.left - 32 || pointerX > gridRect.right + 32 || pointerY < gridRect.top - 32 || pointerY > gridRect.bottom + 32);
             let hoveredIndex = -1;
 
             if (!isOutsideGrid && slotCenters && slotCenters.length > 0) {
@@ -3272,23 +3526,16 @@
 
                 for (let idx = 0; idx < slotCenters.length; idx++) {
                     const center = slotCenters[idx];
-                    const dist = Math.hypot(floatingCenterX - center.x, floatingCenterY - center.y);
+                    const dist = Math.hypot(pointerX - center.x, pointerY - center.y);
                     if (dist < minDistance) {
                         minDistance = dist;
                         closestIdx = idx;
                     }
                 }
 
-                // 防抖與遲滯判定 (Hysteresis)
-                if (dragState.currentHoverIndex >= 0 && dragState.currentHoverIndex < slotCenters.length && closestIdx !== dragState.currentHoverIndex) {
-                    const currentDist = Math.hypot(floatingCenterX - slotCenters[dragState.currentHoverIndex].x, floatingCenterY - slotCenters[dragState.currentHoverIndex].y);
-                    if (minDistance > currentDist * 0.85) {
-                        closestIdx = dragState.currentHoverIndex;
-                    }
-                }
-
                 const slotW = slotRects[0] ? slotRects[0].width : 40;
-                if (minDistance <= slotW * 2.2 && closestIdx >= 0) {
+                // 擴大感應半徑至槽位寬度的 1.8 倍，只要接近目標按鍵槽位即刻感應
+                if (minDistance <= slotW * 1.8 && closestIdx >= 0) {
                     hoveredIndex = closestIdx;
                 } else {
                     hoveredIndex = isFromGrid ? dragState.sourceIndex : -1;
@@ -3318,12 +3565,7 @@
         const onPointerMove = (e) => {
             if (!dragState || dragState.isFinalizing) return;
             dragState.pendingEvent = e;
-            if (!dragRaf) {
-                dragRaf = requestAnimationFrame(() => {
-                    dragRaf = null;
-                    processPointerMove();
-                });
-            }
+            processPointerMove();
         };
 
         const onPointerDown = (e) => {
@@ -3413,13 +3655,12 @@
                 pointerId: e.pointerId
             };
 
-            try {
-                targetKey.setPointerCapture(e.pointerId);
-            } catch (err) {}
-
-            targetKey.addEventListener('pointermove', onPointerMove, { passive: true });
-            targetKey.addEventListener('pointerup', onPointerUp);
-            targetKey.addEventListener('pointercancel', onPointerUp);
+            window.addEventListener('pointermove', onPointerMove, { passive: true });
+            window.addEventListener('pointerup', onPointerUp);
+            window.addEventListener('pointercancel', onPointerUp);
+            
+            // 立即執行一次滑動座標更新與讓位判定
+            processPointerMove();
         };
 
         const onPointerUp = (e) => {
@@ -3433,9 +3674,9 @@
 
             const { keyId, isFromGrid, sourceIndex, sourceEl, floatingEl, indicatorEl, gridKeys, slotRects, currentHoverIndex, isOverPool, lastTargetX, lastTargetY } = dragState;
 
-            sourceEl.removeEventListener('pointermove', onPointerMove);
-            sourceEl.removeEventListener('pointerup', onPointerUp);
-            sourceEl.removeEventListener('pointercancel', onPointerUp);
+            window.removeEventListener('pointermove', onPointerMove);
+            window.removeEventListener('pointerup', onPointerUp);
+            window.removeEventListener('pointercancel', onPointerUp);
 
             try {
                 sourceEl.releasePointerCapture(e.pointerId);
@@ -3461,20 +3702,21 @@
 
             if (isFromGrid && sourceIndex >= 0) {
                 if (isOverPool || currentHoverIndex === -1) {
-                    // 拖到底下庫存區：觸發淡出縮小拋棄動畫
+                    // 拖到底下庫存區：轉化為微光虛線空白格（blank）並彈出提示
                     triggerVibration(true);
                     floatingEl.classList.add('is-discarding');
                     floatingEl.style.transform = `translate3d(${lastTargetX}px, ${lastTargetY + 30}px, 0) scale(0.2)`;
                     setTimeout(() => {
                         currentKeyboardLayout[sourceIndex] = 'blank';
-                        localStorage.setItem(KEY_KEYBOARD_LAYOUT, JSON.stringify(currentKeyboardLayout));
+                        saveKeyboardLayout(currentKeyboardLayout, activeEditOrientation);
+                        pushUndoState();
                         finalizeCleanup();
                         renderCustomKeyboard();
                         renderMainKeyboard();
                         showToastMsg(I18N[currentLang].toastKeyRemoved);
                     }, 200);
                 } else {
-                    // 網格內放開：觸發 Spring Drop 吸附動畫
+                    // 網格內放開：觸發 Spring Drop 吸附動畫，並在動畫前先完成佈局更新以保持畫面連貫
                     const finalIndex = (currentHoverIndex >= 0 && currentHoverIndex < slotRects.length) ? currentHoverIndex : sourceIndex;
                     const destRect = slotRects[finalIndex];
 
@@ -3482,49 +3724,63 @@
                     floatingEl.style.transform = `translate3d(${destRect.left}px, ${destRect.top}px, 0) scale(1)`;
                     triggerVibration(false);
 
+                    if (finalIndex !== sourceIndex) {
+                        const [movedItem] = currentKeyboardLayout.splice(sourceIndex, 1);
+                        currentKeyboardLayout.splice(finalIndex, 0, movedItem);
+                        saveKeyboardLayout(currentKeyboardLayout, activeEditOrientation);
+                        pushUndoState();
+                    }
+
                     setTimeout(() => {
-                        if (finalIndex !== sourceIndex) {
-                            const [movedItem] = currentKeyboardLayout.splice(sourceIndex, 1);
-                            currentKeyboardLayout.splice(finalIndex, 0, movedItem);
-                            localStorage.setItem(KEY_KEYBOARD_LAYOUT, JSON.stringify(currentKeyboardLayout));
-                        }
                         finalizeCleanup();
                         renderCustomKeyboard();
                         renderMainKeyboard();
                     }, 220);
                 }
             } else if (!isFromGrid) {
-                // 從庫存拖入網格：觸發吸附動畫並智慧插入
+                // 從庫存拖入網格：觸發吸附動畫並智慧空白格吸收
                 if (currentHoverIndex >= 0 && currentHoverIndex < slotRects.length) {
                     const destRect = slotRects[currentHoverIndex];
                     floatingEl.classList.add('is-dropping');
                     floatingEl.style.transform = `translate3d(${destRect.left}px, ${destRect.top}px, 0) scale(1)`;
                     triggerVibration(false);
 
-                    setTimeout(() => {
-                        const maxSlots = (GRID_CONFIGS[currentKeyboardGrid] || GRID_CONFIGS['4x5']).total;
-                        
-                        if (currentKeyboardLayout[currentHoverIndex] === 'blank') {
-                            currentKeyboardLayout[currentHoverIndex] = keyId;
-                        } else {
-                            const blankIdxAfter = currentKeyboardLayout.indexOf('blank', currentHoverIndex);
-                            if (blankIdxAfter !== -1) {
-                                currentKeyboardLayout.splice(currentHoverIndex, 0, keyId);
-                                currentKeyboardLayout.splice(blankIdxAfter + 1, 1);
-                            } else {
-                                const anyBlankIdx = currentKeyboardLayout.lastIndexOf('blank');
-                                if (anyBlankIdx !== -1) {
-                                    currentKeyboardLayout.splice(anyBlankIdx, 1);
-                                    currentKeyboardLayout.splice(currentHoverIndex, 0, keyId);
-                                } else {
-                                    currentKeyboardLayout.splice(currentHoverIndex, 0, keyId);
-                                    if (currentKeyboardLayout.length > maxSlots) {
-                                        currentKeyboardLayout.pop();
-                                    }
+                    const maxSlots = (GRID_CONFIGS[currentKeyboardGrid] || GRID_CONFIGS['4x5']).total;
+                    if (currentKeyboardLayout[currentHoverIndex] === 'blank') {
+                        currentKeyboardLayout[currentHoverIndex] = keyId;
+                    } else {
+                        // 尋找離 currentHoverIndex 最近的空白格
+                        let targetBlankIdx = -1;
+                        let minDistToBlank = Infinity;
+                        currentKeyboardLayout.forEach((kId, idx) => {
+                            if (kId === 'blank') {
+                                const dist = Math.abs(idx - currentHoverIndex);
+                                if (dist < minDistToBlank) {
+                                    minDistToBlank = dist;
+                                    targetBlankIdx = idx;
                                 }
                             }
+                        });
+
+                        if (targetBlankIdx !== -1) {
+                            if (targetBlankIdx > currentHoverIndex) {
+                                currentKeyboardLayout.splice(currentHoverIndex, 0, keyId);
+                                currentKeyboardLayout.splice(targetBlankIdx + 1, 1);
+                            } else {
+                                currentKeyboardLayout.splice(targetBlankIdx, 1);
+                                currentKeyboardLayout.splice(currentHoverIndex, 0, keyId);
+                            }
+                        } else {
+                            currentKeyboardLayout.splice(currentHoverIndex, 0, keyId);
+                            if (currentKeyboardLayout.length > maxSlots) {
+                                currentKeyboardLayout.pop();
+                            }
                         }
-                        localStorage.setItem(KEY_KEYBOARD_LAYOUT, JSON.stringify(currentKeyboardLayout));
+                    }
+                    saveKeyboardLayout(currentKeyboardLayout, activeEditOrientation);
+                    pushUndoState();
+
+                    setTimeout(() => {
                         finalizeCleanup();
                         renderCustomKeyboard();
                         renderMainKeyboard();
@@ -3543,6 +3799,17 @@
         gridEl.addEventListener('pointerdown', onPointerDown);
         poolEl.addEventListener('pointerdown', onPointerDown);
         if (sidePoolEl) sidePoolEl.addEventListener('pointerdown', onPointerDown);
+
+        const undoBtn = document.getElementById('btn-keyboard-undo');
+        const redoBtn = document.getElementById('btn-keyboard-redo');
+        if (undoBtn && !undoBtn.dataset.bound) {
+            undoBtn.dataset.bound = 'true';
+            attachSmartTap(undoBtn, performUndo);
+        }
+        if (redoBtn && !redoBtn.dataset.bound) {
+            redoBtn.dataset.bound = 'true';
+            attachSmartTap(redoBtn, performRedo);
+        }
     }
 
     function setupMainKeyboardLongPress() {
@@ -3803,25 +4070,77 @@
             }
         };
 
+        function updateSnapshotUI(orientation = activeEditOrientation) {
+            try {
+                const snapshots = JSON.parse(localStorage.getItem(KEY_KEYBOARD_SNAPSHOTS)) || {};
+                const activeKey = snapshots[orientation]?.activeSnapshot || 'biz';
+                document.querySelectorAll('.snapshot-chip[data-snapshot]').forEach(c => {
+                    if (c.dataset.snapshot === activeKey) {
+                        c.classList.add('active');
+                    } else {
+                        c.classList.remove('active');
+                    }
+                });
+            } catch (e) {}
+        }
+
+        /* 📱 模式切換：直向鍵盤 / 橫向鍵盤 */
+        document.querySelectorAll('.orientation-mode-selector .mode-btn').forEach(btn => {
+            attachSmartTap(btn, () => {
+                triggerVibration();
+                activeEditOrientation = btn.dataset.orientation;
+                updateOrientationModeBtnsUI();
+                syncKeyboardState(activeEditOrientation);
+                updateSnapshotUI(activeEditOrientation);
+                updateGridCols();
+                renderCustomKeyboard();
+                renderMainKeyboard();
+            });
+        });
+
         document.querySelectorAll('.snapshot-chip[data-snapshot]').forEach(btn => {
             attachSmartTap(btn, () => {
                 triggerVibration();
                 const snapKey = btn.dataset.snapshot;
-                document.querySelectorAll('.snapshot-chip').forEach(c => c.classList.remove('active'));
-                btn.classList.add('active');
 
-                const cfg = PRESET_SNAPSHOT_CONFIGS[snapKey];
-                if (cfg) {
-                    currentKeyboardGrid = cfg.grid;
-                    currentKeyboardLayout = [...cfg.layout];
-                    localStorage.setItem(KEY_KEYBOARD_GRID, currentKeyboardGrid);
-                    localStorage.setItem(KEY_KEYBOARD_LAYOUT, JSON.stringify(currentKeyboardLayout));
-                    updateGridCols();
-                    renderCustomKeyboard();
-                    renderMainKeyboard();
-                    const name = btn.textContent.trim();
-                    showToastMsg((I18N[currentLang].toastSnapshotLoaded || "LOADED: {name}").replace('{name}', name));
+                // 1. 保存當前方案至對應快照 Slot
+                autoSaveSnapshot(activeEditOrientation);
+
+                // 2. 讀取點選目標之快照數據 (若無自訂檔則帶入官方預設)
+                const snapshots = JSON.parse(localStorage.getItem(KEY_KEYBOARD_SNAPSHOTS)) || {};
+                if (!snapshots[activeEditOrientation]) snapshots[activeEditOrientation] = {};
+                
+                let targetConfig = snapshots[activeEditOrientation][snapKey];
+                if (!targetConfig || !targetConfig.grid || !Array.isArray(targetConfig.layout)) {
+                    targetConfig = PRESET_SNAPSHOT_CONFIGS[snapKey] || PRESET_SNAPSHOT_CONFIGS['biz'];
                 }
+
+                // 3. 切換 activeSnapshot
+                snapshots[activeEditOrientation].activeSnapshot = snapKey;
+                snapshots[activeEditOrientation][snapKey] = {
+                    grid: targetConfig.grid,
+                    layout: [...targetConfig.layout]
+                };
+                localStorage.setItem(KEY_KEYBOARD_SNAPSHOTS, JSON.stringify(snapshots));
+
+                // 4. 更新當前狀態與單寫入存檔
+                currentKeyboardGrid = targetConfig.grid;
+                currentKeyboardLayout = [...targetConfig.layout];
+
+                const gridKey = (activeEditOrientation === 'landscape') ? KEY_KEYBOARD_GRID_LANDSCAPE : KEY_KEYBOARD_GRID;
+                const layoutKey = (activeEditOrientation === 'landscape') ? KEY_KEYBOARD_LAYOUT_LANDSCAPE : KEY_KEYBOARD_LAYOUT;
+                localStorage.setItem(gridKey, currentKeyboardGrid);
+                localStorage.setItem(layoutKey, JSON.stringify(currentKeyboardLayout));
+
+                // 5. 刷新 UI 與 Undo 歷史紀錄
+                updateSnapshotUI(activeEditOrientation);
+                updateGridCols();
+                renderCustomKeyboard();
+                renderMainKeyboard();
+                pushUndoState();
+
+                const name = btn.textContent.trim();
+                showToastMsg((I18N[currentLang].toastSnapshotLoaded || "LOADED: {name}").replace('{name}', name));
             });
         });
 
@@ -3841,7 +4160,7 @@
 
         attachSmartTap(document.getElementById('btn-settings'), (e) => toggleMenu('settings', e));
         attachSmartTap(document.getElementById('btn-history'), (e) => toggleMenu('history', e));
-        attachSmartTap(document.getElementById('btn-open-keyboard'), openKeyboardCustomizer);
+        attachSmartTap(document.getElementById('btn-open-keyboard'), guardSubMenuOpen(openKeyboardCustomizer));
         attachSmartTap(document.getElementById('btn-keyboard-back'), () => {
             // 檢查是否缺少 刪除鍵(backspace)、清除鍵(clear)、等於鍵(equal) 任一個
             const missing = [];
@@ -3874,11 +4193,12 @@
             Object.keys(GRID_CONFIGS).forEach(gk => {
                 if (GRID_CONFIGS[gk].cols === cols && GRID_CONFIGS[gk].total === currentKeyboardLayout.length) {
                     currentKeyboardGrid = gk;
-                    localStorage.setItem(KEY_KEYBOARD_GRID, currentKeyboardGrid);
+                    saveKeyboardGrid(currentKeyboardGrid, activeEditOrientation);
                 }
             });
 
-            localStorage.setItem(KEY_KEYBOARD_LAYOUT, JSON.stringify(currentKeyboardLayout));
+            saveKeyboardLayout(currentKeyboardLayout, activeEditOrientation);
+            syncKeyboardState();
             updateGridCols();
             renderCustomKeyboard();
             renderMainKeyboard();
@@ -3886,8 +4206,11 @@
         });
         attachSmartTap(document.getElementById('btn-keyboard-reset'), () => {
             triggerVibration();
+            currentKeyboardGrid = (activeEditOrientation === 'landscape') ? '6x4' : '4x5';
             currentKeyboardLayout = [...(PRESET_DEFAULT_LAYOUTS[currentKeyboardGrid] || DEFAULT_KEYBOARD_LAYOUT)];
-            localStorage.setItem(KEY_KEYBOARD_LAYOUT, JSON.stringify(currentKeyboardLayout));
+            saveKeyboardGrid(currentKeyboardGrid, activeEditOrientation);
+            saveKeyboardLayout(currentKeyboardLayout, activeEditOrientation);
+            updateGridCols();
             renderCustomKeyboard();
             renderMainKeyboard();
             showToastMsg(I18N[currentLang].toastKeyboardReset);
@@ -3907,24 +4230,24 @@
             });
         });
 
-        attachSmartTap(document.getElementById('btn-open-style'), () => {
+        attachSmartTap(document.getElementById('btn-open-style'), guardSubMenuOpen(() => {
             navigateSubMenu('settings-menu', 'style-settings-menu', 'forward');
             requestAnimationFrame(() => updateGliders());
             setTimeout(updateGliders, 60);
-        });
+        }));
         attachSmartTap(document.getElementById('btn-style-back'), () => {
             navigateSubMenu('style-settings-menu', 'settings-menu', 'backward');
             requestAnimationFrame(() => updateGliders());
             setTimeout(updateGliders, 60);
         });
 
-        attachSmartTap(document.getElementById('btn-open-tax'), () => navigateSubMenu('settings-menu', 'tax-settings-menu', 'forward'));
+        attachSmartTap(document.getElementById('btn-open-tax'), guardSubMenuOpen(() => navigateSubMenu('settings-menu', 'tax-settings-menu', 'forward')));
         attachSmartTap(document.getElementById('btn-tax-back'), () => navigateSubMenu('tax-settings-menu', 'settings-menu', 'backward'));
 
-        attachSmartTap(document.getElementById('btn-open-rates'), () => {
+        attachSmartTap(document.getElementById('btn-open-rates'), guardSubMenuOpen(() => {
             syncRateInputsUI();
             navigateSubMenu('settings-menu', 'rate-settings-menu', 'forward');
-        });
+        }));
         attachSmartTap(document.getElementById('btn-rate-back'), () => navigateSubMenu('rate-settings-menu', 'settings-menu', 'backward'));
         
         attachSmartTap(document.getElementById('btn-rate-reset'), () => {
