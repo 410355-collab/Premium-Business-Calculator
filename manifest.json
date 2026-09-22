@@ -1,6 +1,8 @@
 {
   "short_name": "BusinessCalc",
   "name": "Premium Business Calculator",
+  "description": "具備即時匯率換算、AI 發票掃描與多佈局自訂的商務計算機",
+  "categories": ["finance", "utilities", "productivity"],
   "icons": [
     {
       "src": "app_icon.png",
@@ -15,9 +17,27 @@
       "purpose": "any maskable"
     }
   ],
+  "screenshots": [
+    {
+      "src": "app_icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Calculator Screen"
+    },
+    {
+      "src": "app_icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Calculator Screen"
+    }
+  ],
   "start_url": "./index.html",
   "background_color": "#0f1015",
   "theme_color": "#0f1015",
   "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone"],
   "orientation": "any"
 }
+

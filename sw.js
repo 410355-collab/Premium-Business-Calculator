@@ -1,10 +1,12 @@
-const CACHE_NAME = 'business-calc-v22';
+const CACHE_NAME = 'business-calc-v24';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
   './style.css',
   './script.js',
   './i18n.js',
+  './ai-scan.css',
+  './ai-scan.js',
   './xlsx.full.min.js',
   './math.min.js',
   './manifest.json',
@@ -17,7 +19,9 @@ const ASSETS_TO_CACHE = [
   './flags/us.svg',
   './flags/my.svg',
   './flags/sg.svg',
-  './flags/au.svg'
+  './flags/au.svg',
+  './flags/vn.svg',
+  './flags/th.svg'
 ];
 
 // 監聽前端發送的 SKIP_WAITING 訊號
@@ -87,7 +91,27 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 2. 外部 API 請求 (匯率 API、定位等)：Network First 策略
+  // 2. 核心大數據庫與幾乎不變資源 (math.min.js, xlsx.full.min.js)：Cache First 策略
+  const isCoreImmutableLib = url.pathname.endsWith('math.min.js') || url.pathname.endsWith('xlsx.full.min.js');
+  if (isCoreImmutableLib) {
+    event.respondWith(
+      caches.match(event.request).then((cachedResponse) => {
+        if (cachedResponse) {
+          return cachedResponse;
+        }
+        return fetch(event.request).then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const responseToCache = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseToCache));
+          }
+          return networkResponse;
+        });
+      })
+    );
+    return;
+  }
+
+  // 3. 外部 API 請求 (匯率 API、定位等)：Network First 策略
   if (url.origin !== location.origin && !url.host.includes('fonts.googleapis.com') && !url.host.includes('fonts.gstatic.com')) {
     event.respondWith(
       fetch(event.request).catch(() => {
@@ -97,7 +121,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 3. 靜態資源 (CSS, JS, Fonts, Icons, SVG)：Cache First 搭配背景更新 (Stale-While-Revalidate)
+  // 4. 靜態資源 (CSS, JS, Fonts, Icons, SVG)：Cache First 搭配背景更新 (Stale-While-Revalidate)
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       const fetchPromise = fetch(event.request).then((networkResponse) => {

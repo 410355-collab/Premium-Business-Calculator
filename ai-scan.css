@@ -1,0 +1,1007 @@
+/* ════════════════════════════════════════════════════════
+   AI 掃描記帳模組樣式 (ai-scan.css)
+   完全融入現有 liquid glass 深色主題
+   ════════════════════════════════════════════════════════ */
+
+/* ─── 首頁掃描記帳按鈕 ─── */
+#btn-ai-scan {
+    position: relative;
+    overflow: visible !important;
+}
+#btn-ai-scan svg {
+    fill: var(--text-muted) !important;
+    filter: none !important;
+    transition: var(--trans-smooth);
+}
+#btn-ai-scan:active svg,
+#btn-ai-scan:hover svg {
+    transform: scale(1.12) !important;
+    rotate: 0deg !important;
+    fill: var(--accent-main) !important;
+    filter: drop-shadow(0 0 6px var(--accent-main)) !important;
+}
+.ai-scan-dot {
+    position: absolute;
+    top: 5px; right: 5px;
+    width: 7px; height: 7px;
+    background: var(--accent-main);
+    border-radius: 50%;
+    box-shadow: 0 0 6px var(--accent-main);
+    animation: ai-dot-pulse 2.4s ease-in-out infinite;
+    pointer-events: none;
+}
+@keyframes ai-dot-pulse {
+    0%,100% { opacity:1; transform:scale(1); }
+    50%      { opacity:.4; transform:scale(.65); }
+}
+#btn-ai-scan.ai-scan-hidden { display:none !important; }
+
+/* ─── Overlay 通用 Spinner ─── */
+.ai-spinner {
+    display: inline-block;
+    width: 15px; height: 15px;
+    border: 2px solid rgba(255,255,255,.15);
+    border-top-color: var(--accent-main);
+    border-radius: 50%;
+    animation: ai-spin .65s linear infinite;
+    flex-shrink: 0;
+    vertical-align: middle;
+}
+@keyframes ai-spin { to { transform:rotate(360deg); } }
+
+/* ─── 掃描操作頁 內容區 ─── */
+#ai-scan-menu .ai-scan-inner {
+    flex:1; overflow-y:auto; overflow-x:hidden;
+    display:flex; flex-direction:column; gap:12px;
+    -webkit-overflow-scrolling:touch;
+    scrollbar-width:none; touch-action:pan-y; min-height:0;
+}
+#ai-scan-menu .ai-scan-inner::-webkit-scrollbar { display:none; }
+
+.ai-scan-col-left, .ai-scan-col-mid, .ai-scan-col-right {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+}
+
+/* 💻 橫向螢幕 (Landscape) 三欄極速佈局：
+   - 左欄：發票圖片預覽 (貼合邊界，完全展現直向發票)
+   - 中欄：照片張數、重新選擇、選擇檔案按鈕、畫廊與 AI 辨識按鈕
+   - 右欄：辨識結果與一鍵加入記帳 */
+@media (orientation: landscape) {
+    #ai-scan-menu {
+        padding: 12px 14px 10px !important;
+    }
+    #ai-scan-menu .overlay-title {
+        margin-bottom: 6px !important;
+        font-size: 17px !important;
+    }
+    #ai-scan-menu .ai-scan-inner {
+        flex-direction: row;
+        gap: 12px;
+        align-items: stretch;
+        overflow: hidden;
+        height: 100%;
+        max-height: 100%;
+        padding: 0;
+    }
+
+    /* 最左欄：發票圖片 (緊貼邊界與極致利用空間) */
+    .ai-scan-col-left {
+        flex: 0 0 32%;
+        max-width: 33%;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        min-height: 0;
+        height: 100%;
+        overflow: hidden;
+        background: rgba(0, 0, 0, 0.3);
+        border: 0.5px solid rgba(255, 255, 255, 0.12);
+        border-radius: 14px;
+        padding: 2px; /* 緊貼邊界 */
+        box-sizing: border-box;
+    }
+
+    /* 中間欄：按鈕、張數、畫廊、AI 辨識鍵 */
+    .ai-scan-col-mid {
+        flex: 0 0 28%;
+        max-width: 29%;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        min-height: 0;
+        height: 100%;
+        overflow-y: auto;
+        padding-right: 2px;
+        scrollbar-width: thin;
+        justify-content: flex-start;
+    }
+
+    /* 最右欄：辨識結果與一鍵加入記帳 */
+    .ai-scan-col-right {
+        flex: 1;
+        max-width: 40%;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        min-height: 0;
+        height: 100%;
+        overflow-y: auto;
+        padding-right: 2px;
+        scrollbar-width: thin;
+    }
+
+    .ai-preview-wrap {
+        width: 100%;
+        height: 100%;
+        max-height: 100%;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        background: transparent;
+        border: none;
+        padding: 0;
+    }
+    .ai-preview-wrap.show {
+        display: flex;
+    }
+    .ai-preview-img {
+        max-height: 100%;
+        max-width: 100%;
+        width: auto;
+        height: auto;
+        object-fit: contain;
+        border-radius: 10px;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.6);
+    }
+    .ai-webcam-box {
+        width: 100%;
+        height: 100%;
+        aspect-ratio: auto;
+        max-height: 100%;
+    }
+    .ai-upload-zone {
+        width: 100%;
+        height: 100%;
+        min-height: 130px;
+        max-height: 100%;
+    }
+    .ai-upload-actions-row {
+        gap: 6px;
+        flex-direction: column;
+    }
+    .ai-btn-secondary {
+        padding: 8px;
+        font-size: 11.5px;
+        width: 100%;
+    }
+    .ai-recognize-btn {
+        padding: 11px;
+        font-size: 13px;
+        border-radius: 12px;
+        margin-top: 4px;
+    }
+    .ai-thumbs-container {
+        margin-top: 2px;
+        margin-bottom: 2px;
+    }
+    .ai-thumbs-item {
+        width: 48px;
+        height: 48px;
+    }
+}
+
+/* ─── 圖片上傳區 ─── */
+.ai-upload-zone {
+    border: 1.5px dashed rgba(255,255,255,.14);
+    border-radius: 18px;
+    min-height: 120px;
+    display: flex; flex-direction:column;
+    align-items:center; justify-content:center;
+    gap:8px; cursor:pointer;
+    transition: border-color .22s, background .22s;
+    position:relative; overflow:hidden;
+    background: rgba(255,255,255,.02);
+    flex-shrink:0;
+}
+.ai-upload-zone:hover, .ai-upload-zone.drag-over {
+    border-color: var(--accent-main);
+    background: rgba(41,182,246,.05);
+}
+.ai-upload-zone.has-image {
+    display: none !important;
+}
+
+/* 🔥 全區域拖曳高亮：拖曳圖片至選單任意區域時的視覺反饋 */
+#ai-scan-menu.drag-drop-active {
+    outline: 2px solid var(--accent-main);
+    outline-offset: -3px;
+    background: rgba(41,182,246,.06) !important;
+    transition: outline .15s ease, background .15s ease;
+}
+.ai-scan-col-left.drag-drop-active {
+    border: 2px dashed var(--accent-main);
+    border-radius: 18px;
+    background: rgba(41,182,246,.08);
+    box-shadow: 0 0 24px color-mix(in srgb, var(--accent-main) 30%, transparent);
+}
+.ai-upload-icon { font-size:32px; line-height:1; transition:transform .2s; }
+.ai-upload-zone:hover .ai-upload-icon { transform:scale(1.1); }
+.ai-upload-hint {
+    font-size:11.5px; color:var(--text-muted);
+    text-align:center; line-height:1.55; padding:0 16px;
+}
+.ai-upload-hint strong { color:var(--accent-main); font-weight:800; }
+.ai-upload-input {
+    position:absolute; inset:0; opacity:0;
+    cursor:pointer; font-size:0; width:100%; height:100%;
+}
+
+/* 圖片預覽容器與科技感掃描動畫 */
+.ai-preview-wrap {
+    position: relative;
+    width: 100%;
+    max-height: 48vh;
+    border-radius: 16px;
+    overflow: hidden;
+    display: none;
+    flex-shrink: 0;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+}
+.ai-preview-wrap.show { 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+}
+.ai-preview-img {
+    width: auto;
+    max-width: 100%;
+    height: auto;
+    max-height: 48vh;
+    object-fit: contain; /* 🔥 完整包含比例，絕不切掉任何發票內容 */
+    border-radius: 16px;
+    display: block;
+    margin: 0 auto;
+    transition: filter .3s ease;
+}
+.ai-preview-wrap.scanning .ai-preview-img {
+    filter: brightness(0.85) contrast(1.1);
+}
+
+/* 霓虹雷射掃描覆蓋層 */
+.ai-scanner-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity .3s ease;
+}
+.ai-preview-wrap.scanning .ai-scanner-overlay {
+    opacity: 1;
+}
+
+/* 雷射光束條 */
+.ai-scan-laser {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 4px;
+    background: linear-gradient(90deg, 
+        transparent 0%, 
+        color-mix(in srgb, var(--accent-main) 40%, transparent) 20%, 
+        var(--accent-main) 50%, 
+        color-mix(in srgb, var(--accent-main) 40%, transparent) 80%, 
+        transparent 100%);
+    box-shadow: 0 0 15px var(--accent-main), 0 0 30px var(--accent-main);
+    animation: laser-sweep 1.8s ease-in-out infinite alternate;
+}
+
+/* 網格掃描微光背景 */
+.ai-scan-grid {
+    position: absolute;
+    inset: 0;
+    background-size: 20px 20px;
+    background-image: 
+        linear-gradient(to right, rgba(41, 182, 246, 0.08) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(41, 182, 246, 0.08) 1px, transparent 1px);
+    animation: grid-pulse 2s ease-in-out infinite;
+}
+
+/* 四角高科技對焦框 (Reticle Corners) */
+.ai-scan-corners .corner {
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    border-color: var(--accent-main);
+    border-style: solid;
+    transition: all .3s;
+}
+.ai-scan-corners .tl { top: 10px; left: 10px; border-width: 2.5px 0 0 2.5px; border-top-left-radius: 4px; }
+.ai-scan-corners .tr { top: 10px; right: 10px; border-width: 2.5px 2.5px 0 0; border-top-right-radius: 4px; }
+.ai-scan-corners .bl { bottom: 10px; left: 10px; border-width: 0 0 2.5px 2.5px; border-bottom-left-radius: 4px; }
+.ai-scan-corners .br { bottom: 10px; right: 10px; border-width: 0 2.5px 2.5px 0; border-bottom-right-radius: 4px; }
+
+@keyframes laser-sweep {
+    0% { top: 2%; }
+    100% { top: 94%; }
+}
+
+@keyframes grid-pulse {
+    0%, 100% { opacity: 0.3; }
+    50% { opacity: 0.7; }
+}
+
+.ai-preview-actions { display:none; gap:8px; flex-shrink:0; margin-top: 10px; }
+.ai-preview-actions.show { display:flex; }
+
+/* ─── Web 鏡頭視訊預覽區 (動態自適應 9:16 直向 / 16:9 橫向，完整包含不切畫面) ─── */
+.ai-webcam-box {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 9 / 16; /* 🔥 直向畫面：標準 9:16 */
+    max-height: 52vh;
+    border-radius: 18px;
+    overflow: hidden;
+    background: #000;
+    border: 1.5px solid rgba(41,182,246,.4);
+    box-shadow: 0 6px 24px rgba(0,0,0,.5);
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto;
+    transition: aspect-ratio .25s ease, max-height .25s ease;
+}
+
+/* 當螢幕為橫向時 (Landscape)，保持 contain 完整包含比例，絕不上下/左右裁切 */
+@media (orientation: landscape) {
+    .ai-webcam-box {
+        aspect-ratio: auto;
+        height: 280px;
+        max-height: 45vh;
+    }
+}
+
+#ai-webcam-video {
+    width: 100%;
+    height: 100%;
+    object-fit: contain; /* 🔥 完整包含比例，絕不上下/左右裁切直向發票與視訊畫面 */
+    background: #000;
+    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* 🍏 相機變焦膠囊控制器 (Liquid Glass Zoom Capsule Controls) */
+.ai-zoom-controls {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 0.5px solid rgba(255, 255, 255, 0.2);
+    border-radius: 20px;
+    padding: 3px;
+    z-index: 6;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+.ai-zoom-btn {
+    background: transparent;
+    border: none;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 12px;
+    font-weight: 800;
+    padding: 3px 8px;
+    border-radius: 14px;
+    cursor: pointer;
+    transition: background 0.18s, color 0.18s, transform 0.14s;
+    outline: none;
+}
+.ai-zoom-btn:active {
+    transform: scale(0.92);
+}
+.ai-zoom-btn.active {
+    background: var(--accent-main);
+    color: #000;
+    box-shadow: 0 0 10px color-mix(in srgb, var(--accent-main) 60%, transparent);
+}
+
+/* 主題色空心正圓形相機快照按鈕 (iOS 相機風格快門) */
+.ai-snap-btn {
+    position: absolute;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 52px;
+    height: 52px;
+    background: rgba(0, 0, 0, 0.25);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    border: 3.5px solid var(--accent-main); /* 主題色空心邊框 */
+    border-radius: 50%; /* 正圓形 */
+    cursor: pointer;
+    box-shadow: 0 0 16px color-mix(in srgb, var(--accent-main) 40%, transparent),
+                inset 0 0 8px color-mix(in srgb, var(--accent-main) 30%, transparent);
+    transition: transform .14s ease, border-color .14s ease, box-shadow .14s ease, background .14s;
+    z-index: 5;
+    padding: 0;
+    outline: none;
+}
+.ai-snap-btn::after {
+    content: '';
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%) scale(0.85);
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: transparent;
+    border: 1.5px solid rgba(255, 255, 255, 0.4);
+    transition: transform .14s, background .14s;
+}
+.ai-snap-btn:active {
+    transform: translateX(-50%) scale(.9);
+    background: color-mix(in srgb, var(--accent-main) 35%, transparent);
+}
+.ai-snap-btn:active::after {
+    transform: translate(-50%, -50%) scale(1);
+    background: var(--accent-main);
+}
+.ai-webcam-close-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(0,0,0,.65);
+    backdrop-filter: blur(8px);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,.2);
+    border-radius: 20px;
+    padding: 5px 12px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    z-index: 5;
+    transition: background .18s;
+}
+.ai-webcam-close-btn:active {
+    background: rgba(255,255,255,.2);
+}
+
+
+/* ─── 次要按鈕 ─── */
+.ai-btn-secondary {
+    flex:1; background:rgba(255,255,255,.06);
+    border:.5px solid rgba(255,255,255,.12);
+    border-radius:10px; color:var(--text-color);
+    font-size:13px; font-weight:700; padding:9px;
+    cursor:pointer; letter-spacing:.05em; text-transform:uppercase;
+    transition:background .18s, transform .14s;
+    -webkit-tap-highlight-color:transparent; text-align:center;
+}
+.ai-btn-secondary:active { transform:scale(.96); background:rgba(255,255,255,.12); }
+.ai-btn-secondary.highlight {
+    background: rgba(41,182,246,.12);
+    border-color: rgba(41,182,246,.3);
+    color: var(--accent-main);
+}
+.ai-upload-actions-row {
+    display: flex;
+    gap: 8px;
+    width: 100%;
+}
+
+/* ─── 主辨識按鈕 ─── */
+.ai-recognize-btn {
+    width:100%;
+    background: linear-gradient(135deg, var(--accent-main) 0%, #0091ea 100%);
+    border:none; border-radius:14px;
+    color:#000; font-size:14.5px; font-weight:900;
+    letter-spacing:.08em; padding:13px;
+    cursor:pointer; text-transform:uppercase;
+    transition:opacity .2s, transform .14s, box-shadow .2s;
+    box-shadow:0 4px 18px rgba(41,182,246,.32);
+    -webkit-tap-highlight-color:transparent;
+    display:flex; align-items:center; justify-content:center;
+    gap:8px; flex-shrink:0;
+}
+.ai-recognize-btn:active { transform:scale(.97); opacity:.85; }
+.ai-recognize-btn:disabled {
+    opacity:.35; cursor:not-allowed;
+    transform:none !important; box-shadow:none;
+}
+.ai-recognize-btn.loading .ai-spinner { display:inline-block; }
+.ai-recognize-btn .ai-spinner { display:none; }
+.ai-recognize-btn.loading .ai-btn-label { opacity:.7; }
+
+/* ─── 區段標題 ─── */
+.ai-section-title {
+    font-size:12.5px; font-weight:800;
+    letter-spacing:.1em; text-transform:uppercase;
+    color:var(--text-muted); padding:0 2px; flex-shrink:0;
+}
+
+/* ─── 商品卡片 ─── */
+.ai-items-section { display:none; flex-direction:column; gap:8px; flex-shrink:0; }
+.ai-items-section.show { display:flex; }
+
+#ai-store-tag-wrap {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+}
+
+.ai-store-tag {
+    display:inline-flex; align-items:center; gap:5px;
+    background:rgba(255,255,255,.06);
+    border:.5px solid rgba(255,255,255,.1);
+    border-radius:20px; padding:3px 10px;
+    font-size:12.5px; color:var(--text-muted);
+    font-weight:600; align-self:flex-start;
+}
+
+.ai-item-store {
+    font-size: 12px;
+    color: var(--text-muted);
+    opacity: 0.95;
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.ai-item-date {
+    font-size: 12px;
+    color: #34c759;
+    opacity: 0.9;
+    margin-top: 2px;
+    font-family: 'Space Grotesk', -apple-system, sans-serif;
+}
+
+.ai-item-card {
+    background:rgba(255,255,255,.045);
+    border:.5px solid rgba(255,255,255,.09);
+    border-radius:13px; padding:11px 13px;
+    display:flex; align-items:center; gap:11px;
+    animation:ai-card-in .28s cubic-bezier(.16,1,.3,1) both;
+}
+@keyframes ai-card-in {
+    from { opacity:0; transform:translateY(10px); }
+    to   { opacity:1; transform:translateY(0); }
+}
+
+.ai-item-emoji { font-size:22px; flex-shrink:0; line-height:1; }
+.ai-item-info  { flex:1; min-width:0; }
+.ai-item-name {
+    font-size:14.5px; font-weight:700; color:var(--text-color);
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    margin-bottom:3px;
+}
+.ai-item-meta { font-size:12.5px; color:var(--text-muted); }
+.ai-item-price {
+    font-size:16.5px; font-weight:900; color:var(--accent-main);
+    white-space:nowrap; font-family:'Orbitron',monospace;
+    margin-right:6px; flex-shrink:0;
+}
+.ai-item-price[contenteditable="true"] {
+    cursor: text;
+    border-bottom: 1px dashed rgba(41, 182, 246, 0.4);
+    padding: 0 4px;
+    border-radius: 4px;
+    outline: none;
+    transition: background 0.18s, border-color 0.18s;
+}
+.ai-item-price[contenteditable="true"]:focus {
+    background: rgba(41, 182, 246, 0.15);
+    border-bottom-style: solid;
+    border-color: var(--accent-main);
+}
+
+/* 商品卡操作按鈕群 */
+.ai-item-actions {
+    display:flex; gap:6px; flex-shrink:0; align-items:center;
+}
+.ai-remove-btn {
+    background:rgba(239,83,80,.1);
+    border:.5px solid rgba(239,83,80,.2);
+    border-radius:7px; color:var(--accent-red);
+    font-size:12px; font-weight:800;
+    padding:4px 7px; cursor:pointer;
+    white-space:nowrap;
+    transition:background .18s, transform .14s;
+    -webkit-tap-highlight-color:transparent;
+}
+.ai-remove-btn:active { background:rgba(239,83,80,.22); transform:scale(.94); }
+
+/* ─── 合計列 ─── */
+.ai-total-row {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:10px 13px;
+    background:rgba(255,255,255,.03);
+    border:.5px solid rgba(255,255,255,.08);
+    border-radius:11px; flex-shrink:0;
+    animation:ai-card-in .3s ease both;
+}
+.ai-total-label { font-size:12.5px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:.07em; }
+.ai-total-amount { font-size:18.5px; font-weight:900; color:var(--text-color); font-family:'Orbitron',monospace; }
+
+/* ─── 全部加入記帳按鈕 ─── */
+.ai-import-all-btn {
+    width:100%;
+    background:rgba(0,230,118,.1);
+    border:.5px solid rgba(0,230,118,.25);
+    border-radius:14px; color:var(--accent-green);
+    font-size:14.5px; font-weight:900; padding:13px;
+    cursor:pointer; letter-spacing:.07em; text-transform:uppercase;
+    transition:background .18s, transform .14s, box-shadow .2s;
+    box-shadow:0 4px 16px rgba(0,230,118,.12);
+    -webkit-tap-highlight-color:transparent;
+    display:flex; align-items:center; justify-content:center;
+    gap:8px; flex-shrink:0;
+}
+.ai-import-all-btn:active { transform:scale(.97); background:rgba(0,230,118,.18); }
+.ai-import-all-btn:disabled { opacity:.35; cursor:not-allowed; transform:none !important; }
+
+/* ─── 錯誤 / 非商品辨識紅字提示 ─── */
+.ai-error-box {
+    background: rgba(239, 83, 80, 0.12);
+    border: 1px solid rgba(239, 83, 80, 0.35);
+    border-radius: 14px; padding: 13px 15px;
+    font-size: 13.5px; color: #ff5252;
+    text-align: left; line-height: 1.6; display: none; flex-shrink: 0;
+    box-shadow: 0 4px 14px rgba(239, 83, 80, 0.2);
+}
+.ai-error-box.show { display: block; }
+.ai-error-box strong { color: #ff1744; font-weight: 800; }
+
+/* ─── AI 設定子頁 ─── */
+.ai-key-input-row {
+    display:flex; align-items:center; gap:8px; margin-top:4px;
+}
+.ai-apikey-input {
+    flex:1; background:var(--input-bg);
+    border:.5px solid rgba(255,255,255,.12);
+    border-radius:8px; color:var(--text-color);
+    font-size:13px; padding:7px 10px;
+    font-family:'Orbitron',monospace; letter-spacing:.04em;
+    outline:none; transition:border-color .2s; min-width:0;
+    -webkit-user-select:text; user-select:text;
+}
+.ai-apikey-input:focus { border-color:var(--accent-main); }
+.ai-apikey-input::placeholder {
+    color:rgba(255,255,255,.22); font-size:10px; letter-spacing:.02em;
+}
+.ai-apikey-save-btn {
+    background:var(--accent-main); color:#000;
+    border:none; border-radius:8px;
+    padding:7px 12px; font-size:10px; font-weight:900;
+    letter-spacing:.06em; cursor:pointer; white-space:nowrap;
+    transition:opacity .2s, transform .14s;
+    -webkit-tap-highlight-color:transparent; text-transform:uppercase; flex-shrink:0;
+}
+.ai-apikey-save-btn:active { opacity:.7; transform:scale(.94); }
+.ai-key-clear-btn {
+    font-size:10px; color:var(--text-muted);
+    background:none; border:none; cursor:pointer;
+    padding:0; text-decoration:underline;
+    -webkit-tap-highlight-color:transparent;
+}
+.ai-key-clear-btn:active { opacity:.6; }
+.ai-key-status {
+    font-size:10px; margin-top:4px;
+    display:flex; align-items:center; gap:5px;
+}
+.ai-key-status.custom { color:var(--accent-green); }
+.ai-key-status.default { color:var(--text-muted); }
+
+/* ─── 光暗模式適配 ─── */
+body.light-mode .ai-upload-zone {
+    border-color:rgba(0,0,0,.14); background:rgba(0,0,0,.02);
+}
+body.light-mode .ai-upload-zone:hover {
+    background:rgba(41,182,246,.06);
+}
+body.light-mode .ai-item-card {
+    background:rgba(255,255,255,.65);
+    border-color:rgba(0,0,0,.08);
+}
+body.light-mode .ai-total-row {
+    background:rgba(0,0,0,.03);
+    border-color:rgba(0,0,0,.08);
+}
+body.light-mode .ai-import-all-btn {
+    background:rgba(0,190,100,.08);
+    border-color:rgba(0,190,100,.2);
+}
+body.light-mode .ai-apikey-input {
+    background:rgba(0,0,0,.06);
+    border-color:rgba(0,0,0,.12);
+    color:var(--text-color);
+}
+
+/* ─── 多圖上傳預覽畫廊 (Multi-Image Thumbnails Grid) ─── */
+.ai-thumbs-container {
+    display: none;
+    width: 100%;
+    margin-top: 8px;
+    margin-bottom: 8px;
+    flex-direction: column;
+    gap: 6px;
+}
+.ai-thumbs-container.show {
+    display: flex;
+}
+.ai-thumbs-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--accent-main);
+    padding: 0 4px;
+}
+.ai-thumbs-grid {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding: 4px 2px 8px 2px;
+    scrollbar-width: thin;
+}
+.ai-thumb-item {
+    position: relative;
+    width: 64px;
+    height: 64px;
+    border-radius: 10px;
+    overflow: hidden;
+    flex-shrink: 0;
+    border: 1.5px solid rgba(41, 182, 246, 0.4);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    background: #000;
+    cursor: pointer;
+    transition: transform 0.15s ease, border-color 0.15s ease;
+}
+.ai-thumb-item.active {
+    border-color: var(--accent-main);
+    box-shadow: 0 0 10px color-mix(in srgb, var(--accent-main) 60%, transparent);
+}
+.ai-thumb-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.ai-thumb-remove {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    width: 18px;
+    height: 18px;
+    background: rgba(239, 83, 80, 0.85);
+    color: #fff;
+    border: none;
+    border-radius: 50%;
+    font-size: 10px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    line-height: 1;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.5);
+    z-index: 2;
+}
+.ai-thumb-remove:hover {
+    background: #ef5350;
+}
+.ai-thumb-item.error {
+    border: 2px solid #ef5350 !important;
+    box-shadow: 0 0 12px rgba(239, 83, 80, 0.75) !important;
+}
+.ai-thumb-item.error::after {
+    content: '⚠️';
+    position: absolute;
+    bottom: 2px;
+    left: 2px;
+    font-size: 11px;
+    line-height: 1;
+    z-index: 2;
+}
+
+/* ─── 效能與低階裝置優化 (Performance & GPU Offloading) ─── */
+.drag-drop-active,
+.overlay-menu.show,
+.ai-scan-menu.show {
+    will-change: transform, opacity;
+}
+
+/* 在拖曳或相機開啟時暫時簡化與停用過度耗電之 SVG 高強度 Blur 濾鏡 */
+.drag-drop-active .liquid-glass-svg-defs,
+.phone-container.menu-open .liquid-glass-svg-defs {
+    display: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ai-scan-dot {
+        animation: none !important;
+    }
+    .overlay-menu {
+        transition: none !important;
+    }
+}
+
+/* ─── GPS 地理位置列 (GPS Info Bar) ─── */
+#ai-scan-menu {
+    position: absolute;
+}
+.ai-gps-info-bar {
+    position: absolute;
+    top: max(env(safe-area-inset-top, 32px), 32px);
+    left: clamp(10px, 3.5vw, 18px);
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 12px;
+    background: rgba(41, 182, 246, 0.12);
+    border: 0.5px solid rgba(41, 182, 246, 0.35);
+    border-radius: 16px;
+    margin: 0;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--accent-main, #29b6f6);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    width: auto;
+    max-width: 42%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    z-index: 10;
+    box-sizing: border-box;
+    pointer-events: auto;
+}
+.ai-gps-info-bar .gps-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.ai-gps-info-bar .gps-badge-icon {
+    font-size: 14px;
+    animation: gpsPulse 2s infinite ease-in-out;
+}
+@keyframes gpsPulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.6; transform: scale(1.15); }
+}
+
+/* ─── 旅行報告按鈕 ─── */
+.share-btn.travel-btn {
+    background: linear-gradient(135deg, rgba(255, 179, 0, 0.25), rgba(255, 111, 0, 0.35));
+    border: 0.5px solid rgba(255, 179, 0, 0.5);
+    color: #ffca28;
+}
+.share-btn.travel-btn:hover {
+    background: linear-gradient(135deg, rgba(255, 179, 0, 0.4), rgba(255, 111, 0, 0.5));
+    box-shadow: 0 0 12px rgba(255, 179, 0, 0.4);
+}
+
+/* ─── 旅行總支出報告 Modal ─── */
+.travel-summary-card {
+    max-width: 480px;
+    width: 92%;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    background: rgba(18, 24, 38, 0.94);
+    border: 0.5px solid rgba(255, 179, 0, 0.3);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6), 0 0 20px rgba(255, 179, 0, 0.15);
+    border-radius: 24px;
+    padding: 20px;
+}
+.travel-total-hero {
+    background: linear-gradient(135deg, rgba(255, 179, 0, 0.15), rgba(255, 143, 0, 0.25));
+    border: 0.5px solid rgba(255, 179, 0, 0.4);
+    border-radius: 16px;
+    padding: 16px;
+    text-align: center;
+    margin-bottom: 16px;
+}
+.travel-hero-label {
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    color: var(--text-muted, #90a4ae);
+    text-transform: uppercase;
+    font-weight: 700;
+}
+.travel-hero-val {
+    font-size: 26px;
+    font-weight: 900;
+    color: #ffca28;
+    margin-top: 4px;
+    text-shadow: 0 0 10px rgba(255, 202, 40, 0.3);
+}
+.travel-sections-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    margin-bottom: 18px;
+}
+.travel-block {
+    background: rgba(255, 255, 255, 0.04);
+    border: 0.5px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+    padding: 12px 14px;
+}
+.travel-block-title {
+    font-size: 13px;
+    font-weight: 800;
+    color: var(--accent-main, #29b6f6);
+    margin-bottom: 8px;
+}
+.travel-block-content {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.travel-item-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+    padding: 5px 0;
+    border-bottom: 0.5px dashed rgba(255, 255, 255, 0.07);
+}
+.travel-item-row:last-child {
+    border-bottom: none;
+}
+.travel-item-left {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 600;
+    color: var(--text-color, #e0e0e0);
+}
+.travel-item-right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+}
+.travel-item-primary {
+    font-weight: 800;
+    color: #ffca28;
+}
+.travel-item-sub {
+    font-size: 10px;
+    color: var(--text-muted, #90a4ae);
+}
+.travel-progress-bar {
+    width: 100%;
+    height: 4px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: 3px;
+}
+.travel-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #29b6f6, #ffca28);
+    border-radius: 2px;
+}
+.travel-modal-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    margin-top: auto;
+}
+.travel-modal-actions .ai-btn-secondary {
+    padding: 8px 14px;
+    font-size: 11px;
+}

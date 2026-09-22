@@ -394,9 +394,78 @@
     let baseRateCurrency = "USD"; 
     let lastValidConvertedValue = 0; 
 
-    /* 從 localStorage 初始化持久化資料 */
+    /* ─── IndexedDB 資料持久化備援模組 (保護計算歷史與重要偏好設定) ─── */
+    const IDB_NAME = 'BusinessCalcDB';
+    const IDB_VERSION = 1;
+    const IDB_STORE = 'app_data';
+
+    function openAppDB() {
+        return new Promise((resolve) => {
+            if (!window.indexedDB) { resolve(null); return; }
+            const req = indexedDB.open(IDB_NAME, IDB_VERSION);
+            req.onupgradeneeded = (e) => {
+                const db = e.target.result;
+                if (!db.objectStoreNames.contains(IDB_STORE)) {
+                    db.createObjectStore(IDB_STORE);
+                }
+            };
+            req.onsuccess = (e) => resolve(e.target.result);
+            req.onerror = () => resolve(null);
+        });
+    }
+
+    async function saveToIDB(key, val) {
+        try {
+            const db = await openAppDB();
+            if (!db) return;
+            const tx = db.transaction(IDB_STORE, 'readwrite');
+            tx.objectStore(IDB_STORE).put(val, key);
+        } catch (e) { console.warn('IDB write error:', e); }
+    }
+
+    async function deleteFromIDB(key) {
+        try {
+            const db = await openAppDB();
+            if (!db) return;
+            const tx = db.transaction(IDB_STORE, 'readwrite');
+            tx.objectStore(IDB_STORE).delete(key);
+        } catch (e) { console.warn('IDB delete error:', e); }
+    }
+
+    async function loadFromIDB(key) {
+        try {
+            const db = await openAppDB();
+            if (!db) return null;
+            return new Promise((resolve) => {
+                const tx = db.transaction(IDB_STORE, 'readonly');
+                const req = tx.objectStore(IDB_STORE).get(key);
+                req.onsuccess = () => resolve(req.result);
+                req.onerror = () => resolve(null);
+            });
+        } catch (e) { return null; }
+    }
+
+    /* 從 localStorage / IndexedDB 初始化持久化資料 */
     let customTaxRates = JSON.parse(localStorage.getItem(KEY_TAX_RATES)) || {...DEFAULT_TAX_RATES};
-    let calcHistory = JSON.parse(localStorage.getItem(KEY_HISTORY)) || [];
+    const rawLocalHistory = localStorage.getItem(KEY_HISTORY);
+    let calcHistory = rawLocalHistory !== null ? JSON.parse(rawLocalHistory) : [];
+    
+    // 從 IndexedDB 非同步備份還原計算紀錄 (僅在全新安裝或 localStorage 遺失 null 時才還原，若使用者主動清空則不強行復原)
+    if (rawLocalHistory === null) {
+        loadFromIDB(KEY_HISTORY).then(idbHistory => {
+            if (Array.isArray(idbHistory) && idbHistory.length > 0) {
+                calcHistory = idbHistory;
+                localStorage.setItem(KEY_HISTORY, JSON.stringify(calcHistory));
+                if (typeof renderHistory === 'function') renderHistory();
+            }
+        });
+    }
+
+    function saveHistoryStorage() {
+        localStorage.setItem(KEY_HISTORY, JSON.stringify(calcHistory));
+        saveToIDB(KEY_HISTORY, calcHistory);
+    }
+
     let decimals = localStorage.getItem(KEY_DECIMALS) !== null ? parseInt(localStorage.getItem(KEY_DECIMALS), 10) : 2;
     let isTaxExcluded = localStorage.getItem(KEY_TAX_EXCLUDED) === 'true';
     let fontStyle = localStorage.getItem(KEY_FONT_STYLE) || 'tech';
@@ -404,7 +473,79 @@
     
     let currentFrom = localStorage.getItem(KEY_CURRENCY_FROM) || "KRW";
     let currentTo = localStorage.getItem(KEY_CURRENCY_TO) || "TWD";
-    
+
+    /* 🌐 統一 IP 定位為主、GPS 定位為輔模組 (跨計算機全功能共享) */
+    let detectedLocationMeta = null;
+    function detectCurrencyFromCoords(lat, lng) {
+        if (lat >= 24 && lat <= 46 && lng >= 122 && lng <= 154) return { locationName: "東京, 日本", currency: "JPY", flag: "🇯🇵", symbol: "¥" };
+        if (lat >= 33 && lat <= 39 && lng >= 124 && lng <= 131) return { locationName: "首爾, 韓國", currency: "KRW", flag: "🇰🇷", symbol: "₩" };
+        if (lat >= 35 && lat <= 70 && lng >= -10 && lng <= 30) return { locationName: "歐洲 (歐元區)", currency: "EUR", flag: "🇪🇺", symbol: "€" };
+        if (lat >= 24 && lat <= 50 && lng >= -125 && lng <= -66) return { locationName: "美國", currency: "USD", flag: "🇺🇸", symbol: "$" };
+        if (lat >= 5 && lat <= 21 && lng >= 97 && lng <= 106) return { locationName: "曼谷, 泰國", currency: "🇹🇭", symbol: "฿" };
+        if (lat >= 8 && lat <= 24 && lng >= 102 && lng <= 110) return { locationName: "胡志明市, 越南", currency: "VND", flag: "🇻🇳", symbol: "₫" };
+        if (lat >= 1.1 && lat <= 1.5 && lng >= 103.5 && lng <= 104.1) return { locationName: "新加坡", currency: "SGD", flag: "🇸🇬", symbol: "S$" };
+        if (lat >= 1 && lat <= 7 && lng >= 99 && lng <= 119) return { locationName: "吉隆坡, 馬來西亞", currency: "MYR", flag: "🇲🇾", symbol: "RM" };
+        if (lat <= -10 && lat >= -44 && lng >= 112 && lng <= 154) return { locationName: "雪梨, 澳洲", currency: "AUD", flag: "🇦🇺", symbol: "A$" };
+        if (lat >= 18 && lat <= 54 && lng >= 73 && lng <= 135) return { locationName: "中國", currency: "CNY", flag: "🇨🇳", symbol: "¥" };
+        if (lat >= 21.8 && lat <= 25.3 && lng >= 119.5 && lng <= 122.5) return { locationName: "台灣", currency: "TWD", flag: "🇹🇼", symbol: "NT$" };
+        return { locationName: "國外目的地", currency: "USD", flag: "🌐", symbol: "$" };
+    }
+
+    function fetchUnifiedLocationAndCurrency(onSuccess) {
+        // 1. IP 定位優先 (免權限彈窗、速度最快)
+        fetch('https://ipapi.co/json/')
+            .then(res => res.json())
+            .then(data => {
+                if (data && data.country_code) {
+                    const countryCurrMap = {
+                        TW: { locationName: "台灣", currency: "TWD", flag: "🇹🇼", symbol: "NT$" },
+                        JP: { locationName: "日本", currency: "JPY", flag: "🇯🇵", symbol: "¥" },
+                        KR: { locationName: "韓國", currency: "KRW", flag: "🇰🇷", symbol: "₩" },
+                        US: { locationName: "美國", currency: "USD", flag: "🇺🇸", symbol: "$" },
+                        EU: { locationName: "歐洲", currency: "EUR", flag: "🇪🇺", symbol: "€" },
+                        CN: { locationName: "中國", currency: "CNY", flag: "🇨🇳", symbol: "¥" },
+                        TH: { locationName: "泰國", currency: "THB", flag: "🇹🇭", symbol: "฿" },
+                        VN: { locationName: "越南", currency: "VND", flag: "🇻🇳", symbol: "₫" },
+                        SG: { locationName: "新加坡", currency: "SGD", flag: "🇸🇬", symbol: "S$" },
+                        MY: { locationName: "馬來西亞", currency: "MYR", flag: "🇲🇾", symbol: "RM" },
+                        AU: { locationName: "澳洲", currency: "AUD", flag: "🇦🇺", symbol: "A$" }
+                    };
+                    const meta = countryCurrMap[data.country_code] || {
+                        locationName: data.city || data.country_name || "所在地",
+                        currency: data.currency || "USD",
+                        flag: "🌐",
+                        symbol: "$"
+                    };
+                    detectedLocationMeta = { source: 'IP', ...meta };
+                    if (typeof onSuccess === 'function') onSuccess(detectedLocationMeta);
+                } else {
+                    throw new Error('IP info missing');
+                }
+            })
+            .catch(() => {
+                // 2. IP 失敗時自動以 GPS 定位為輔
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(
+                        (pos) => {
+                            const meta = detectCurrencyFromCoords(pos.coords.latitude, pos.coords.longitude);
+                            detectedLocationMeta = { source: 'GPS', lat: pos.coords.latitude, lng: pos.coords.longitude, ...meta };
+                            if (typeof onSuccess === 'function') onSuccess(detectedLocationMeta);
+                        },
+                        () => {
+                            // 預設切回當前選擇之源幣別
+                            detectedLocationMeta = { source: 'Default', currency: currentFrom };
+                            if (typeof onSuccess === 'function') onSuccess(detectedLocationMeta);
+                        },
+                        { timeout: 3000, maximumAge: 60000 }
+                    );
+                } else {
+                    detectedLocationMeta = { source: 'Default', currency: currentFrom };
+                    if (typeof onSuccess === 'function') onSuccess(detectedLocationMeta);
+                }
+            });
+    }
+    window.fetchUnifiedLocationAndCurrency = fetchUnifiedLocationAndCurrency;
+
     let currentInput = "0", isEvaluated = false;
     let activeHistoryItem = null;
     let activeHistoryIndex = -1;
@@ -836,6 +977,17 @@
         });
     }
 
+    // 將純文字字串中的 ^指數 轉換為右上角 <sup> 上標 HTML（手寫次方樣式）
+    function renderSuperscript(str) {
+        // 先 escape 特殊 HTML 字元（避免 XSS），再把 ^... 替換為 <sup>
+        const escaped = str
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+        // 匹配 ^ 後面所有連續的數字、負號、小數點（支援負指數與小數指數）
+        return escaped.replace(/\^([\-\d.]+)/g, '<sup>$1</sup>');
+    }
+
     function formatNumber(num) {
         if (num === null || num === undefined) return "0";
         if (num === "Error") return "Error";
@@ -892,15 +1044,25 @@
             }
             const before = formattedInput.slice(0, fmtIdx);
             const after = formattedInput.slice(fmtIdx);
-            resultScreen.innerHTML = `${before}<span class="formula-cursor"></span>${after}`;
+            resultScreen.innerHTML = renderSuperscript(before) + '<span class="formula-cursor"></span>' + renderSuperscript(after);
         } else if (animType === 'append' && formattedInput.length > 0) {
-            const baseText = formattedInput.slice(0, -1);
-            const lastChar = formattedInput.slice(-1);
-            resultScreen.innerHTML = `<span class="existing-digits">${baseText}</span><span class="new-digit">${lastChar}</span>`;
+            // 先對完整輸入做次方 HTML 轉換，再用 DOM 把最後可見字元包入 .new-digit
+            const fullHTML = renderSuperscript(formattedInput);
+
+            // 找到「最後一個可見字元」的分割點：倒著掃 HTML 找到最後一個非標籤字元
+            // 策略：從 fullHTML 末尾找最後的文字字元（排除 HTML 結尾標籤）
+            let splitIdx = fullHTML.length;
+            for (let i = fullHTML.length - 1; i >= 0; i--) {
+                if (fullHTML[i] === '>') break;   // 到了結尾標籤 > 就停
+                if (fullHTML[i] !== '<') { splitIdx = i; break; }  // 找到文字字元
+            }
+            const baseHTML = fullHTML.slice(0, splitIdx);
+            const lastCharHTML = fullHTML.slice(splitIdx);
+            resultScreen.innerHTML = '<span class="existing-digits">' + baseHTML + '</span><span class="new-digit">' + lastCharHTML + '</span>';
 
             // 既有數字往左平順位移動畫 (僅在未縮放 100% 狀態下執行 FLIP 補幀，避免動態縮放/滾動時與容器縮放動畫衝突)
             const currentRatio = parseFloat(DOM.resultScaler?.dataset?.currentRatio || 1);
-            if (baseText.length > 0 && oldResultRight > 0 && currentRatio >= 0.98) {
+            if (baseHTML.length > 0 && oldResultRight > 0 && currentRatio >= 0.98) {
                 const existingEl = resultScreen.querySelector('.existing-digits');
                 if (existingEl) {
                     const newExistingRight = existingEl.getBoundingClientRect().right;
@@ -919,7 +1081,7 @@
                 }
             }
         } else {
-            resultScreen.textContent = formattedInput;
+            resultScreen.innerHTML = renderSuperscript(formattedInput);
             if (animType === 'delete') {
                 resultScreen.classList.remove('anim-delete');
                 requestAnimationFrame(() => {
@@ -1274,7 +1436,7 @@
                         taxRate: customTaxRates[currentFrom] || 0
                     });
                     if (calcHistory.length > 50) calcHistory.pop();
-                    localStorage.setItem(KEY_HISTORY, JSON.stringify(calcHistory));
+                    saveHistoryStorage();
                     updateHistoryButtonUI();
                     showCategoryBubble();
 
@@ -1417,6 +1579,15 @@
         }, 15000); // 延長至 15 秒比較人性化
     }
 
+    function updateMenuOpenState() {
+        const anyMenuOpen = !!document.querySelector('.overlay-menu.show');
+        const phoneContainer = document.querySelector('.phone-container');
+        if (phoneContainer) {
+            phoneContainer.classList.toggle('menu-open', anyMenuOpen);
+        }
+        resetInactivityTimer();
+    }
+
     function checkSameCurrency() {
         const headerArea = document.getElementById('header-area');
         const phoneContainer = document.querySelector('.phone-container');
@@ -1511,9 +1682,10 @@
     const toggleMenu = throttle(function(menuType, event) {
         triggerVibration();
         if (document.activeElement) document.activeElement.blur();
-        const menuId = `${menuType}-menu`;
+        const menuId = menuType.endsWith('-menu') ? menuType : `${menuType}-menu`;
+        const pureType = menuType.replace(/-menu$/, '');
         const menu = document.getElementById(menuId);
-        const buttonEl = document.getElementById(`btn-${menuType}`);
+        const buttonEl = document.getElementById(`btn-${pureType}`) || document.getElementById(`btn-${menuType}`);
         
         if (!menu) return;
 
@@ -1538,7 +1710,7 @@
         if (menuType === 'settings') setTimeout(updateGliders, 50);
 
         if (menuType === 'settings') {
-            ['keyboard-settings-menu', 'style-settings-menu', 'tax-settings-menu', 'rate-settings-menu'].forEach(subId => {
+            ['keyboard-settings-menu', 'style-settings-menu', 'tax-settings-menu', 'rate-settings-menu', 'ai-scan-settings-menu'].forEach(subId => {
                 const subMenu = document.getElementById(subId);
                 if (subMenu && subMenu.classList.contains('show')) {
                     clearMenuTimer(subId);
@@ -1552,6 +1724,9 @@
         const animCurve = `${animDuration}ms cubic-bezier(0.16, 1, 0.3, 1) forwards`;
 
         if (menu.classList.contains('show')) {
+            if (pureType === 'ai-scan' && typeof window.stopWebcam === 'function') {
+                window.stopWebcam();
+            }
             menu.style.animation = `menuClose ${animCurve}`;
             menuTimers[menuId] = setTimeout(() => {
                 menu.classList.remove('show');
@@ -1627,11 +1802,10 @@
 
     const CATEGORY_MAP = {
         food: { emoji: '🍜', i18nKey: 'catFood', defaultZh: '食', defaultEn: 'Food' },
-        clothing: { emoji: '👕', i18nKey: 'catClothing', defaultZh: '衣', defaultEn: 'Clothing' },
-        housing: { emoji: '🏠', i18nKey: 'catHousing', defaultZh: '住', defaultEn: 'Housing' },
+        shopping: { emoji: '🛍️', i18nKey: 'catShopping', defaultZh: '購物', defaultEn: 'Shopping' },
         transport: { emoji: '🚗', i18nKey: 'catTransport', defaultZh: '行', defaultEn: 'Transport' },
-        business: { emoji: '💼', i18nKey: 'catBusiness', defaultZh: '商務', defaultEn: 'Business' },
-        other: { emoji: '🏷️', i18nKey: 'catOther', defaultZh: '一般', defaultEn: 'General' }
+        other: { emoji: '🏷️', i18nKey: 'catOther', defaultZh: '其他', defaultEn: 'Other' },
+        business: { emoji: '💼', i18nKey: 'catBusiness', defaultZh: '商務', defaultEn: 'Business' }
     };
 
     /* 🏷️ 長按快速設定稅率 (Casio SET Mode) */
@@ -1730,7 +1904,7 @@
         triggerVibration(false);
         if (calcHistory.length === 0) return;
         calcHistory[0].category = catKey;
-        localStorage.setItem(KEY_HISTORY, JSON.stringify(calcHistory));
+        saveHistoryStorage();
         
         const bubble = document.getElementById('category-bubble');
         if (bubble) {
@@ -1745,6 +1919,8 @@
         }, 320);
     }
 
+    let currentHistoryMode = 'accounting'; // 'accounting' (含所有非商務分類) | 'business' (僅商務分類)
+
     function updateCategorySummaryVisibility() {
         const summaryCard = document.getElementById('history-summary-card');
         if (summaryCard) {
@@ -1758,6 +1934,13 @@
         const container = document.getElementById('history-container');
         const todayAmountEl = document.getElementById('history-today-amount');
         const totalCountEl = document.getElementById('history-total-count');
+        const summaryTitleEl = document.getElementById('history-summary-title');
+
+        if (summaryTitleEl) {
+            summaryTitleEl.textContent = currentHistoryMode === 'accounting'
+                ? (currentLang === 'zh' ? '今日記帳總計' : "TODAY'S EXPENSE")
+                : (currentLang === 'zh' ? '今日商務總額' : "TODAY'S BIZ TOTAL");
+        }
 
         if (!calcHistory || calcHistory.length === 0) {
             if (todayAmountEl) todayAmountEl.textContent = `0.00 ${currentFrom}`;
@@ -1766,11 +1949,24 @@
             return;
         }
 
-        // 計算今日總支出 / 總計算金額
+        // 依據當前選取的歷史模式進行篩選
+        // 記帳模式：包含除 'business' 以外的所有記帳分類 (food, shopping, transport, other)
+        // 商務模式：僅包含 'business' 分類
+        const filteredHistory = calcHistory.map((item, originalIndex) => ({ ...item, originalIndex })).filter(item => {
+            const cat = item.category || 'business';
+            if (currentHistoryMode === 'accounting') {
+                return cat !== 'business';
+            } else {
+                return cat === 'business';
+            }
+        });
+
+        // 計算今日總金額
         const todayStr = new Date().toDateString();
         let todayTotal = 0;
-        calcHistory.forEach(item => {
-            const itemDateStr = item.timestamp ? new Date(item.timestamp).toDateString() : todayStr;
+        filteredHistory.forEach(item => {
+            const refDate = item.addedAt || item.timestamp;
+            const itemDateStr = refDate ? new Date(refDate).toDateString() : todayStr;
             if (itemDateStr === todayStr) {
                 const resVal = typeof item.result === 'number' ? item.result : parseFloat(String(item.result).replace(/,/g, '')) || 0;
                 todayTotal += isNaN(resVal) ? 0 : resVal;
@@ -1778,18 +1974,58 @@
         });
 
         if (todayAmountEl) todayAmountEl.textContent = `${formatNumber(todayTotal)} ${currentFrom}`;
-        if (totalCountEl) totalCountEl.textContent = (I18N[currentLang].historyListCount || "{count} records").replace('{count}', calcHistory.length);
+        if (totalCountEl) totalCountEl.textContent = (I18N[currentLang].historyListCount || "{count} records").replace('{count}', filteredHistory.length);
 
-        container.innerHTML = calcHistory.map((item, index) => {
+        if (filteredHistory.length === 0) {
+            const emptyMsg = currentHistoryMode === 'accounting' 
+                ? (currentLang === 'zh' ? '無記帳紀錄' : 'NO ACCOUNTING RECORDS')
+                : (currentLang === 'zh' ? '無商務紀錄' : 'NO BUSINESS RECORDS');
+            container.innerHTML = `<div class="empty-history">${emptyMsg}</div>`;
+            return;
+        }
+
+        container.innerHTML = filteredHistory.map((item) => {
+            const index = item.originalIndex;
             const cat = item.category || 'business';
             const catEmoji = getCategoryEmoji(cat);
             const catName = getCategoryName(cat);
-            const timeStr = item.timestamp ? new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+            const timeStr = item.timestamp ? new Date(item.timestamp).toLocaleString(currentLang === 'zh' ? 'zh-TW' : 'en-US', {
+                year: 'numeric',
+                month: 'numeric',
+                day: 'numeric',
+                hour: 'numeric',
+                minute: '2-digit',
+                second: '2-digit'
+            }) : '';
             const currFrom = item.currencyFrom || currentFrom;
             const currTo = item.currencyTo || currentTo;
             const convertedText = (item.convertedResult !== undefined && currFrom !== currTo) 
                 ? `≈ ${Number(item.convertedResult).toFixed(decimals)} ${I18N[currentLang].currShort[currTo] || currTo}` 
                 : '';
+
+            const hasSubItems = Array.isArray(item.items) && item.items.length > 0;
+            const subItemsHtml = hasSubItems ? `
+                <div class="h-sub-items-btn" data-toggle-index="${index}">
+                    <span class="h-toggle-text">${(I18N[currentLang].toggleDetails || '👇 查看商品細項')}</span>
+                </div>
+                <div class="h-sub-items-wrap" id="h-sub-items-${index}">
+                    <div class="h-sub-items-table">
+                        ${item.items.map(sub => {
+                            const subForeign = sub.nameForeign && sub.nameForeign !== sub.name ? `<span class="h-sub-item-foreign">(${sub.nameForeign})</span>` : '';
+                            const subPriceStr = sub.origCurrency && sub.origCurrency !== 'TWD' 
+                                ? `${sub.origCurrency} ${sub.origPrice || sub.price}`
+                                : `NT$ ${Math.round(sub.twdAmount || sub.price || 0)}`;
+                            return `
+                                <div class="h-sub-item-row">
+                                    <div class="h-sub-item-name">${sub.name}${subForeign}</div>
+                                    <div class="h-sub-item-qty">x${sub.count || 1}</div>
+                                    <div class="h-sub-item-price">${subPriceStr}</div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+            ` : '';
 
             return `
                 <div class="history-item" data-index="${index}">
@@ -1802,9 +2038,30 @@
                         <div class="h-result">= ${formatNumber(item.result)} <span style="font-size:12px;opacity:0.7">${currFrom}</span></div>
                         ${convertedText ? `<div class="h-converted">${convertedText}</div>` : ''}
                     </div>
+                    ${subItemsHtml}
                 </div>
             `;
         }).join('');
+
+        container.querySelectorAll('.h-sub-items-btn').forEach(btn => {
+            btn.addEventListener('pointerdown', (e) => e.stopPropagation());
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const idx = btn.getAttribute('data-toggle-index');
+                const wrap = document.getElementById(`h-sub-items-${idx}`);
+                const textSpan = btn.querySelector('.h-toggle-text');
+                if (wrap) {
+                    const isOpen = wrap.classList.contains('open');
+                    wrap.classList.toggle('open', !isOpen);
+                    btn.classList.toggle('expanded', !isOpen);
+                    if (textSpan) {
+                        textSpan.textContent = !isOpen
+                            ? (I18N[currentLang].hideDetails || '👆 收起細項') 
+                            : (I18N[currentLang].toggleDetails || '👇 查看商品細項');
+                    }
+                }
+            });
+        });
     }
 
     const openHistoryModal = throttle(function(index, event) {
@@ -1834,7 +2091,7 @@
         if (activeHistoryIndex < 0 || !calcHistory[activeHistoryIndex]) return;
         calcHistory[activeHistoryIndex].category = catKey;
         activeHistoryItem.category = catKey;
-        localStorage.setItem(KEY_HISTORY, JSON.stringify(calcHistory));
+        saveHistoryStorage();
         
         const picker = document.getElementById('modal-category-picker');
         if (picker) {
@@ -1861,7 +2118,7 @@
         } else if (type === 'delete-single') {
             if (activeHistoryIndex >= 0) {
                 calcHistory.splice(activeHistoryIndex, 1);
-                localStorage.setItem(KEY_HISTORY, JSON.stringify(calcHistory));
+                saveHistoryStorage();
                 renderHistory();
             }
             document.getElementById('history-modal').classList.remove('show');
@@ -1872,16 +2129,33 @@
         updateDisplay();
     }
 
+    /* 動態懶載入 SheetJS XLSX 函式庫 */
+    function ensureXlsxLoaded() {
+        if (typeof XLSX !== 'undefined') return Promise.resolve();
+        return new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = './xlsx.full.min.js';
+            script.onload = resolve;
+            script.onerror = () => reject(new Error('XLSX load failed'));
+            document.head.appendChild(script);
+        });
+    }
+
     /* 📊 輸出為正規 Excel (.xlsx) 檔案 (支援樞紐分析) */
-    function exportHistoryExcel() {
+    async function exportHistoryExcel() {
         triggerVibration(false);
         if (!calcHistory || calcHistory.length === 0) {
             showToastMsg(I18N[currentLang].noHistory || "NO HISTORY");
             return;
         }
+
         if (typeof XLSX === 'undefined') {
-            showToastMsg("XLSX Library not loaded");
-            return;
+            try {
+                await ensureXlsxLoaded();
+            } catch (err) {
+                showToastMsg("XLSX Library not loaded");
+                return;
+            }
         }
 
         // 篩選：分類「商務 (business)」不需要匯出成 Excel
@@ -1892,52 +2166,167 @@
         }
 
         try {
+            const summarySheetName = I18N[currentLang].excelSummarySheet || "分類統計圖表";
+            const detailSheetName = I18N[currentLang].excelDetailSheet || "記帳明細";
+
+            // 📋 1. 展平處理發票與明細（若為整張收據，將內含商品個別拆分為明細列）
+            const flatDetailItems = [];
+            let detailIndex = 1;
+            exportItems.forEach(item => {
+                if (Array.isArray(item.items) && item.items.length > 0) {
+                    item.items.forEach(sub => {
+                        const subOrigPrice = Number(sub.origPrice || sub.price) || 0;
+                        const subTwdAmount = sub.twdAmount !== undefined ? sub.twdAmount : Math.round(subOrigPrice * (sub.rateToTWD || item.rateToTWD || 1) * 100) / 100;
+                        flatDetailItems.push({
+                            idx: detailIndex++,
+                            timestamp: item.timestamp,
+                            category: sub.category || item.category || 'shopping',
+                            formula: sub.name || '商品細項',
+                            nameForeign: sub.nameForeign || sub.name || '',
+                            result: subOrigPrice,
+                            currencyFrom: sub.origCurrency || item.currencyFrom || currentFrom,
+                            convertedResult: subTwdAmount,
+                            currencyTo: item.currencyTo || currentTo,
+                            isTaxExcluded: item.isTaxExcluded
+                        });
+                    });
+                } else {
+                    const numResult = typeof item.result === 'number' ? item.result : parseFloat(String(item.result).replace(/,/g, '')) || 0;
+                    const convResult = (item.convertedResult !== undefined && item.convertedResult !== '') ? parseFloat(item.convertedResult) : numResult;
+                    flatDetailItems.push({
+                        idx: detailIndex++,
+                        timestamp: item.timestamp,
+                        category: item.category || 'other',
+                        formula: item.formula,
+                        nameForeign: item.nameForeign || item.formula,
+                        result: numResult,
+                        currencyFrom: item.currencyFrom || currentFrom,
+                        convertedResult: convResult,
+                        currencyTo: item.currencyTo || currentTo,
+                        isTaxExcluded: item.isTaxExcluded
+                    });
+                }
+            });
+
+            // 判斷匯出清單中是否有外語/外幣發票
+            const hasForeignItems = flatDetailItems.some(item => {
+                const curr = item.currencyFrom;
+                return (curr && curr !== 'TWD') || (item.nameForeign && item.nameForeign !== item.formula);
+            });
+
+            // 📋 建立原始標準工作表
             const headers = [
                 I18N[currentLang].excelColNo || "編號",
                 I18N[currentLang].excelColDateTime || "日期時間",
                 I18N[currentLang].excelColCategory || "分類",
-                I18N[currentLang].excelColFormula || "算式",
+                I18N[currentLang].excelColFormula || "項目/品名"
+            ];
+
+            if (hasForeignItems) {
+                headers.push(I18N[currentLang].excelColForeignName || "外文品名");
+                headers.push(I18N[currentLang].excelColTranslatedName || "中文翻譯");
+            }
+
+            headers.push(
                 I18N[currentLang].excelColResult || "計算結果",
                 I18N[currentLang].excelColCurrency || "原始幣別",
                 I18N[currentLang].excelColConverted || "換算金額",
                 I18N[currentLang].excelColTargetCurr || "目標幣別",
                 I18N[currentLang].excelColTax || "稅率狀態"
-            ];
+            );
 
-            const rows = exportItems.map((item, idx) => {
+            const rows = flatDetailItems.map((item) => {
                 const dt = item.timestamp ? new Date(item.timestamp).toLocaleString() : new Date().toLocaleString();
-                const catName = `${getCategoryEmoji(item.category || 'business')} ${getCategoryName(item.category || 'business')}`;
-                const numResult = typeof item.result === 'number' ? item.result : parseFloat(String(item.result).replace(/,/g, '')) || 0;
-                const convResult = item.convertedResult !== undefined ? parseFloat(item.convertedResult) : '';
+                const catName = `${getCategoryEmoji(item.category || 'other')} ${getCategoryName(item.category || 'other')}`;
+                const numResult = item.result;
+                const convResult = item.convertedResult !== undefined ? item.convertedResult : '';
                 const taxMode = item.isTaxExcluded ? (I18N[currentLang].taxBadgeEx || "未稅") : (I18N[currentLang].taxBadgeIn || "含稅");
-                return [
-                    idx + 1,
+                const isForeign = (item.currencyFrom && item.currencyFrom !== 'TWD') && (item.nameForeign && item.nameForeign !== item.formula);
+
+                const rowData = [
+                    item.idx,
                     dt,
                     catName,
-                    item.formula,
+                    item.formula
+                ];
+
+                if (hasForeignItems) {
+                    if (isForeign) {
+                        rowData.push(item.nameForeign || item.formula);
+                        rowData.push(item.formula);
+                    } else {
+                        rowData.push("");
+                        rowData.push("");
+                    }
+                }
+
+                rowData.push(
                     numResult,
                     item.currencyFrom || currentFrom,
                     convResult,
                     item.currencyTo || currentTo,
                     taxMode
-                ];
+                );
+
+                return rowData;
             });
 
+            // 📊 2. 建立包含明細與右側分類統計的完整工作表
+            // 明細欄位：
+            // A:編號, B:日期時間, C:分類, D:項目/品名
+            // 若無外語欄位：E:計算結果, F:原始幣別, G:換算金額, H:目標幣別, I:稅率狀態 -> 換算金額在 G 欄！
+            // 若有外語欄位：E:外文品名, F:中文翻譯, G:計算結果, H:原始幣別, I:換算金額, J:目標幣別, K:稅率狀態 -> 換算金額在 I 欄！
+            const convertedColLetter = hasForeignItems ? 'I' : 'G';
+            const defaultCats = ['food', 'shopping', 'transport', 'other'];
+            const allCatKeys = Array.from(new Set([
+                ...defaultCats,
+                ...flatDetailItems.map(item => item.category || 'other')
+            ])).filter(c => c !== 'business');
+
             const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+
+            // 寫入右側分類統計標題與動態公式
+            // 若無外語欄位，資料用到 I 欄，留白 J 欄，統計表放在 K 欄與 L 欄
+            // 若有外語欄位，資料用到 K 欄，留白 L 欄，統計表放在 M 欄與 N 欄
+            const catColKey = hasForeignItems ? 'M' : 'K';
+            const amtColKey = hasForeignItems ? 'N' : 'L';
+
+            ws[`${catColKey}1`] = { v: "分類項目", t: 's' };
+            ws[`${amtColKey}1`] = { v: "加總金額", t: 's' };
+
+            allCatKeys.forEach((catKey, idx) => {
+                const rowNum = idx + 2;
+                const catLabel = `${getCategoryEmoji(catKey)} ${getCategoryName(catKey)}`;
+                const formula = `SUMIF(C:C, ${catColKey}${rowNum}, ${convertedColLetter}:${convertedColLetter})`;
+
+                ws[`${catColKey}${rowNum}`] = { v: catLabel, t: 's' };
+                ws[`${amtColKey}${rowNum}`] = { f: formula, t: 'n' };
+            });
+
+            // 正確更新工作表範圍宣告
+            const maxRow = Math.max(rows.length + 1, allCatKeys.length + 1, 10);
+            const endColKey = hasForeignItems ? 'N' : 'L';
+            ws['!ref'] = `A1:${endColKey}${maxRow}`;
+
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, detailSheetName);
+
             ws['!cols'] = [
                 { wch: 6 },
                 { wch: 20 },
                 { wch: 14 },
                 { wch: 26 },
+                ...(hasForeignItems ? [{ wch: 26 }, { wch: 26 }] : []),
                 { wch: 14 },
                 { wch: 10 },
                 { wch: 14 },
                 { wch: 10 },
-                { wch: 12 }
+                { wch: 12 },
+                { wch: 4 },  // L 欄（留白隔開）
+                { wch: 16 }, // M 欄（分類項目）
+                { wch: 16 }  // N 欄（加總金額）
             ];
 
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "記帳清單");
             const dateStr = new Date().toISOString().slice(0, 10);
             const fileName = `BusinessCalc_${dateStr}.xlsx`;
 
@@ -1992,6 +2381,203 @@
             }, 1000);
         }
         showToastMsg(I18N[currentLang].toastExcelExported || "EXCEL EXPORTED");
+    }
+
+    /* ✈️ 多幣別旅行總支出報告 (Multi-Currency Travel Expense Report) 引擎 */
+    function renderTravelSummaryReport() {
+        if (!calcHistory || calcHistory.length === 0) {
+            showToastMsg(I18N[currentLang].noHistory || "無歷史紀錄");
+            return false;
+        }
+
+        let totalTwdAll = 0;
+        const byCurrency = {}; // { JPY: { origTotal: 15000, twdTotal: 3150, count: 2 } }
+        const byCategory = { food: 0, shopping: 0, transport: 0, other: 0 };
+        const categoryCounts = { food: 0, shopping: 0, transport: 0, other: 0 };
+        const byLocation = {}; // { "東京, 日本": twdTotal }
+
+        const flagIcons = { TWD: "🇹🇼", USD: "🇺🇸", JPY: "🇯🇵", KRW: "🇰🇷", EUR: "🇪🇺", CNY: "🇨🇳", MYR: "🇲🇾", SGD: "🇸🇬", AUD: "🇦🇺", VND: "🇻🇳", THB: "🇹🇭" };
+        const currSymbols = { TWD: "NT$", USD: "$", JPY: "¥", KRW: "₩", EUR: "€", CNY: "¥", MYR: "RM", SGD: "S$", AUD: "A$", VND: "₫", THB: "฿" };
+
+        calcHistory.forEach(item => {
+            if (item.category === 'business') return; // 商務計算不算個人旅費
+
+            const origCurr = item.origCurrency || item.currencyFrom || 'TWD';
+            const numOrigPrice = typeof item.origPrice === 'number' ? item.origPrice : (typeof item.result === 'number' ? item.result : parseFloat(String(item.result).replace(/,/g, '')) || 0);
+
+            // 計算 TWD 換算金額
+            let twdVal = 0;
+            if (item.twdAmount !== undefined && !isNaN(Number(item.twdAmount))) {
+                twdVal = Number(item.twdAmount);
+            } else if (origCurr === 'TWD') {
+                twdVal = numOrigPrice;
+            } else {
+                const twdRate = rates['TWD'] || 32.5;
+                const currRate = rates[origCurr] || 1;
+                twdVal = Math.round((numOrigPrice * (twdRate / currRate)) * 100) / 100;
+            }
+
+            totalTwdAll += twdVal;
+
+            // 依幣別累計
+            if (!byCurrency[origCurr]) {
+                byCurrency[origCurr] = { origTotal: 0, twdTotal: 0, count: 0 };
+            }
+            byCurrency[origCurr].origTotal += numOrigPrice;
+            byCurrency[origCurr].twdTotal += twdVal;
+            byCurrency[origCurr].count += 1;
+
+            // 依分類累計
+            const cat = item.category || 'other';
+            if (byCategory[cat] !== undefined) {
+                byCategory[cat] += twdVal;
+                categoryCounts[cat] += 1;
+            } else {
+                byCategory.other += twdVal;
+                categoryCounts.other += 1;
+            }
+
+            // 依地點累計
+            const loc = item.gpsLocation || item.location || '一般消費';
+            if (!byLocation[loc]) byLocation[loc] = { twdTotal: 0, count: 0 };
+            byLocation[loc].twdTotal += twdVal;
+            byLocation[loc].count += 1;
+        });
+
+        // 渲染總額 Hero
+        const heroEl = document.getElementById('travel-hero-amount');
+        if (heroEl) heroEl.textContent = `NT$ ${Math.round(totalTwdAll).toLocaleString()} TWD`;
+
+        // 渲染多幣別明細
+        const currListEl = document.getElementById('travel-curr-list');
+        if (currListEl) {
+            let html = '';
+            Object.keys(byCurrency).forEach(code => {
+                const info = byCurrency[code];
+                const pct = totalTwdAll > 0 ? ((info.twdTotal / totalTwdAll) * 100).toFixed(1) : '0.0';
+                const flag = flagIcons[code] || '🌐';
+                const sym = currSymbols[code] || '';
+                html += `
+                    <div class="travel-item-row">
+                        <div class="travel-item-left">
+                            <span>${flag}</span>
+                            <span>${code}</span>
+                            <span class="travel-item-sub">(${info.count} 筆)</span>
+                        </div>
+                        <div class="travel-item-right">
+                            <span class="travel-item-primary">${sym} ${info.origTotal.toLocaleString()} ${code}</span>
+                            <span class="travel-item-sub">約 NT$ ${Math.round(info.twdTotal).toLocaleString()} TWD (${pct}%)</span>
+                        </div>
+                    </div>
+                    <div class="travel-progress-bar"><div class="travel-progress-fill" style="width:${pct}%"></div></div>
+                `;
+            });
+            currListEl.innerHTML = html || '<div class="travel-item-sub">尚無多幣別資料</div>';
+        }
+
+        // 渲染分類明細
+        const catListEl = document.getElementById('travel-cat-list');
+        if (catListEl) {
+            let html = '';
+            const catNames = { food: '食 🍜', shopping: '購物 🛍️', transport: '行 🚗', other: '其他 🏷️' };
+            Object.keys(byCategory).forEach(catKey => {
+                const twdSum = byCategory[catKey];
+                const count = categoryCounts[catKey];
+                if (twdSum > 0 || count > 0) {
+                    const pct = totalTwdAll > 0 ? ((twdSum / totalTwdAll) * 100).toFixed(1) : '0.0';
+                    html += `
+                        <div class="travel-item-row">
+                            <div class="travel-item-left">
+                                <span>${catNames[catKey]}</span>
+                                <span class="travel-item-sub">(${count} 筆)</span>
+                            </div>
+                            <div class="travel-item-right">
+                                <span class="travel-item-primary">NT$ ${Math.round(twdSum).toLocaleString()}</span>
+                                <span class="travel-item-sub">${pct}%</span>
+                            </div>
+                        </div>
+                        <div class="travel-progress-bar"><div class="travel-progress-fill" style="width:${pct}%"></div></div>
+                    `;
+                }
+            });
+            catListEl.innerHTML = html || '<div class="travel-item-sub">尚無分類消費資料</div>';
+        }
+
+        // 渲染熱門地點
+        const locListEl = document.getElementById('travel-loc-list');
+        if (locListEl) {
+            let html = '';
+            Object.keys(byLocation).forEach(locName => {
+                const info = byLocation[locName];
+                html += `
+                    <div class="travel-item-row">
+                        <div class="travel-item-left">
+                            <span>📍 ${locName}</span>
+                        </div>
+                        <div class="travel-item-right">
+                            <span class="travel-item-primary">NT$ ${Math.round(info.twdTotal).toLocaleString()}</span>
+                            <span class="travel-item-sub">${info.count} 筆交易</span>
+                        </div>
+                    </div>
+                `;
+            });
+            locListEl.innerHTML = html || '<div class="travel-item-sub">尚無地點資料</div>';
+        }
+
+        return true;
+    }
+
+    function copyTravelReportText() {
+        triggerVibration(false);
+        if (!calcHistory || calcHistory.length === 0) return;
+
+        let totalTwdAll = 0;
+        const byCurrency = {};
+        const currSymbols = { TWD: "NT$", USD: "$", JPY: "¥", KRW: "₩", EUR: "€", CNY: "¥", MYR: "RM", SGD: "S$", AUD: "A$", VND: "₫", THB: "฿" };
+
+        calcHistory.forEach(item => {
+            if (item.category === 'business') return;
+            const origCurr = item.origCurrency || item.currencyFrom || 'TWD';
+            const numOrigPrice = typeof item.origPrice === 'number' ? item.origPrice : (typeof item.result === 'number' ? item.result : parseFloat(String(item.result).replace(/,/g, '')) || 0);
+
+            let twdVal = 0;
+            if (item.twdAmount !== undefined && !isNaN(Number(item.twdAmount))) {
+                twdVal = Number(item.twdAmount);
+            } else if (origCurr === 'TWD') {
+                twdVal = numOrigPrice;
+            } else {
+                const twdRate = rates['TWD'] || 32.5;
+                const currRate = rates[origCurr] || 1;
+                twdVal = Math.round((numOrigPrice * (twdRate / currRate)) * 100) / 100;
+            }
+            totalTwdAll += twdVal;
+
+            if (!byCurrency[origCurr]) byCurrency[origCurr] = { origTotal: 0, twdTotal: 0, count: 0 };
+            byCurrency[origCurr].origTotal += numOrigPrice;
+            byCurrency[origCurr].twdTotal += twdVal;
+            byCurrency[origCurr].count += 1;
+        });
+
+        const lines = [
+            `✈️ 【旅行總支出報告 (已換算 TWD)】`,
+            `📅 產生時間：${new Date().toLocaleString()}`,
+            `💰 旅費總開銷：NT$ ${Math.round(totalTwdAll).toLocaleString()} TWD`,
+            `────────────────────`,
+            `🔱 多幣別消費統計：`
+        ];
+
+        Object.keys(byCurrency).forEach(code => {
+            const info = byCurrency[code];
+            const sym = currSymbols[code] || '';
+            const pct = totalTwdAll > 0 ? ((info.twdTotal / totalTwdAll) * 100).toFixed(1) : '0.0';
+            lines.push(`• ${code}: ${sym} ${info.origTotal.toLocaleString()} → 約 NT$ ${Math.round(info.twdTotal).toLocaleString()} TWD (${pct}%)`);
+        });
+
+        lines.push(`────────────────────`);
+        lines.push(`📱 感謝使用 Premium 計算機 - 多幣別自動歸檔系統`);
+
+        copyTextToClipboard(lines.join('\n'));
+        showToastMsg(I18N[currentLang].toastReportCopied || "已複製旅行總支出報告！");
     }
 
     /* 💬 格式化純文字分享至 LINE / 原生系統分享 */
@@ -2520,8 +3106,15 @@
 
         document.querySelectorAll('[data-i18n]').forEach(el => {
             const key = el.dataset.i18n;
-            if (I18N[currentLang][key]) {
+            if (I18N[currentLang] && I18N[currentLang][key]) {
                 el.textContent = I18N[currentLang][key];
+            }
+        });
+
+        document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+            const key = el.dataset.i18nPlaceholder;
+            if (I18N[currentLang] && I18N[currentLang][key]) {
+                el.placeholder = I18N[currentLang][key];
             }
         });
 
@@ -4160,6 +4753,7 @@
 
         attachSmartTap(document.getElementById('btn-settings'), (e) => toggleMenu('settings', e));
         attachSmartTap(document.getElementById('btn-history'), (e) => toggleMenu('history', e));
+        attachSmartTap(document.getElementById('btn-ai-scan'), (e) => toggleMenu('ai-scan', e));
         attachSmartTap(document.getElementById('btn-open-keyboard'), guardSubMenuOpen(openKeyboardCustomizer));
         attachSmartTap(document.getElementById('btn-keyboard-back'), () => {
             // 檢查是否缺少 刪除鍵(backspace)、清除鍵(clear)、等於鍵(equal) 任一個
@@ -4249,6 +4843,11 @@
             navigateSubMenu('settings-menu', 'rate-settings-menu', 'forward');
         }));
         attachSmartTap(document.getElementById('btn-rate-back'), () => navigateSubMenu('rate-settings-menu', 'settings-menu', 'backward'));
+        
+        attachSmartTap(document.getElementById('btn-open-ai-scan-settings'), guardSubMenuOpen(() => {
+            if (window.updateGeminiKeyUI) window.updateGeminiKeyUI();
+            navigateSubMenu('settings-menu', 'ai-scan-settings-menu', 'forward');
+        }));
         
         attachSmartTap(document.getElementById('btn-rate-reset'), () => {
             triggerVibration();
@@ -4423,6 +5022,32 @@
         const btnExportExcel = document.getElementById('btn-history-export-excel');
         if (btnExportExcel) attachSmartTap(btnExportExcel, exportHistoryExcel);
 
+        const btnTravelReport = document.getElementById('btn-history-travel-report');
+        if (btnTravelReport) {
+            attachSmartTap(btnTravelReport, () => {
+                triggerVibration();
+                if (renderTravelSummaryReport()) {
+                    const modal = document.getElementById('travel-summary-modal');
+                    if (modal) modal.style.display = 'flex';
+                }
+            });
+        }
+
+        const btnCloseTravel = document.getElementById('btn-close-travel-modal');
+        if (btnCloseTravel) {
+            attachSmartTap(btnCloseTravel, () => {
+                triggerVibration();
+                const modal = document.getElementById('travel-summary-modal');
+                if (modal) modal.style.display = 'none';
+            });
+        }
+
+        const btnCopyTravel = document.getElementById('btn-copy-travel-report');
+        if (btnCopyTravel) attachSmartTap(btnCopyTravel, copyTravelReportText);
+
+        const btnExportTravelExcel = document.getElementById('btn-export-travel-excel');
+        if (btnExportTravelExcel) attachSmartTap(btnExportTravelExcel, exportHistoryExcel);
+
         // 綁定即時分類氣泡按鈕
         document.querySelectorAll('#category-bubble .cat-chip').forEach(chip => {
             attachSmartTap(chip, (e) => {
@@ -4453,17 +5078,71 @@
                 triggerVibration(false);
                 const resScreen = document.getElementById('result-screen');
                 if (!resScreen) return;
-                const rect = resScreen.getBoundingClientRect();
-                const clickX = e.clientX;
-                const totalChars = currentInput.length;
-                if (totalChars <= 1) {
-                    cursorPos = totalChars;
-                } else {
-                    const relX = Math.max(0, Math.min(clickX - rect.left, rect.width));
-                    const ratio = rect.width > 0 ? (relX / rect.width) : 1;
-                    cursorPos = Math.round(ratio * totalChars);
-                    cursorPos = Math.max(0, Math.min(cursorPos, totalChars));
+
+                // 利用瀏覽器原生 Caret API 取得點擊位置的 DOM 文字節點與字元偏移
+                let domNode = null, domOffset = 0;
+                if (document.caretPositionFromPoint) {
+                    const cp = document.caretPositionFromPoint(e.clientX, e.clientY);
+                    if (cp) { domNode = cp.offsetNode; domOffset = cp.offset; }
+                } else if (document.caretRangeFromPoint) {
+                    const range = document.caretRangeFromPoint(e.clientX, e.clientY);
+                    if (range) { domNode = range.startContainer; domOffset = range.startOffset; }
                 }
+
+                if (!domNode || !resScreen.contains(domNode)) {
+                    cursorPos = currentInput.length;
+                    updateDisplay();
+                    return;
+                }
+
+                let rawPos = 0;
+                let found = false;
+
+                function walkNodes(node) {
+                    if (found) return;
+                    if (node.nodeType === Node.TEXT_NODE) {
+                        const len = node.textContent.length;
+                        if (node === domNode) {
+                            rawPos += domOffset;
+                            found = true;
+                        } else {
+                            rawPos += len;
+                        }
+                    } else if (node.tagName === 'SUP') {
+                        const supText = node.textContent;
+                        if (node.contains(domNode)) {
+                            rawPos += 1;
+                            for (const child of node.childNodes) {
+                                if (found) break;
+                                if (child.nodeType === Node.TEXT_NODE) {
+                                    if (child === domNode) {
+                                        rawPos += domOffset;
+                                        found = true;
+                                    } else {
+                                        rawPos += child.textContent.length;
+                                    }
+                                }
+                            }
+                            if (!found) { rawPos += supText.length; found = true; }
+                        } else {
+                            rawPos += 1 + supText.length;
+                        }
+                    } else {
+                        for (const child of node.childNodes) walkNodes(child);
+                    }
+                }
+
+                for (const child of resScreen.childNodes) {
+                    if (found) break;
+                    if (child.classList && child.classList.contains('formula-cursor')) continue;
+                    if (child.classList && (child.classList.contains('existing-digits') || child.classList.contains('new-digit'))) {
+                        for (const inner of child.childNodes) { if (!found) walkNodes(inner); }
+                    } else {
+                        walkNodes(child);
+                    }
+                }
+
+                cursorPos = Math.max(0, Math.min(rawPos, currentInput.length));
                 updateDisplay();
             });
         }
@@ -4479,6 +5158,26 @@
         attachSmartTap(document.getElementById('refresh-rate-btn'), () => fetchRates(true));
         attachSmartTap(document.getElementById('btn-settings-done'), (e) => toggleMenu('settings', e));
 
+        // 歷史紀錄雙模式分頁切換 (記帳紀錄 vs 商務紀錄)
+        const tabAccounting = document.getElementById('tab-history-accounting');
+        const tabBusiness = document.getElementById('tab-history-business');
+        if (tabAccounting && tabBusiness) {
+            attachSmartTap(tabAccounting, () => {
+                triggerVibration(false);
+                currentHistoryMode = 'accounting';
+                tabAccounting.classList.add('active');
+                tabBusiness.classList.remove('active');
+                renderHistory();
+            });
+            attachSmartTap(tabBusiness, () => {
+                triggerVibration(false);
+                currentHistoryMode = 'business';
+                tabBusiness.classList.add('active');
+                tabAccounting.classList.remove('active');
+                renderHistory();
+            });
+        }
+
         attachSmartTap(document.getElementById('history-container'), (e, item) => {
             openHistoryModal(parseInt(item.dataset.index), e);
         }, { selector: '.history-item' });
@@ -4488,6 +5187,8 @@
             document.getElementById('confirm-clear-modal').classList.add('show');
         });
         attachSmartTap(document.getElementById('btn-history-done'), (e) => toggleMenu('history', e));
+        attachSmartTap(document.getElementById('btn-ai-scan-close'), (e) => toggleMenu('ai-scan', e));
+        attachSmartTap(document.getElementById('btn-ai-scan-settings-back'), () => navigateSubMenu('ai-scan-settings-menu', 'settings-menu', 'backward'));
 
         attachSmartTap(document.getElementById('history-modal'), closeHistoryModal);
         document.getElementById('history-modal-card').addEventListener('pointerdown', (e) => e.stopPropagation());
@@ -4503,13 +5204,14 @@
             document.getElementById('confirm-clear-modal').classList.remove('show');
         });
         document.getElementById('confirm-modal-card').addEventListener('pointerdown', (e) => e.stopPropagation());
-        document.querySelectorAll('#confirm-modal-card .modal-btn').forEach(btn => {
+        document.querySelectorAll('#confirm-modal-card .alert-btn').forEach(btn => {
             attachSmartTap(btn, () => {
                 const action = btn.dataset.action;
                 if (action === 'confirm-clear') {
                     triggerVibration();
                     calcHistory = [];
-                    localStorage.removeItem(KEY_HISTORY);
+                    localStorage.setItem(KEY_HISTORY, JSON.stringify([]));
+                    deleteFromIDB(KEY_HISTORY);
                     renderHistory();
                     document.getElementById('confirm-clear-modal').classList.remove('show');
                     toggleMenu('history');
@@ -4525,7 +5227,7 @@
             document.getElementById('confirm-reset-modal').classList.remove('show');
         });
         document.getElementById('confirm-reset-card').addEventListener('pointerdown', (e) => e.stopPropagation());
-        document.querySelectorAll('#confirm-reset-card .modal-btn').forEach(btn => {
+        document.querySelectorAll('#confirm-reset-card .alert-btn').forEach(btn => {
             attachSmartTap(btn, () => {
                 const action = btn.dataset.action;
                 if (action === 'confirm-reset') {
@@ -4591,7 +5293,8 @@
         if (typeof DOM !== 'undefined' && DOM.init) DOM.init();
         renderCurrencyUI();
 
-        if ('serviceWorker' in navigator) {
+        const isSupportedProtocol = location.protocol === 'https:' || location.protocol === 'http:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+        if ('serviceWorker' in navigator && isSupportedProtocol) {
             navigator.serviceWorker.register('./sw.js', { scope: './' }).then((reg) => {
                 reg.addEventListener('updatefound', () => {
                     const newWorker = reg.installing;
@@ -4703,6 +5406,7 @@
             let deferredPrompt = null;
             const isStandalone = window.matchMedia('(display-mode: standalone)').matches || ('standalone' in window.navigator && window.navigator.standalone);
             const isDismissed = localStorage.getItem('app_pwa_prompt_dismissed') === 'true';
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
             // 監聽 Android/Chrome 的原生的安裝事件
             window.addEventListener('beforeinstallprompt', (e) => {
@@ -4713,11 +5417,10 @@
                 }
             });
 
-            // 若不是已安裝的 Standalone 模式，且未關閉過彈窗
-            if (!isStandalone && !isDismissed) {
-                // 若未收到 beforeinstallprompt（如 iOS 或一般桌面瀏覽器），3秒後主動彈出提示
+            // 只有當確定是 iOS 裝置、非 Standalone 模式、未關閉過且未收到原生安裝事件時，才彈出 iOS 安裝教學
+            if (!isStandalone && !isDismissed && isIOS) {
                 setTimeout(() => {
-                    if (!prompt.classList.contains('show')) {
+                    if (!prompt.classList.contains('show') && !deferredPrompt) {
                         prompt.classList.add('show');
                     }
                 }, 3000);
@@ -4744,6 +5447,412 @@
                 localStorage.setItem('app_pwa_prompt_dismissed', 'true');
             });
         };
-        setupInstallPrompt();
+        // 智慧日期時間解析輔助函數 (支援西元年、民國年、中文年月日/時分秒與 ISO 格式)
+        function parseInvoiceDateToISO(customTimestamp) {
+            if (!customTimestamp) return new Date().toISOString();
+            if (customTimestamp instanceof Date) {
+                return !isNaN(customTimestamp.getTime()) ? customTimestamp.toISOString() : new Date().toISOString();
+            }
+
+            let str = String(customTimestamp).trim();
+            if (!str) return new Date().toISOString();
+
+            // 1. 檢查民國年格式 (如 113/09/18, 113-09-18, 1130918, 113年9月18日)
+            const rocMatch = str.match(/^(1\d{2})[./\-\s年]?(\d{1,2})[./\-\s月]?(\d{1,2})(?:[日\s]*(\d{1,2})[.:點]?(\d{1,2})?(?:[.:秒]?(\d{1,2}))?)?/);
+            if (rocMatch) {
+                const year = parseInt(rocMatch[1], 10) + 1911;
+                const month = parseInt(rocMatch[2], 10) - 1;
+                const day = parseInt(rocMatch[3], 10);
+                const hour = rocMatch[4] !== undefined ? parseInt(rocMatch[4], 10) : 12;
+                const min = rocMatch[5] !== undefined ? parseInt(rocMatch[5], 10) : 0;
+                const sec = rocMatch[6] !== undefined ? parseInt(rocMatch[6], 10) : 0;
+                const d = new Date(year, month, day, hour, min, sec);
+                if (!isNaN(d.getTime())) return d.toISOString();
+            }
+
+            // 2. 處理西元年中文或分隔號 (如 2024年09月18日 14點30分50秒 -> 2024-09-18 14:30:50)
+            let cleaned = str
+                .replace(/年|月/g, '-')
+                .replace(/日/g, ' ')
+                .replace(/點|時/g, ':')
+                .replace(/分/g, ':')
+                .replace(/秒/g, '')
+                .trim();
+
+            // 3. 西元年匹配 YYYY-MM-DD HH:mm:ss 或 YYYY-MM-DD
+            const ymdMatch = cleaned.match(/^(\d{4})[./\-\s](\d{1,2})[./\-\s](\d{1,2})(?:\s+(\d{1,2})[.:](\d{1,2})(?:[.:](\d{1,2}))?)?/);
+            if (ymdMatch) {
+                const year = parseInt(ymdMatch[1], 10);
+                const month = parseInt(ymdMatch[2], 10) - 1;
+                const day = parseInt(ymdMatch[3], 10);
+                const now = new Date();
+                const hour = ymdMatch[4] !== undefined ? parseInt(ymdMatch[4], 10) : now.getHours();
+                const min = ymdMatch[5] !== undefined ? parseInt(ymdMatch[5], 10) : now.getMinutes();
+                const sec = ymdMatch[6] !== undefined ? parseInt(ymdMatch[6], 10) : now.getSeconds();
+                const d = new Date(year, month, day, hour, min, sec);
+                if (!isNaN(d.getTime())) return d.toISOString();
+            }
+
+            // 4. iOS / Cross-browser safe ISO format (Replace space with 'T')
+            const isoClean = str.replace(' ', 'T');
+            let d = new Date(isoClean);
+            if (!isNaN(d.getTime())) {
+                return d.toISOString();
+            }
+
+            d = new Date(str);
+            if (!isNaN(d.getTime())) {
+                return d.toISOString();
+            }
+
+            return new Date().toISOString();
+        }
+
+        // Expose global helper for AI Scan module
+        window.addScannedRecordToHistory = function (name, amount, customTimestamp, category, extraData) {
+            if (Array.isArray(calcHistory)) {
+                const itemTime = parseInvoiceDateToISO(customTimestamp);
+                const itemCat = category || 'other';
+                const extra = extraData || {};
+                const recObj = {
+                    formula: name || '發票明細商品',
+                    result: amount,
+                    category: itemCat,
+                    timestamp: itemTime,
+                    addedAt: new Date().toISOString(),
+                    currencyFrom: extra.origCurrency || currentFrom,
+                    currencyTo: currentTo,
+                    convertedResult: extra.twdAmount !== undefined ? extra.twdAmount : amount,
+                    nameForeign: extra.nameForeign || name || '',
+                    rateToTWD: extra.rateToTWD || 1,
+                    location: extra.location || ''
+                };
+                if (Array.isArray(extra.items) && extra.items.length > 0) {
+                    recObj.items = extra.items;
+                }
+                calcHistory.unshift(recObj);
+                if (calcHistory.length > 50) calcHistory.pop();
+                try {
+                    saveHistoryStorage();
+                } catch (e) {
+                    console.error('Save history error:', e);
+                }
+                if (typeof renderHistory === 'function') {
+                    renderHistory();
+                }
+            }
+        };
+        window.addScannedReceiptToHistory = window.addScannedRecordToHistory;
+        window.showToastMsg = typeof showToastMsg === 'function' ? showToastMsg : function(msg) { alert(msg); };
+        window.toggleMenu = toggleMenu;
+        window.updateGliders = updateGliders;
+
+        // 🎙️ 人性化 Google 助理 / URL 語音捷徑記帳解析引擎
+        function handleVoiceUrlParams() {
+            try {
+                const urlParams = new URLSearchParams(window.location.search);
+                // 支援多種常見參數名：item / name / note / memo / text / desc
+                const rawItem = urlParams.get('item') || urlParams.get('name') || urlParams.get('note') || urlParams.get('memo') || urlParams.get('text') || urlParams.get('desc') || '';
+                // 支援多種常見金額參數名：amount / price / cost / val / num
+                const rawAmount = urlParams.get('amount') || urlParams.get('price') || urlParams.get('cost') || urlParams.get('val') || urlParams.get('num') || '';
+                const rawCat = urlParams.get('category') || urlParams.get('cat') || '';
+
+                if (!rawItem && !rawAmount) return;
+
+                let itemName = rawItem.trim();
+                let amountVal = null;
+                let category = 'other';
+
+                // 1. 如果從語音輸入混在一起（例如 item=午餐120 或 item=120元午餐）
+                if (!rawAmount && itemName) {
+                    const matchNum = itemName.match(/(\d+(?:\.\d+)?)/);
+                    if (matchNum) {
+                        amountVal = parseFloat(matchNum[1]);
+                        // 清理品名中的數字與「元/塊/塊錢」
+                        itemName = itemName.replace(matchNum[1], '').replace(/元|塊錢|塊/g, '').trim();
+                    }
+                } else if (rawAmount) {
+                    const numMatch = String(rawAmount).match(/(\d+(?:\.\d+)?)/);
+                    if (numMatch) {
+                        amountVal = parseFloat(numMatch[1]);
+                    }
+                }
+
+                if (!itemName) itemName = '語音速記';
+                if (amountVal === null || isNaN(amountVal) || amountVal <= 0) return;
+
+                // 2. 人性化分類自動推論
+                const lowerCat = rawCat.toLowerCase();
+                if (lowerCat.includes('food') || lowerCat.includes('食') || lowerCat.includes('餐') || /午餐|晚餐|早餐|飲料|咖啡|便當|麵|飯|小吃|餐廳|宵夜|點心|水果|奶茶/.test(itemName)) {
+                    category = 'food';
+                } else if (lowerCat.includes('shop') || lowerCat.includes('購') || /買|衣服|鞋|超市|超商|全家|7-11|藥妝|玩具|日用品|禮物/.test(itemName)) {
+                    category = 'shopping';
+                } else if (lowerCat.includes('trans') || lowerCat.includes('行') || /車|捷運|公車|高鐵|計程車|Uber|加油|停車|機車|路邊/.test(itemName)) {
+                    category = 'transport';
+                } else if (rawCat) {
+                    category = rawCat;
+                }
+
+                // 3. 自動寫入歷史紀錄
+                const formattedRes = amountVal.toString();
+                calcHistory.unshift({
+                    formula: itemName,
+                    result: formattedRes,
+                    category: category,
+                    timestamp: new Date().toISOString(),
+                    currencyFrom: currentFrom,
+                    currencyTo: currentTo,
+                    convertedResult: lastValidConvertedValue || amountVal,
+                    isTaxExcluded: isTaxExcluded,
+                    taxRate: customTaxRates[currentFrom] || 0
+                });
+                if (calcHistory.length > 50) calcHistory.pop();
+                saveHistoryStorage();
+                if (typeof updateHistoryButtonUI === 'function') updateHistoryButtonUI();
+                if (typeof renderHistory === 'function') renderHistory();
+
+                // 4. 超親切人性化 Toast 提示與音效觸覺回饋
+                setTimeout(() => {
+                    triggerVibration(false);
+                    const catEmoji = category === 'food' ? '🍜' : (category === 'shopping' ? '🛍️' : (category === 'transport' ? '🚗' : '🏷️'));
+                    showToastMsg(`🎙️ 助理已為您記帳：${itemName} ${catEmoji} $${amountVal}`);
+                }, 300);
+
+                // 5. 潔癖式清理 URL（移除 query string，避免使用者重新整理網頁時重複記帳）
+                if (window.history && window.history.replaceState) {
+                    const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
+                    window.history.replaceState({ path: cleanUrl }, '', cleanUrl);
+                }
+            } catch (err) {
+                console.error('Voice URL parsing error:', err);
+            }
+        }
+
+        // 觸發 URL 語音參數檢測
+        setTimeout(handleVoiceUrlParams, 500);
+
+        // 🎙️ 點擊頂部語音按鈕 (#btn-voice-rec)：啟動瀏覽器原生 Web Speech API 語音辨識與實時對話框 Modal
+        const voiceBtn = document.getElementById('btn-voice-rec');
+        const voiceModal = document.getElementById('voice-modal');
+        const voiceInputItem = document.getElementById('voice-input-item');
+        const voiceInputAmount = document.getElementById('voice-input-amount');
+        const voiceHint = document.getElementById('voice-parsed-hint');
+        const voiceCancelBtn = document.getElementById('btn-voice-modal-cancel');
+        const voiceConfirmBtn = document.getElementById('btn-voice-modal-confirm');
+        const voiceCatChips = document.querySelectorAll('.voice-cat-chip');
+
+        let selectedVoiceCategory = 'food';
+
+        if (voiceCatChips) {
+            voiceCatChips.forEach(chip => {
+                attachSmartTap(chip, () => {
+                    triggerVibration(false);
+                    voiceCatChips.forEach(c => c.classList.remove('active'));
+                    chip.classList.add('active');
+                    selectedVoiceCategory = chip.dataset.cat || 'other';
+                });
+            });
+        }
+
+        if (voiceBtn) {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            let recognition = null;
+            let isRecognizing = false;
+            let activeAudioStream = null;
+
+            function closeVoiceModal() {
+                isRecognizing = false;
+                if (voiceModal) voiceModal.classList.remove('show');
+                if (voiceBtn) voiceBtn.classList.remove('is-listening');
+                if (activeAudioStream) {
+                    activeAudioStream.getTracks().forEach(t => t.stop());
+                    activeAudioStream = null;
+                }
+                if (recognition) {
+                    try { recognition.abort(); } catch(e) {}
+                }
+            }
+
+            if (voiceCancelBtn) {
+                attachSmartTap(voiceCancelBtn, () => {
+                    triggerVibration(false);
+                    closeVoiceModal();
+                });
+            }
+
+            if (voiceConfirmBtn) {
+                attachSmartTap(voiceConfirmBtn, () => {
+                    triggerVibration(false);
+                    const itemVal = voiceInputItem ? voiceInputItem.value.trim() : '';
+                    const amtVal = voiceInputAmount ? parseFloat(voiceInputAmount.value) : NaN;
+
+                    if (!itemVal && (isNaN(amtVal) || amtVal <= 0)) {
+                        showToastMsg("⚠️ 請輸入或語音說明品名與金額");
+                        return;
+                    }
+
+                    const finalItem = itemVal || '語音速記';
+                    const finalAmt = isNaN(amtVal) ? 0 : amtVal;
+
+                    // 直接寫入歷史紀錄
+                    calcHistory.unshift({
+                        formula: finalItem,
+                        result: finalAmt.toString(),
+                        category: selectedVoiceCategory,
+                        timestamp: new Date().toISOString(),
+                        currencyFrom: currentFrom,
+                        currencyTo: currentTo,
+                        convertedResult: lastValidConvertedValue || finalAmt,
+                        isTaxExcluded: isTaxExcluded,
+                        taxRate: customTaxRates[currentFrom] || 0
+                    });
+                    if (calcHistory.length > 50) calcHistory.pop();
+                    saveHistoryStorage();
+                    if (typeof updateHistoryButtonUI === 'function') updateHistoryButtonUI();
+                    if (typeof renderHistory === 'function') renderHistory();
+
+                    const catEmoji = selectedVoiceCategory === 'food' ? '🍜' : (selectedVoiceCategory === 'shopping' ? '🛍️' : (selectedVoiceCategory === 'transport' ? '🚗' : '🏷️'));
+                    showToastMsg(`🎙️ 已記帳：${finalItem} ${catEmoji} $${finalAmt}`);
+                    closeVoiceModal();
+                });
+            }
+
+            function startVoiceRecognition() {
+                if (!SpeechRecognition) {
+                    triggerVibration(true);
+                    showToastMsg("⚠️ 您的瀏覽器不支援本機語音辨識（請使用 Chrome 或 Edge）");
+                    return;
+                }
+
+                try {
+                    if (recognition) {
+                        try { recognition.abort(); } catch(e) {}
+                    }
+                    recognition = new SpeechRecognition();
+                    recognition.lang = currentLang === 'zh' ? 'zh-TW' : 'en-US';
+                    recognition.continuous = true;
+                    recognition.interimResults = true;
+
+                    recognition.onstart = () => {
+                        isRecognizing = true;
+                        triggerVibration(false);
+                        voiceBtn.classList.add('is-listening');
+                        if (voiceInputItem) voiceInputItem.value = '';
+                        if (voiceInputAmount) voiceInputAmount.value = '';
+                        if (voiceHint) voiceHint.textContent = I18N[currentLang].voiceListeningHint || "🎙️ 正在即時收音辨識中...";
+                        
+                        // 自動以 IP 定位為主、GPS 定位為輔動態更新金額後方之幣別標籤
+                        const voiceCurrTag = document.getElementById('voice-currency-tag');
+                        if (voiceCurrTag) {
+                            voiceCurrTag.textContent = currentFrom || 'TWD';
+                            fetchUnifiedLocationAndCurrency((meta) => {
+                                if (meta && meta.currency) {
+                                    voiceCurrTag.textContent = meta.currency;
+                                }
+                            });
+                        }
+
+                        if (voiceModal) voiceModal.classList.add('show');
+                    };
+
+                    recognition.onresult = (event) => {
+                        let interimTranscript = '';
+                        let finalTranscript = '';
+
+                        for (let i = event.resultIndex; i < event.results.length; ++i) {
+                            const trans = event.results[i][0].transcript;
+                            if (event.results[i].isFinal) {
+                                finalTranscript += trans;
+                            } else {
+                                interimTranscript += trans;
+                            }
+                        }
+
+                        const currentText = (finalTranscript + ' ' + interimTranscript).trim();
+                        if (currentText) {
+                            // 即時拆解品名與金額帶入編輯框
+                            const matchNum = currentText.match(/(\d+(?:\.\d+)?)/);
+                            if (matchNum) {
+                                const amt = parseFloat(matchNum[1]);
+                                const itemName = currentText.replace(matchNum[1], '').replace(/元|塊錢|塊/g, '').trim() || '語音速記';
+                                if (voiceInputItem) voiceInputItem.value = itemName;
+                                if (voiceInputAmount) voiceInputAmount.value = amt;
+
+                                // 推論分類
+                                if (/午餐|晚餐|早餐|飲料|咖啡|便當|麵|飯|小吃|餐廳|宵夜|點心|水果|奶茶/.test(itemName)) {
+                                    selectedVoiceCategory = 'food';
+                                } else if (/買|衣服|鞋|超市|超商|全家|7-11|藥妝|玩具|日用品|禮物/.test(itemName)) {
+                                    selectedVoiceCategory = 'shopping';
+                                } else if (/車|捷運|公車|高鐵|計程車|Uber|加油|停車|機車|路邊/.test(itemName)) {
+                                    selectedVoiceCategory = 'transport';
+                                }
+                                if (voiceCatChips) {
+                                    voiceCatChips.forEach(c => {
+                                        c.classList.toggle('active', c.dataset.cat === selectedVoiceCategory);
+                                    });
+                                }
+
+                                if (voiceHint) voiceHint.textContent = `✨ 已自動辨識帶入，可點擊上方輸入框修改`;
+                            } else {
+                                if (voiceInputItem) voiceInputItem.value = currentText;
+                                if (voiceHint) voiceHint.textContent = `🗣️ 語音辨識中：${currentText}`;
+                            }
+                        }
+                    };
+
+                    recognition.onerror = (event) => {
+                        console.warn('Speech recognition error:', event.error);
+                        if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+                            triggerVibration(true);
+                            if (voiceHint) voiceHint.textContent = "⚠️ 請在瀏覽器允許「麥克風」權限";
+                            showToastMsg("⚠️ 請允許瀏覽器存取麥克風權限");
+                        } else if (event.error === 'no-speech') {
+                            if (voiceHint) voiceHint.textContent = "⚠️ 未聽見聲音，講完可直接於上方輸入框點擊修改";
+                        } else if (event.error === 'network') {
+                            if (voiceHint) voiceHint.textContent = "⚠️ 語音連線超時，講完可直接於上方輸入框點擊修改";
+                        }
+                    };
+
+                    recognition.onend = () => {
+                        if (isRecognizing && lastRecognizedText && voiceModal && voiceModal.classList.contains('show')) {
+                            const urlParams = new URLSearchParams();
+                            urlParams.set('item', lastRecognizedText);
+                            window.history.replaceState({}, '', window.location.pathname + '?' + urlParams.toString());
+                            handleVoiceUrlParams();
+                            setTimeout(closeVoiceModal, 1200);
+                        } else {
+                            voiceBtn.classList.remove('is-listening');
+                        }
+                    };
+
+                    recognition.start();
+                } catch(err) {
+                    console.error('Speech Recognition start failed:', err);
+                    showToastMsg("⚠️ 語音辨識啟動失敗，請重新點擊");
+                }
+            }
+
+            attachSmartTap(voiceBtn, () => {
+                if (voiceModal && voiceModal.classList.contains('show')) {
+                    closeVoiceModal();
+                } else {
+                    // 先請求麥克風權限（針對電腦版 Chrome 防堵權限阻擋）
+                    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                        navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+                            // 取得權限後立即關閉臨時串流，並開啟 SpeechRecognition
+                            stream.getTracks().forEach(t => t.stop());
+                            startVoiceRecognition();
+                        }).catch(err => {
+                            console.warn('Microphone permission denied:', err);
+                            triggerVibration(true);
+                            showToastMsg("⚠️ 請在網址列左側鎖頭開啟「麥克風」權限");
+                        });
+                    } else {
+                        startVoiceRecognition();
+                    }
+                }
+            });
+        }
 
     }); // DOMContentLoaded
+

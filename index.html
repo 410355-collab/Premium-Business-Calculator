@@ -23,6 +23,7 @@
         href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;700&amp;family=Inter:wght@600;800&amp;family=Noto+Sans+TC:wght@500;700;900&amp;family=Noto+Serif+TC:wght@600;900&amp;family=Orbitron:wght@500;700;900&amp;family=Rajdhani:wght@600;700&amp;family=ZCOOL+KuaiLe&amp;display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="./style.css">
+    <link rel="stylesheet" href="./ai-scan.css">
 </head>
 
 <body class="font-tech">
@@ -107,11 +108,19 @@
         <div class="left-panel">
             <div class="header-area" id="header-area">
                 <div class="action-bar">
-                    <div class="icon-btn settings-btn" id="btn-settings" aria-label="Settings">
-                        <svg viewBox="0 0 24 24">
-                            <path
-                                d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.06-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.73,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.06,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.43-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.49-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z" />
-                        </svg>
+                    <div class="action-bar-left">
+                        <div class="icon-btn settings-btn" id="btn-settings" aria-label="Settings">
+                            <svg viewBox="0 0 24 24">
+                                <path
+                                    d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.06-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43-0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.73,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.06,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.43-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.49-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z" />
+                            </svg>
+                        </div>
+                        <div class="icon-btn voice-rec-btn" id="btn-voice-rec" aria-label="Voice Bookkeeping" title="語音記帳">
+                            <svg viewBox="0 0 24 24">
+                                <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1-9c0-.55.45-1 1-1s1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V5zm6 6c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+                            </svg>
+                            <span class="voice-rec-dot"></span>
+                        </div>
                     </div>
                     <div class="capsule-wrapper" id="capsule-wrapper">
                         <div class="capsule" id="top-capsule">
@@ -142,23 +151,27 @@
                     <div class="category-bubble" id="category-bubble">
                         <button class="cat-chip" data-cat="food"><span class="cat-emoji">🍜</span><span class="cat-name"
                                 data-i18n="catFood">食</span></button>
-                        <button class="cat-chip" data-cat="clothing"><span class="cat-emoji">👕</span><span
-                                class="cat-name" data-i18n="catClothing">衣</span></button>
-                        <button class="cat-chip" data-cat="housing"><span class="cat-emoji">🏠</span><span
-                                class="cat-name" data-i18n="catHousing">住</span></button>
+                        <button class="cat-chip" data-cat="shopping"><span class="cat-emoji">🛍️</span><span
+                                class="cat-name" data-i18n="catShopping">購物</span></button>
                         <button class="cat-chip" data-cat="transport"><span class="cat-emoji">🚗</span><span
                                 class="cat-name" data-i18n="catTransport">行</span></button>
+                        <button class="cat-chip" data-cat="other"><span class="cat-emoji">🏷️</span><span
+                                class="cat-name" data-i18n="catOther">其他</span></button>
                         <button class="cat-chip" data-cat="business"><span class="cat-emoji">💼</span><span
                                 class="cat-name" data-i18n="catBusiness">商務</span></button>
-                        <button class="cat-chip" data-cat="other"><span class="cat-emoji">🏷️</span><span
-                                class="cat-name" data-i18n="catOther">一般</span></button>
                     </div>
                     <div class="toast" id="global-toast">COPIED!</div>
-                    <div class="icon-btn history-btn" id="btn-history" aria-label="History">
-                        <svg viewBox="0 0 24 24">
-                            <path
-                                d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z" />
-                        </svg>
+                    <div class="action-bar-right">
+                        <div class="icon-btn" id="btn-ai-scan" aria-label="Scan &amp; Bookkeeping">
+                            <svg viewBox="0 0 24 24"><path d="M12 15.2A3.2 3.2 0 1 0 12 8.8 3.2 3.2 0 0 0 12 15.2zM9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/></svg>
+                            <span class="ai-scan-dot"></span>
+                        </div>
+                        <div class="icon-btn history-btn" id="btn-history" aria-label="History">
+                            <svg viewBox="0 0 24 24">
+                                <path
+                                    d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z" />
+                            </svg>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -275,6 +288,11 @@
                             class="slider"></span></label>
                 </div>
 
+                <div class="setting-row clickable" id="btn-open-ai-scan-settings">
+                    <span class="setting-label" data-i18n="labelAiScanSettings">INSTANT AI SCANNER</span>
+                    <div class="setting-arrow-link">❯</div>
+                </div>
+
                 <div class="setting-row clickable" id="btn-open-keyboard">
                     <span class="setting-label" data-i18n="labelKeyboardLayout">KEYBOARD LAYOUT</span>
                     <div class="setting-arrow-link">❯</div>
@@ -322,6 +340,7 @@
                     <button class="selector-btn grid-preset-btn" data-grid="4x6">4×6</button>
                     <button class="selector-btn grid-preset-btn active" data-grid="4x5">4×5</button>
                     <button class="selector-btn grid-preset-btn" data-grid="4x4">4×4</button>
+                    <button class="selector-btn grid-preset-btn" data-grid="3x4">3×4</button>
                 </div>
 
                 <div class="snapshot-selector-bar compact-snapshot-bar">
@@ -472,13 +491,159 @@
             </div>
         </div>
 
+        <!-- AI 掃描記帳設定子頁 -->
+        <div class="overlay-menu" id="ai-scan-settings-menu">
+            <div class="overlay-title" data-i18n="aiScanSettingsTitle">SCAN SETTINGS</div>
+            <div class="setting-box">
+                <div class="setting-row">
+                    <span class="setting-label" data-i18n="aiScanToggleLabel">ENABLE AI SCAN</span>
+                    <label class="switch"><input type="checkbox" id="ai-scan-toggle" checked><span class="slider"></span></label>
+                </div>
+                <div class="setting-row" style="flex-direction:column;align-items:flex-start;gap:6px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;width:100%;">
+                        <span class="setting-label" data-i18n="aiQualityLabel">IMAGE QUALITY</span>
+                        <div class="option-selector">
+                            <button class="selector-btn ai-quality-btn" data-quality="low" data-i18n="aiQualityLow">低</button>
+                            <button class="selector-btn ai-quality-btn active" data-quality="medium" data-i18n="aiQualityMedium">中</button>
+                            <button class="selector-btn ai-quality-btn" data-quality="high" data-i18n="aiQualityHigh">高</button>
+                        </div>
+                    </div>
+                    <div class="setting-hint-text" data-i18n="aiQualityHint" style="font-size:10.5px;color:var(--text-muted);opacity:0.8;line-height:1.4;margin-top:2px;">
+                        * 品質越高辨識細微文字越精準，但會消耗較多網路流量與辨識時間。
+                    </div>
+                </div>
+                <div class="setting-row" style="flex-direction:column;align-items:flex-start;gap:6px;">
+                    <span class="setting-label" data-i18n="aiApiKeyLabel">GEMINI API KEY</span>
+                    <div class="ai-key-input-row">
+                        <input type="password" class="ai-apikey-input" id="ai-gemini-key-input" placeholder="請輸入個人 API Key" data-i18n-placeholder="aiApiKeyPlaceholder">
+                        <button class="ai-apikey-save-btn" id="ai-gemini-key-save" data-i18n="btnDone">SAVE</button>
+                    </div>
+                    <div class="ai-key-status default" id="ai-gemini-key-status" data-i18n="aiKeyDefaultStatus">🔑 請輸入個人 API Key 以開啓 AI 掃描</div>
+                    <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" class="ai-key-tutorial-link" style="font-size:11.5px;color:var(--accent-color, #29b6f6);text-decoration:underline;margin-top:2px;display:inline-flex;align-items:center;gap:4px;" data-i18n="aiApiKeyTutorial">👉 如何免費取得 Gemini API Key？</a>
+                    <button class="ai-key-clear-btn" id="ai-gemini-key-clear" style="display:none" data-i18n="aiKeyClearBtn">清除 API Key</button>
+                </div>
+            </div>
+            <div class="btn-group">
+                <div class="done-btn" id="btn-ai-scan-settings-back" data-i18n="btnBack">BACK</div>
+            </div>
+        </div>
+
+        <!-- 掃描記帳操作頁 -->
+        <div class="overlay-menu" id="ai-scan-menu">
+            <div class="overlay-title" data-i18n="aiScanTitle">📷 掃描記帳</div>
+            <div class="ai-gps-info-bar" id="ai-gps-info-bar">
+                <span class="gps-badge-icon">📍</span>
+                <span class="gps-text" id="ai-gps-status-text" data-i18n="gpsLocating">📍 定位 GPS 中...</span>
+            </div>
+            <div class="ai-scan-inner">
+                <!-- 左欄：發票/照片大圖預覽 (緊貼邊界) -->
+                <div class="ai-scan-col-left">
+                    <!-- 即時 Web 鏡頭視訊預覽區 -->
+                    <div class="ai-webcam-box" id="ai-webcam-box" style="display:none">
+                        <video id="ai-webcam-video" autoplay playsinline muted></video>
+                        <div class="ai-zoom-controls" id="ai-zoom-controls">
+                            <button class="ai-zoom-btn active" data-zoom="1">1x</button>
+                            <button class="ai-zoom-btn" data-zoom="1.5">1.5x</button>
+                            <button class="ai-zoom-btn" data-zoom="2">2x</button>
+                            <button class="ai-zoom-btn" data-zoom="3">3x</button>
+                        </div>
+                        <button class="ai-snap-btn" id="ai-snap-btn" title="拍攝快照" aria-label="拍攝快照"></button>
+                        <button class="ai-webcam-close-btn" id="ai-webcam-close-btn" data-i18n="aiCloseCamera">✕ 關閉鏡頭</button>
+                    </div>
+
+                    <div class="ai-upload-zone" id="ai-upload-zone">
+                        <span class="ai-upload-icon">📷</span>
+                        <div class="ai-upload-hint">
+                            <strong data-i18n="aiUploadHint">點擊開啟視訊鏡頭或上傳圖片</strong><br><span data-i18n="aiUploadSubHint">支援電腦/手機鏡頭即時拍攝 / 剪貼板 Ctrl+V</span>
+                        </div>
+                    </div>
+                    <div class="ai-preview-wrap" id="ai-preview-wrap">
+                        <img class="ai-preview-img" id="ai-preview-img" alt="Preview">
+                        <div class="ai-scanner-overlay" id="ai-scanner-overlay">
+                            <div class="ai-scan-laser"></div>
+                            <div class="ai-scan-grid"></div>
+                            <div class="ai-scan-corners">
+                                <span class="corner tl"></span>
+                                <span class="corner tr"></span>
+                                <span class="corner bl"></span>
+                                <span class="corner br"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 中欄：圖片選擇按鈕、幾張圖片統計、畫廊縮圖、重新選擇、AI辨識按鈕 -->
+                <div class="ai-scan-col-mid">
+                    <div class="ai-upload-actions-row">
+                        <div class="ai-btn-secondary highlight" id="ai-start-camera-btn" style="cursor:pointer">
+                            <span data-i18n="aiOpenCamera">開啟相機拍照</span>
+                        </div>
+                        <label for="ai-gallery-input" class="ai-btn-secondary" id="ai-select-file-btn" style="cursor:pointer">
+                            <span data-i18n="aiSelectFile">從檔案選取</span>
+                        </label>
+                        <input type="file" accept="image/*" id="ai-gallery-input" style="display:none" multiple>
+                        <input type="file" accept="image/*" capture="environment" id="ai-camera-input" style="display:none">
+                    </div>
+                    <div class="ai-thumbs-container" id="ai-thumbs-container">
+                        <div class="ai-thumbs-header">
+                            <span id="ai-thumbs-count-label">0 張圖片</span>
+                        </div>
+                        <div class="ai-thumbs-grid" id="ai-thumbs-grid"></div>
+                    </div>
+                    <div class="ai-preview-actions" id="ai-preview-actions">
+                        <div class="ai-btn-secondary" id="ai-retake-btn" data-i18n="aiRetake">重新選擇</div>
+                    </div>
+                    <button class="ai-recognize-btn" id="ai-recognize-btn" disabled>
+                        <span class="ai-spinner"></span>
+                        <span class="ai-btn-label" data-i18n="aiRecognize">AI 辨識</span>
+                    </button>
+                    <div class="ai-error-box" id="ai-error-box"></div>
+                </div>
+
+                <!-- 右欄：辨識結果清單與一鍵匯入 -->
+                <div class="ai-scan-col-right">
+                    <div class="ai-items-section" id="ai-items-section">
+                        <div class="ai-section-title" data-i18n="aiResultTitle">辨識結果</div>
+                        <div id="ai-store-tag-wrap"></div>
+                        <div id="ai-items-list"></div>
+                    </div>
+                    <div class="ai-total-row" id="ai-total-row" style="display:none">
+                        <span class="ai-total-label" data-i18n="aiTotal">合計</span>
+                        <span class="ai-total-amount" id="ai-total-amount">NT$0</span>
+                    </div>
+                    <div class="ai-import-btn-group" id="ai-import-btn-group" style="display:none; flex-direction:column; gap:8px; margin-top:12px;">
+                        <button class="ai-import-all-btn" id="ai-import-all-btn" data-i18n="aiImportAll">
+                            🧾 整張明細歸檔
+                        </button>
+                        <button class="ai-import-all-btn secondary-import-btn" id="ai-import-items-btn" style="background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.15); color:var(--text-main, #fff);" data-i18n="aiImportAsItems">
+                            🛍️ 拆分單一商品
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="btn-group">
+                <div class="done-btn" id="btn-ai-scan-close" data-i18n="btnClose">CLOSE</div>
+            </div>
+        </div>
+
         <!-- 歷史紀錄選單 -->
         <div class="overlay-menu" id="history-menu">
             <div class="overlay-title" data-i18n="historyTitle">HISTORY</div>
+            
+            <!-- 歷史紀錄模式雙分頁膠囊 (記帳模式 vs 商務模式) -->
+            <div class="history-mode-tabs" id="history-mode-tabs">
+                <button class="history-tab-btn active" id="tab-history-accounting" data-mode="accounting">
+                    <span data-i18n="tabHistoryAccounting">🧾 記帳紀錄 (匯出 EXCEL)</span>
+                </button>
+                <button class="history-tab-btn" id="tab-history-business" data-mode="business">
+                    <span data-i18n="tabHistoryBusiness">💼 商務紀錄</span>
+                </button>
+            </div>
+
             <!-- 今日總計 / 列表累計摘要卡片 -->
             <div class="history-summary-card" id="history-summary-card">
                 <div class="summary-info-col">
-                    <span class="summary-title" data-i18n="historyTodayTotal">TODAY'S TOTAL</span>
+                    <span class="summary-title" id="history-summary-title" data-i18n="historyTodayTotal">TODAY'S TOTAL</span>
                     <span class="summary-val" id="history-today-amount">0.00 TWD</span>
                 </div>
                 <div class="summary-badge-col">
@@ -491,6 +656,44 @@
                 <div class="share-btn share-line-btn" id="btn-history-share" data-i18n="btnShareLine">COPY ALL</div>
                 <div class="share-btn excel-btn" id="btn-history-export-excel" data-i18n="btnExportExcel">EXCEL</div>
                 <div class="done-btn" id="btn-history-done" data-i18n="btnClose">CLOSE</div>
+            </div>
+        </div>
+
+        <!-- 旅行總支出報告 Modal -->
+        <div class="modal-overlay" id="travel-summary-modal" style="display:none">
+            <div class="modal-card travel-summary-card">
+                <div class="modal-section-label" data-i18n="travelReportTitle">✈️ 旅行總支出報告</div>
+                
+                <div class="travel-total-hero">
+                    <div class="travel-hero-label" data-i18n="travelTotalExpense">旅行總支出 (已換算 TWD)</div>
+                    <div class="travel-hero-val" id="travel-hero-amount">NT$ 0</div>
+                </div>
+
+                <div class="travel-sections-wrap">
+                    <!-- 多幣別明細 -->
+                    <div class="travel-block">
+                        <div class="travel-block-title">🔱 多幣別支出統計</div>
+                        <div class="travel-block-content" id="travel-curr-list"></div>
+                    </div>
+
+                    <!-- 類別明細 -->
+                    <div class="travel-block">
+                        <div class="travel-block-title">🏷️ 消費類別統計</div>
+                        <div class="travel-block-content" id="travel-cat-list"></div>
+                    </div>
+
+                    <!-- 熱門地點 -->
+                    <div class="travel-block">
+                        <div class="travel-block-title">📍 熱門消費地點</div>
+                        <div class="travel-block-content" id="travel-loc-list"></div>
+                    </div>
+                </div>
+
+                <div class="travel-modal-actions">
+                    <button class="ai-btn-secondary" id="btn-copy-travel-report" data-i18n="copyReportBtn">📋 複製報告</button>
+                    <button class="ai-btn-secondary highlight" id="btn-export-travel-excel">📊 匯出多幣別 EXCEL</button>
+                    <button class="done-btn" id="btn-close-travel-modal" data-i18n="btnClose">CLOSE</button>
+                </div>
             </div>
         </div>
 
@@ -513,19 +716,18 @@
         </div>
 
         <!-- 歷史紀錄選項 Modal -->
-        <div class="modal-overlay" id="history-modal">
-            <div class="modal-card" id="history-modal-card">
+        <div class="modal-overlay alert-overlay" id="history-modal">
+            <div class="alert-card history-action-card" id="history-modal-card">
                 <div class="modal-section-label" data-i18n="labelChangeCategory">CHANGE CATEGORY</div>
                 <div class="modal-category-picker" id="modal-category-picker">
                     <button class="modal-cat-chip" data-cat="food">🍜 <span data-i18n="catFood">食</span></button>
-                    <button class="modal-cat-chip" data-cat="clothing">👕 <span
-                            data-i18n="catClothing">衣</span></button>
-                    <button class="modal-cat-chip" data-cat="housing">🏠 <span data-i18n="catHousing">住</span></button>
+                    <button class="modal-cat-chip" data-cat="shopping">🛍️ <span
+                            data-i18n="catShopping">購物</span></button>
                     <button class="modal-cat-chip" data-cat="transport">🚗 <span
                             data-i18n="catTransport">行</span></button>
+                    <button class="modal-cat-chip" data-cat="other">🏷️ <span data-i18n="catOther">其他</span></button>
                     <button class="modal-cat-chip" data-cat="business">💼 <span
                             data-i18n="catBusiness">商務</span></button>
-                    <button class="modal-cat-chip" data-cat="other">🏷️ <span data-i18n="catOther">一般</span></button>
                 </div>
                 <div class="modal-btn" data-action="result" data-i18n="insertResult">INSERT RESULT</div>
                 <div class="modal-btn" data-action="formula" data-i18n="insertFormula">INSERT FORMULA</div>
@@ -535,23 +737,70 @@
         </div>
 
         <!-- 清除歷史紀錄 Modal -->
-        <div class="modal-overlay" id="confirm-clear-modal">
-            <div class="modal-card" id="confirm-modal-card">
-                <div class="modal-title danger-title" data-i18n="clearHistoryTitle">CLEAR HISTORY?</div>
-                <div class="modal-desc" data-i18n="clearHistoryDesc">All saved calculations will be deleted.</div>
-                <div class="modal-btn danger" data-action="confirm-clear" data-i18n="btnClear">CLEAR</div>
-                <div class="modal-btn cancel" data-action="cancel-clear" data-i18n="btnCancel">CANCEL</div>
+        <div class="modal-overlay alert-overlay" id="confirm-clear-modal">
+            <div class="alert-card" id="confirm-modal-card">
+                <div class="alert-icon-wrap">
+                    <div class="alert-icon danger-icon">🗑️</div>
+                    <div class="alert-glow danger-glow"></div>
+                </div>
+                <div class="alert-title danger-title" data-i18n="clearHistoryTitle">清除歷史紀錄？</div>
+                <div class="alert-desc" data-i18n="clearHistoryDesc">所有儲存的計算紀錄將會被刪除。</div>
+                <div class="alert-btn-row">
+                    <div class="alert-btn alert-cancel" data-action="cancel-clear" data-i18n="btnCancel">取消</div>
+                    <div class="alert-btn-divider"></div>
+                    <div class="alert-btn alert-danger" data-action="confirm-clear" data-i18n="btnClear">清除</div>
+                </div>
             </div>
         </div>
 
         <!-- 重置設定 Modal -->
-        <div class="modal-overlay" id="confirm-reset-modal">
-            <div class="modal-card" id="confirm-reset-card">
-                <div class="modal-title danger-title" data-i18n="resetSettingsTitle">RESET SETTINGS?</div>
-                <div class="modal-desc" data-i18n="resetSettingsDesc">Theme, decimals, tax rates and exchange rates will
-                    be restored to defaults.</div>
-                <div class="modal-btn danger" data-action="confirm-reset" data-i18n="btnReset">RESET</div>
-                <div class="modal-btn cancel" data-action="cancel-reset" data-i18n="btnCancel">CANCEL</div>
+        <div class="modal-overlay alert-overlay" id="confirm-reset-modal">
+            <div class="alert-card" id="confirm-reset-card">
+                <div class="alert-icon-wrap">
+                    <div class="alert-icon danger-icon">⚠️</div>
+                    <div class="alert-glow danger-glow"></div>
+                </div>
+                <div class="alert-title danger-title" data-i18n="resetSettingsTitle">重置設定？</div>
+                <div class="alert-desc" data-i18n="resetSettingsDesc">主題、小數位數、稅率與匯率將恢復為預設值。</div>
+                <div class="alert-btn-row">
+                    <div class="alert-btn alert-cancel" data-action="cancel-reset" data-i18n="btnCancel">取消</div>
+                    <div class="alert-btn-divider"></div>
+                    <div class="alert-btn alert-danger" data-action="confirm-reset" data-i18n="btnReset">重置</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 🎙️ 語意辨識實時對話框 Modal -->
+        <div class="modal-overlay alert-overlay" id="voice-modal">
+            <div class="alert-card voice-card" id="voice-modal-card">
+                <div class="alert-icon-wrap">
+                    <div class="alert-icon voice-wave-icon">🎙️</div>
+                    <div class="alert-glow voice-glow"></div>
+                </div>
+                <div class="alert-title voice-modal-title" data-i18n="voiceModalTitle">語音辨識與手動校正</div>
+                <div class="voice-edit-group">
+                    <div class="voice-input-row">
+                        <span class="voice-input-label" data-i18n="voiceItemLabel">品名</span>
+                        <input type="text" id="voice-input-item" class="voice-edit-input" placeholder="請說話或輸入品名 (如: 午餐)" data-i18n-placeholder="voiceItemPlaceholder">
+                    </div>
+                    <div class="voice-input-row">
+                        <span class="voice-input-label" data-i18n="voiceAmountLabel">金額</span>
+                        <input type="number" step="any" id="voice-input-amount" class="voice-edit-input" placeholder="0">
+                        <span class="voice-currency-tag" id="voice-currency-tag">TWD</span>
+                    </div>
+                </div>
+                <div class="modal-category-picker voice-cat-picker" id="voice-category-picker" style="margin: 8px 0 12px; gap: 6px;">
+                    <button class="modal-cat-chip voice-cat-chip" data-cat="food">🍜 <span data-i18n="catFood">食</span></button>
+                    <button class="modal-cat-chip voice-cat-chip" data-cat="shopping">🛍️ <span data-i18n="catShopping">購物</span></button>
+                    <button class="modal-cat-chip voice-cat-chip" data-cat="transport">🚗 <span data-i18n="catTransport">行</span></button>
+                    <button class="modal-cat-chip voice-cat-chip" data-cat="other">🏷️ <span data-i18n="catOther">其他</span></button>
+                </div>
+                <div class="alert-desc voice-parsed-hint" id="voice-parsed-hint" data-i18n="voiceListeningHint">🎙️ 正在聆聽中... (講完可直接點擊上方修改)</div>
+                <div class="alert-btn-row">
+                    <div class="alert-btn alert-cancel" id="btn-voice-modal-cancel" data-i18n="btnCancel">取消</div>
+                    <div class="alert-btn-divider"></div>
+                    <div class="alert-btn alert-danger" id="btn-voice-modal-confirm" data-i18n="voiceConfirmBtn" style="color:var(--accent-main);text-shadow:0 0 8px rgba(41,182,246,0.6);">確認記帳</div>
+                </div>
             </div>
         </div>
 
@@ -562,10 +811,10 @@
         </div>
     </div>
 
-    <script src="./xlsx.full.min.js"></script>
     <script src="./math.min.js"></script>
     <script src="./i18n.js"></script>
     <script src="./script.js"></script>
+    <script src="./ai-scan.js"></script>
 </body>
 
 </html>
