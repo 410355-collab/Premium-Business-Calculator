@@ -131,7 +131,7 @@
 
         .action-bar { 
             display: grid; 
-            grid-template-columns: 1fr auto 1fr; 
+            grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); 
             align-items: center; 
             width: 100%; padding: 0 2px; position: relative; height: var(--capsule-height); min-height: var(--capsule-height);
             pointer-events: none; gap: 4px;
@@ -144,6 +144,7 @@
             justify-content: flex-start;
             gap: 4px;
             pointer-events: auto;
+            min-width: 0;
         }
 
         .action-bar-right {
@@ -153,6 +154,7 @@
             justify-content: flex-end;
             gap: 4px;
             pointer-events: auto;
+            min-width: 0;
         }
 
         .icon-btn {
@@ -198,6 +200,7 @@
             position: relative;
             width: auto;
             max-width: 100%;
+            min-width: 0;
             height: var(--capsule-height); 
             display: flex; justify-content: center; align-items: center; 
             margin: 0;
@@ -211,7 +214,7 @@
             backdrop-filter: blur(14px) saturate(190%);
             border-radius: 40px; 
             padding: var(--capsule-padding-y) 4px; display: flex; align-items: center; justify-content: space-between;
-            gap: 4px; width: 100%; min-width: 0; max-width: 100%;
+            gap: 4px; width: 100%; min-width: 0; max-width: 100%; flex-shrink: 1;
             /* 🍏 晶體邊框與流線光影 (Liquid Glass + GPU 最佳化) */
             border: 0.5px solid rgba(255, 255, 255, 0.18);
             box-shadow: 
@@ -389,14 +392,11 @@
         }
         #label-from, #label-to {
             white-space: nowrap;
-            flex-shrink: 0;
-        }
-        /* 膠囊延展後空間充足，完整呈現國家/幣別名稱 */
-        #label-from, #label-to {
-            white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            max-width: 110px;
+            max-width: clamp(36px, 14vw, 95px);
+            flex-shrink: 1;
+            min-width: 0;
         }
         body.light-mode .dropdown-trigger {
             background: rgba(255, 255, 255, 0.65);
@@ -668,7 +668,7 @@
         }
 
         .formula { 
-            font-size: 20px; color: var(--text-muted); margin-bottom: 2px; min-height: 24px; 
+            font-size: 26px; color: var(--text-muted); margin-bottom: 2px; min-height: 24px; 
             line-height: 1.15;
             transform-origin: right center;
             will-change: transform, opacity;
@@ -719,14 +719,14 @@
         }
         
         .result-display { 
-            font-size: 64px; font-weight: 800; letter-spacing: -1px; color: var(--text-color); 
+            font-size: 82px; font-weight: 800; letter-spacing: -1px; color: var(--text-color); 
             line-height: 1.12; padding-bottom: 2px;
             display: inline-block; transform-origin: right center;
             will-change: transform, opacity;
         }
         
         .converted-small { 
-            font-size: 20px; font-weight: 700; color: var(--accent-main); margin-top: 2px; min-height: 24px; 
+            font-size: 26px; font-weight: 700; color: var(--accent-main); margin-top: 2px; min-height: 24px; 
             line-height: 1.15;
             display: inline-block; transform-origin: right center;
             transition: color 0.4s ease;
@@ -874,14 +874,14 @@
             border: var(--capsule-border);
             border-radius: 50%;
             aspect-ratio: 1 / 1;
-            width: min(78px, calc((100vw - 40px) / var(--grid-cols, 4) - 8px));
-            height: min(78px, calc((100vw - 40px) / var(--grid-cols, 4) - 8px));
-            max-width: 78px;
-            max-height: 78px;
+            width: min(72px, calc((100vw - 40px) / var(--grid-cols, 4) - 8px));
+            height: min(72px, calc((100vw - 40px) / var(--grid-cols, 4) - 8px));
+            max-width: 72px;
+            max-height: 72px;
             min-width: 0;
             min-height: 0;
             place-self: center;
-            container-type: normal;
+            container-type: size;
             display: flex;
             justify-content: center;
             align-items: center;
@@ -906,7 +906,8 @@
         }
 
         .key-text {
-            font-size: 53cqmin;
+            font-size: 60cqmin !important;
+            font-size: 60cqi !important;
             line-height: 1;
             font-weight: 700;
             display: inline-flex;
@@ -919,7 +920,7 @@
         }
 
         .key.paren-key .key-text {
-            font-size: 42cqmin;
+            font-size: 62cqmin;
             letter-spacing: -0.04em;
         }
 
@@ -928,8 +929,10 @@
         }
 
         .key svg {
-            width: 50cqmin;
-            height: 50cqmin;
+            width: 60cqmin !important;
+            height: 60cqmin !important;
+            width: 60cqi !important;
+            height: 60cqi !important;
             fill: currentColor;
             display: block;
             pointer-events: none;
@@ -953,7 +956,7 @@
                 inset 0 -0.5px 0 color-mix(in srgb, var(--accent-main) 15%, transparent),
                 inset 0 0 8px color-mix(in srgb, var(--accent-main) 12%, transparent);
         } 
-        .key.cyan .key-text { font-size: 51cqmin; }
+        .key.cyan .key-text { font-size: 60cqmin !important; font-size: 60cqi !important; }
         .key.operator { 
             background: var(--operator-bg); 
             border: 0.5px solid rgba(255, 255, 255, 0.18); 
@@ -963,7 +966,7 @@
                 inset 0 -0.5px 0 rgba(255, 255, 255, 0.12),
                 inset 0 0 8px rgba(255, 255, 255, 0.06);
         } 
-        .key.operator .key-text { font-size: 54cqmin; }
+        .key.operator .key-text { font-size: 60cqmin !important; font-size: 60cqi !important; }
         .key.equal { 
             background: var(--accent-main); 
             color: var(--equal-text); 
@@ -974,7 +977,7 @@
                 inset 0 -0.5px 0 rgba(0, 0, 0, 0.2),
                 inset 0 0 12px rgba(255, 255, 255, 0.25); 
         } 
-        .key.equal .key-text { font-size: 54cqmin; }
+        .key.equal .key-text { font-size: 60cqmin !important; font-size: 60cqi !important; }
         .key.red-back { 
             color: var(--accent-red); 
             background: rgba(239, 83, 80, 0.14); 
@@ -1007,9 +1010,17 @@
         }
         .key.blank { background: transparent; border: 0.5px dashed rgba(255, 255, 255, 0.2); box-shadow: none; color: var(--text-muted); opacity: 0.5; backdrop-filter: none; -webkit-backdrop-filter: none; }
         body.light-mode .key.blank { border: 0.5px dashed rgba(0, 0, 0, 0.2); }
-        .key.small-text .key-text { font-size: 38cqmin; font-weight: 800; letter-spacing: -0.02em; }
-        .key.tiny-text .key-text { font-size: 32cqmin; font-weight: 800; letter-spacing: -0.03em; }
-        .key.mini-text .key-text { font-size: 26cqmin; font-weight: 800; letter-spacing: -0.04em; }
+        .key.small-text .key-text,
+        .key.tiny-text .key-text,
+        .key.mini-text .key-text,
+        .key.cyan.small-text .key-text,
+        .key.cyan.tiny-text .key-text,
+        .key.cyan.mini-text .key-text { 
+            font-size: 45cqmin !important; 
+            font-size: 45cqi !important; 
+            font-weight: 800; 
+            letter-spacing: -0.02em; 
+        }
 
         body.light-mode .key { 
             box-shadow: 0 2px 6px rgba(0,0,0,0.08), inset 0 0.5px 0.5px rgba(255,255,255,0.85); 
@@ -1492,8 +1503,30 @@
             border-radius: 50% !important;
             cursor: grab;
             touch-action: none;
-            font-size: clamp(14px, 3.8vw, 18px);
             place-self: center;
+            container-type: size !important;
+            contain: none !important;
+        }
+        /* 自訂鍵盤網格字體覆蓋：max 52px × 55% = 28.6px */
+        .custom-keyboard-grid .key .key-text,
+        .custom-keyboard-grid .key.cyan .key-text,
+        .custom-keyboard-grid .key.operator .key-text,
+        .custom-keyboard-grid .key.equal .key-text {
+            font-size: 55cqmin !important;
+            font-size: 55cqi !important;
+        }
+        .custom-keyboard-grid .key.small-text .key-text,
+        .custom-keyboard-grid .key.tiny-text .key-text,
+        .custom-keyboard-grid .key.mini-text .key-text,
+        .custom-keyboard-grid .key.cyan.small-text .key-text,
+        .custom-keyboard-grid .key.cyan.tiny-text .key-text,
+        .custom-keyboard-grid .key.cyan.mini-text .key-text {
+            font-size: 36cqmin !important;
+            font-size: 36cqi !important;
+        }
+        .custom-keyboard-grid .key svg {
+            width: 55cqmin !important;
+            height: 55cqmin !important;
         }
         .custom-keyboard-grid .key:active {
             cursor: grabbing;
@@ -1649,7 +1682,29 @@
             max-height: 38px;
             aspect-ratio: 1 / 1;
             border-radius: 50% !important;
-            font-size: 14px;
+            container-type: size !important;
+            contain: none !important;
+        }
+        /* pool 按鍵庫的字體：讓 60cqmin 在 38px 容器 = 22.8px，再用更小值覆蓋 */
+        .pool-key-item .key .key-text,
+        .pool-key-item .key.cyan .key-text,
+        .pool-key-item .key.operator .key-text,
+        .pool-key-item .key.equal .key-text {
+            font-size: 50cqmin !important;
+            font-size: 50cqi !important;
+        }
+        .pool-key-item .key.small-text .key-text,
+        .pool-key-item .key.tiny-text .key-text,
+        .pool-key-item .key.mini-text .key-text,
+        .pool-key-item .key.cyan.small-text .key-text,
+        .pool-key-item .key.cyan.tiny-text .key-text,
+        .pool-key-item .key.cyan.mini-text .key-text {
+            font-size: 33cqmin !important;
+            font-size: 33cqi !important;
+        }
+        .pool-key-item .key svg {
+            width: 50cqmin !important;
+            height: 50cqmin !important;
         }
         .pool-key-label {
             font-size: 8px;
@@ -3217,37 +3272,39 @@
                 min-height: 0;
                 width: 100%;
             }
-            .key {
+            .keyboard .key {
                 aspect-ratio: 1 / 1 !important;
                 border-radius: 50% !important;
-                width: min(78px, calc((100vw - 40px) / var(--grid-cols, 4) - 8px)) !important;
-                height: min(78px, calc((100vw - 40px) / var(--grid-cols, 4) - 8px)) !important;
-                max-width: 78px !important;
-                max-height: 78px !important;
+                width: min(72px, calc((100vw - 40px) / var(--grid-cols, 4) - 8px)) !important;
+                height: min(72px, calc((100vw - 40px) / var(--grid-cols, 4) - 8px)) !important;
+                max-width: 72px !important;
+                max-height: 72px !important;
                 min-width: 0 !important;
                 min-height: 0 !important;
                 place-self: center !important;
-                container-type: normal !important;
+                container-type: size !important;
             }
-            .key .key-text {
-                font-size: clamp(20px, 4.5vw, 28px) !important;
-                font-weight: 700 !important;
+            .keyboard .key .key-text,
+            .keyboard .key.cyan .key-text,
+            .keyboard .key.operator .key-text,
+            .keyboard .key.equal .key-text {
+                font-size: 60cqmin !important;
+                font-size: 60cqi !important;
             }
-            .key.cyan .key-text,
-            .key.operator .key-text,
-            .key.equal .key-text {
-                font-size: clamp(22px, 5vw, 30px) !important;
+            .keyboard .key.small-text .key-text,
+            .keyboard .key.tiny-text .key-text,
+            .keyboard .key.mini-text .key-text,
+            .keyboard .key.cyan.small-text .key-text,
+            .keyboard .key.cyan.tiny-text .key-text,
+            .keyboard .key.cyan.mini-text .key-text {
+                font-size: 45cqmin !important;
+                font-size: 45cqi !important;
             }
-            .key.small-text .key-text {
-                font-size: clamp(15px, 3.5vw, 20px) !important;
-            }
-            .key.tiny-text .key-text,
-            .key.mini-text .key-text {
-                font-size: clamp(13px, 3vw, 17px) !important;
-            }
-            .key svg {
-                width: clamp(20px, 4.5vw, 26px) !important;
-                height: clamp(20px, 4.5vw, 26px) !important;
+            .keyboard .key svg {
+                width: 60cqmin !important;
+                height: 60cqmin !important;
+                width: 60cqi !important;
+                height: 60cqi !important;
             }
         }
 
@@ -3327,26 +3384,18 @@
                 min-width: 0 !important;
                 min-height: 0 !important;
                 place-self: stretch !important;
-                container-type: normal !important;
+                container-type: size !important;
             }
-            .keyboard .key .key-text {
-                font-size: clamp(14px, 3.6vh, 22px) !important;
-            }
+            .keyboard .key .key-text,
             .keyboard .key.cyan .key-text,
             .keyboard .key.operator .key-text,
             .keyboard .key.equal .key-text {
-                font-size: clamp(16px, 3.8vh, 24px) !important;
-            }
-            .keyboard .key.small-text .key-text {
-                font-size: clamp(12px, 2.8vh, 18px) !important;
-            }
-            .keyboard .key.tiny-text .key-text,
-            .keyboard .key.mini-text .key-text {
-                font-size: clamp(11px, 2.4vh, 15px) !important;
+                font-size: 60cqmin !important;
+                font-size: 60cqi !important;
             }
             .keyboard .key svg {
-                width: clamp(16px, 3.5vh, 22px) !important;
-                height: clamp(16px, 3.5vh, 22px) !important;
+                width: 60cqmin !important;
+                height: 60cqmin !important;
             }
             .setting-box { border-radius: 12px !important; }
             .done-btn, .clear-btn { border-radius: 12px !important; }
@@ -3449,7 +3498,7 @@
                 width: 100%;
             }
 
-            .key {
+            .keyboard .key {
                 aspect-ratio: 1 / 1 !important;
                 border-radius: 50% !important;
                 width: 100% !important;
@@ -3459,19 +3508,18 @@
                 min-width: 0 !important;
                 min-height: 0 !important;
                 place-self: center !important;
-                container-type: normal !important;
+                container-type: size !important;
             }
-            .key .key-text {
-                font-size: clamp(14px, 3.8vh, 24px) !important;
+            .keyboard .key .key-text,
+            .keyboard .key.cyan .key-text,
+            .keyboard .key.operator .key-text,
+            .keyboard .key.equal .key-text {
+                font-size: 60cqmin !important;
+                font-size: 60cqi !important;
             }
-            .key.cyan .key-text,
-            .key.operator .key-text,
-            .key.equal .key-text {
-                font-size: clamp(16px, 4.2vh, 26px) !important;
-            }
-            .key svg {
-                width: clamp(16px, 3.8vh, 24px) !important;
-                height: clamp(16px, 3.8vh, 24px) !important;
+            .keyboard .key svg {
+                width: 60cqmin !important;
+                height: 60cqmin !important;
             }
             .setting-box { border-radius: 38px !important; }
             .done-btn, .clear-btn { border-radius: 38px !important; }
@@ -3604,8 +3652,29 @@
                 aspect-ratio: 1 / 1 !important;
                 border-radius: 50% !important;
                 place-self: center !important;
-                font-size: calc(var(--calc-key-size, 54px) * 0.32) !important;
+                container-type: size !important;
+                contain: none !important;
                 margin: 0 !important;
+            }
+            .custom-keyboard-grid .key .key-text,
+            .custom-keyboard-grid .key.cyan .key-text,
+            .custom-keyboard-grid .key.operator .key-text,
+            .custom-keyboard-grid .key.equal .key-text {
+                font-size: 55cqmin !important;
+                font-size: 55cqi !important;
+            }
+            .custom-keyboard-grid .key.small-text .key-text,
+            .custom-keyboard-grid .key.tiny-text .key-text,
+            .custom-keyboard-grid .key.mini-text .key-text,
+            .custom-keyboard-grid .key.cyan.small-text .key-text,
+            .custom-keyboard-grid .key.cyan.tiny-text .key-text,
+            .custom-keyboard-grid .key.cyan.mini-text .key-text {
+                font-size: 36cqmin !important;
+                font-size: 36cqi !important;
+            }
+            .custom-keyboard-grid .key svg {
+                width: 55cqmin !important;
+                height: 55cqmin !important;
             }
             /* 橫向時隱藏 side-pool-section */
             .side-pool-section {
@@ -3644,8 +3713,29 @@
                 max-height: 44px !important;
                 aspect-ratio: 1 / 1 !important;
                 border-radius: 50% !important;
-                font-size: clamp(12px, 2.4vh, 15px) !important;
+                container-type: size !important;
+                contain: none !important;
                 place-self: center !important;
+            }
+            .pool-key-item .key .key-text,
+            .pool-key-item .key.cyan .key-text,
+            .pool-key-item .key.operator .key-text,
+            .pool-key-item .key.equal .key-text {
+                font-size: 50cqmin !important;
+                font-size: 50cqi !important;
+            }
+            .pool-key-item .key.small-text .key-text,
+            .pool-key-item .key.tiny-text .key-text,
+            .pool-key-item .key.mini-text .key-text,
+            .pool-key-item .key.cyan.small-text .key-text,
+            .pool-key-item .key.cyan.tiny-text .key-text,
+            .pool-key-item .key.cyan.mini-text .key-text {
+                font-size: 33cqmin !important;
+                font-size: 33cqi !important;
+            }
+            .pool-key-item .key svg {
+                width: 50cqmin !important;
+                height: 50cqmin !important;
             }
             .pool-key-label {
                 font-size: clamp(8px, 1.4vh, 9.5px) !important;
@@ -3749,7 +3839,7 @@
                 overflow: hidden !important;
             }
 
-            .key {
+            .keyboard .key {
                 aspect-ratio: auto !important;
                 border-radius: clamp(10px, 3vh, 18px) !important;
                 width: 100% !important;
@@ -3780,6 +3870,24 @@
             .custom-keyboard-grid .key {
                 max-width: 22px !important;
                 max-height: 22px !important;
+                container-type: size !important;
+                contain: none !important;
+            }
+            .custom-keyboard-grid .key .key-text,
+            .custom-keyboard-grid .key.cyan .key-text,
+            .custom-keyboard-grid .key.operator .key-text,
+            .custom-keyboard-grid .key.equal .key-text {
+                font-size: 55cqmin !important;
+                font-size: 55cqi !important;
+            }
+            .custom-keyboard-grid .key.small-text .key-text,
+            .custom-keyboard-grid .key.tiny-text .key-text,
+            .custom-keyboard-grid .key.mini-text .key-text,
+            .custom-keyboard-grid .key.cyan.small-text .key-text,
+            .custom-keyboard-grid .key.cyan.tiny-text .key-text,
+            .custom-keyboard-grid .key.cyan.mini-text .key-text {
+                font-size: 36cqmin !important;
+                font-size: 36cqi !important;
             }
             .side-pool-section {
                 max-height: 60px !important;
@@ -4120,23 +4228,22 @@
     .header-area {
         padding-top: 4px !important;
     }
-    .key {
+    .keyboard .key {
         max-height: 45px !important;
         border-radius: 18px !important;
         aspect-ratio: auto !important;
-        container-type: normal !important;
+        container-type: size !important;
     }
-    .key .key-text {
-        font-size: clamp(14px, 3.5vh, 20px) !important;
+    .keyboard .key .key-text,
+    .keyboard .key.cyan .key-text,
+    .keyboard .key.operator .key-text,
+    .keyboard .key.equal .key-text {
+        font-size: 60cqmin !important;
+        font-size: 60cqi !important;
     }
-    .key.cyan .key-text,
-    .key.operator .key-text,
-    .key.equal .key-text {
-        font-size: clamp(15px, 3.8vh, 22px) !important;
-    }
-    .key svg {
-        width: clamp(15px, 3.5vh, 20px) !important;
-        height: clamp(15px, 3.5vh, 20px) !important;
+    .keyboard .key svg {
+        width: 60cqmin !important;
+        height: 60cqmin !important;
     }
     .result-display {
         font-size: clamp(24px, 7vh, 42px) !important;
