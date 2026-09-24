@@ -370,7 +370,7 @@
 #ai-webcam-video {
     width: 100%;
     height: 100%;
-    object-fit: contain; /* 🔥 完整包含比例，絕不上下/左右裁切直向發票與視訊畫面 */
+    object-fit: cover; /* 🔥 直向鏡頭滿版填滿 (cover)，填滿直向視訊畫面 */
     background: #000;
     transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }

@@ -481,7 +481,7 @@
         if (lat >= 33 && lat <= 39 && lng >= 124 && lng <= 131) return { locationName: "首爾, 韓國", currency: "KRW", flag: "🇰🇷", symbol: "₩" };
         if (lat >= 35 && lat <= 70 && lng >= -10 && lng <= 30) return { locationName: "歐洲 (歐元區)", currency: "EUR", flag: "🇪🇺", symbol: "€" };
         if (lat >= 24 && lat <= 50 && lng >= -125 && lng <= -66) return { locationName: "美國", currency: "USD", flag: "🇺🇸", symbol: "$" };
-        if (lat >= 5 && lat <= 21 && lng >= 97 && lng <= 106) return { locationName: "曼谷, 泰國", currency: "🇹🇭", symbol: "฿" };
+        if (lat >= 5 && lat <= 21 && lng >= 97 && lng <= 106) return { locationName: "曼谷, 泰國", currency: "THB", flag: "🇹🇭", symbol: "฿" };
         if (lat >= 8 && lat <= 24 && lng >= 102 && lng <= 110) return { locationName: "胡志明市, 越南", currency: "VND", flag: "🇻🇳", symbol: "₫" };
         if (lat >= 1.1 && lat <= 1.5 && lng >= 103.5 && lng <= 104.1) return { locationName: "新加坡", currency: "SGD", flag: "🇸🇬", symbol: "S$" };
         if (lat >= 1 && lat <= 7 && lng >= 99 && lng <= 119) return { locationName: "吉隆坡, 馬來西亞", currency: "MYR", flag: "🇲🇾", symbol: "RM" };
@@ -4488,15 +4488,20 @@
         }
 
         if (detectedCurrency && flags[detectedCurrency]) {
-            if (isFirstTimeUser || detectedCurrency === 'TWD') {
+            if (detectedCurrency !== 'TWD') {
+                // 國外定位：自動將「來源幣別」設為當地幣別，「目標幣別」設為台幣 (TWD)
                 currentFrom = detectedCurrency;
                 selectCurrency('from', currentFrom, flags[detectedCurrency]);
-                if (detectedCurrency === 'TWD') {
-                    currentTo = 'TWD';
-                    selectCurrency('to', 'TWD', flags['TWD']);
-                    const headerArea = document.getElementById('header-area');
-                    if (headerArea) setCapsuleCollapsed(true, { animate: false });
-                }
+                currentTo = 'TWD';
+                selectCurrency('to', 'TWD', flags['TWD']);
+            } else {
+                // 國內定位 (台灣)：設為 TWD -> TWD (同幣別模式)
+                currentFrom = 'TWD';
+                selectCurrency('from', 'TWD', flags['TWD']);
+                currentTo = 'TWD';
+                selectCurrency('to', 'TWD', flags['TWD']);
+                const headerArea = document.getElementById('header-area');
+                if (headerArea) setCapsuleCollapsed(true, { animate: false });
             }
             const currName = I18N[currentLang].currencies[detectedCurrency] || detectedCurrency;
             showToastMsg(`${I18N[currentLang].toastLocationSuccess}${currName}`);
