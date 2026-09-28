@@ -2,7 +2,7 @@
  * ════════════════════════════════════════════════════════
  * AI 發票掃描記帳模組 (ai-scan.js)
  * 特色：
- *  1. 預設極速記帳：Gemini 3.6 Flash 辨識發票/收據品名、金額與數量 (1.5 秒完成)
+ *  1. 預設極速記帳：Gemini 2.0 Flash Lite 辨識發票/收據品名、金額與數量 (1.5 秒完成)
  *  2. 內建免費 Key：開箱即用，無須設定
  *  3. 一鍵全匯入：自動寫入主計算機歷史紀錄與統計
  * ════════════════════════════════════════════════════════
@@ -12,7 +12,8 @@
     'use strict';
 
     // 內建開箱即用預設 API Key (若使用者未輸入自訂 Key，自動以此預設 Key 執行)
-    const DEFAULT_GEMINI_KEY = "AQ.Ab8RN6IMSvhw99i9rpSYY8lLhKP5oUbPGFMfqX_Cr1w3H4QpZw"; 
+    // 支援新式 AQ. 開頭 key (Authorization: Bearer) 與舊式 AIzaSy 開頭 key (?key=) 兩種格式
+    const DEFAULT_GEMINI_KEY = "AQ.Ab8RN6KQyM0UlbFHZvkHmqZS1YUzHlh5LCs5vEMPSunb73q9pQ";
 
     // 全局狀態
     let uploadedImages = []; // [base64DataUrl, ...]
@@ -60,20 +61,27 @@
 
     function fetchGpsLocation() {
         const statusEl = document.getElementById('ai-gps-status-text');
-        if (statusEl) statusEl.textContent = '🌐 智能地區與幣別感應中...';
+        const lang = localStorage.getItem('calc_lang') || 'en';
+        const locatingText = (window.I18N && window.I18N[lang] && window.I18N[lang].gpsLocating) 
+            ? window.I18N[lang].gpsLocating 
+            : (lang === 'zh' ? '定位中...' : 'Locating...');
+            
+        if (statusEl) statusEl.textContent = locatingText;
         
         if (typeof window.fetchUnifiedLocationAndCurrency === 'function') {
             window.fetchUnifiedLocationAndCurrency((meta) => {
-                if (meta && meta.locationName) {
+                if (meta) {
                     currentGpsLocation = meta;
                     if (statusEl) {
-                        const tagSource = meta.source === 'IP' ? '🌐 IP' : '📍 GPS';
-                        statusEl.textContent = `${tagSource} 定位：${meta.locationName} (${meta.flag || ''} ${meta.currency || ''})`;
+                        const locName = meta.locationName || (lang === 'zh' ? '未知' : 'Unknown');
+                        const currStr = meta.currency ? ` (${meta.currency})` : '';
+                        statusEl.textContent = `${locName}${currStr}`;
                     }
                 }
             });
         }
     }
+    window.fetchGpsLocation = fetchGpsLocation;
 
     // DOM 元素快取
     const elements = {
@@ -831,6 +839,9 @@ ${locationContext}
 }`;
 
         const requestBody = {
+            system_instruction: {
+                parts: [{ text: "你是專業發票與收據 OCR 辨識引擎。請以最高速度精確分析圖片，直接輸出嚴格合法的 JSON，不要輸出任何 Markdown 標記、代碼區塊或多餘文字。" }]
+            },
             contents: [{
                 parts: [
                     { text: prompt },
@@ -845,25 +856,38 @@ ${locationContext}
             generationConfig: {
                 response_mime_type: "application/json",
                 temperature: 0.1,
-                top_p: 0.95
+                top_p: 0.95,
+                max_output_tokens: 2048
             }
         };
 
-        // 官方最新極速低成本 Flash-Lite / Flash 模型清單 (以極速低延遲 Lite 為第一優先)
+        // 模型清單：先使用 gemini-flash-lite-latest，遇到錯誤再使用 gemini-flash-latest 備援
         const modelsToTry = [
-            'gemini-3.5-flash-lite',
-            'gemini-3.6-flash',
-            'gemini-3.5-flash'
+            'gemini-flash-lite-latest', // 主力：gemini flash lite latest
+            'gemini-flash-latest'       // 備援：gemini flash latest
+        ];
+
+        // 認證方式：兩種 key 格式全部優先用 x-goog-api-key Header（v1beta 全支援）
+        // 舊式 AIzaSy key 另备援 ?key= 方式，避免單一認證失敗時無法恢復
+        const isOldKeyFormat = apiKey.startsWith('AIzaSy');
+        const authAttempts = isOldKeyFormat ? [
+            { urlSuffix: '', extraHeaders: { 'x-goog-api-key': apiKey } },  // 優先：Header 認證
+            { urlSuffix: `?key=${apiKey}`, extraHeaders: {} }               // 備援：?key= 認證
+        ] : [
+            { urlSuffix: '', extraHeaders: { 'x-goog-api-key': apiKey } }   // AQ. key 只用 Header
         ];
 
         let lastErr = null;
         for (const model of modelsToTry) {
-            for (let attempt = 0; attempt < 2; attempt++) {
+            for (const auth of authAttempts) {
+                for (let attempt = 0; attempt < 2; attempt++) { // 503 最多重試 2 次
                 try {
-                    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+                    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent${auth.urlSuffix}`;
+                    const headers = { 'Content-Type': 'application/json', ...auth.extraHeaders };
+                    console.log(`[AI掃描] 嘗試模型: ${model}, 認證: ${Object.keys(auth.extraHeaders)[0] || '?key='}`);
                     const res = await fetch(url, {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers,
                         body: JSON.stringify(requestBody)
                     });
 
@@ -891,25 +915,31 @@ ${locationContext}
                     const errJson = await res.json().catch(() => ({}));
                     const rawMsg = errJson.error?.message || `API 錯誤 (${res.status})`;
                     lastErr = rawMsg;
+                    console.warn(`[AI掃描] ${model} 失敗 (${res.status}):`, rawMsg);
 
                     const lowerMsg = (rawMsg || '').toLowerCase();
-                    // 若模型不存在或已停用 (404 / 400 / not found / no longer available)，立刻切換至下一模型
-                    if (res.status === 404 || res.status === 400 || lowerMsg.includes('not found') || lowerMsg.includes('no longer available')) {
+                    // 401 認證失敗 → 立刻跳到下一種認證方式
+                    if (res.status === 401 || lowerMsg.includes('invalid authentication') || lowerMsg.includes('unauthenticated')) {
                         break;
                     }
-
-                    // 若遇到 503 / 429 / High Demand 高用量暫時性塞車，延遲 800ms 後重試
+                    // 模型不存在 (404) → 跳下一個 auth，最終跳下一個模型
+                    if (res.status === 404 || lowerMsg.includes('not found') || lowerMsg.includes('no longer available')) {
+                        break;
+                    }
+                    // 503 / 429 高流量 → 延遲後重試
                     if (res.status === 503 || res.status === 429 || lowerMsg.includes('high demand') || lowerMsg.includes('spikes in demand')) {
-                        await new Promise(r => setTimeout(r, 800));
+                        await new Promise(r => setTimeout(r, 500)); // 短暫等待 0.5s 後重試
                         continue;
-                    } else {
-                        break;
                     }
+                    break;
                 } catch (e) {
                     lastErr = e.message;
+                    console.error(`[AI掃描] 例外:`, e.message);
                 }
-            }
-        }
+                } // end attempt loop
+            } // end authAttempts loop
+        } // end modelsToTry loop
+
 
         if (lastErr && (lastErr.includes('high demand') || lastErr.includes('503') || lastErr.includes('spikes in demand'))) {
             throw new Error('⚡ AI 服務目前使用流量較高，請再按一次「AI 辨識」即可完成！');

@@ -1,12 +1,8 @@
-const CACHE_NAME = 'business-calc-v24';
+const CACHE_NAME = 'business-calc-v35';
+// 只預快取不帶版本號的核心靜態資源（JS/CSS 由 fetch handler 動態快取，避免版本號不同步問題）
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
-  './style.css',
-  './script.js',
-  './i18n.js',
-  './ai-scan.css',
-  './ai-scan.js',
   './xlsx.full.min.js',
   './math.min.js',
   './manifest.json',
@@ -121,10 +117,11 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 4. 靜態資源 (CSS, JS, Fonts, Icons, SVG)：Cache First 搭配背景更新 (Stale-While-Revalidate)
+  // 4. 靜態資源 (CSS, JS, Fonts, Icons, SVG)：Network First，快取備援
+  // 【修復】每次優先從網路取得最新版（版本號不同的請求會直接 miss 快取），確保 ?v= 版本更新立即生效
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      const fetchPromise = fetch(event.request).then((networkResponse) => {
+    fetch(event.request)
+      .then((networkResponse) => {
         if (networkResponse && networkResponse.status === 200) {
           const responseToCache = networkResponse.clone();
           caches.open(CACHE_NAME).then((cache) => {
@@ -132,9 +129,10 @@ self.addEventListener('fetch', (event) => {
           });
         }
         return networkResponse;
-      }).catch(() => {});
-
-      return cachedResponse || fetchPromise;
-    })
+      })
+      .catch(() => {
+        // 離線時才回退快取
+        return caches.match(event.request);
+      })
   );
 });

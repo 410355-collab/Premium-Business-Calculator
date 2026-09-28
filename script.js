@@ -187,11 +187,11 @@
         'pi': { customHTML: '<span class="key-text" style="font-size:50cqmin;">π</span>', action: 'inputConstant', param: 'π', type: 'cyan', category: 'math', name: 'π' },
         'euler': { customHTML: '<span class="key-text" style="font-size:48cqmin;font-style:italic;">e</span>', action: 'inputConstant', param: 'e', type: 'cyan', category: 'math', name: 'e' },
         'factorial': { customHTML: '<span class="key-text" style="font-size:42cqmin;">x!</span>', action: 'inputOperator', param: '!', type: 'cyan', category: 'math', name: 'x!' },
-        'sin': { label: 'sin', action: 'inputFunction', param: 'sin(', type: 'cyan small-text', category: 'math', name: 'sin' },
-        'cos': { label: 'cos', action: 'inputFunction', param: 'cos(', type: 'cyan small-text', category: 'math', name: 'cos' },
-        'tan': { label: 'tan', action: 'inputFunction', param: 'tan(', type: 'cyan small-text', category: 'math', name: 'tan' },
-        'ln': { label: 'ln', action: 'inputFunction', param: 'ln(', type: 'cyan small-text', category: 'math', name: 'ln' },
-        'log': { label: 'log', action: 'inputFunction', param: 'log(', type: 'cyan small-text', category: 'math', name: 'log' },
+        'sin': { customHTML: '<span class="key-text">sin</span>', action: 'inputFunction', param: 'sin(', type: 'cyan', category: 'math', name: 'sin' },
+        'cos': { customHTML: '<span class="key-text">cos</span>', action: 'inputFunction', param: 'cos(', type: 'cyan', category: 'math', name: 'cos' },
+        'tan': { customHTML: '<span class="key-text">tan</span>', action: 'inputFunction', param: 'tan(', type: 'cyan', category: 'math', name: 'tan' },
+        'ln': { customHTML: '<span class="key-text">ln</span>', action: 'inputFunction', param: 'ln(', type: 'cyan', category: 'math', name: 'ln' },
+        'log': { customHTML: '<span class="key-text">log</span>', action: 'inputFunction', param: 'log(', type: 'cyan', category: 'math', name: 'log' },
 
         // 記憶體
         'mem_clear': { label: 'MC', action: 'memoryClear', type: 'accent-mem small-text', category: 'mem', name: 'MC' },
@@ -272,7 +272,7 @@
 
     function getKeyboardGrid(orientation = (isLandscapeMode() ? 'landscape' : 'portrait')) {
         const isLand = (orientation === 'landscape');
-        const defaultGrid = isLand ? '6x4' : '4x5';
+        const defaultGrid = '4x5';
         const key = isLand ? KEY_KEYBOARD_GRID_LANDSCAPE : KEY_KEYBOARD_GRID;
         let g = localStorage.getItem(key) || defaultGrid;
         if (!GRID_CONFIGS[g]) g = defaultGrid;
@@ -477,52 +477,60 @@
     /* 🌐 統一 IP 定位為主、GPS 定位為輔模組 (跨計算機全功能共享) */
     let detectedLocationMeta = null;
     function detectCurrencyFromCoords(lat, lng) {
-        if (lat >= 24 && lat <= 46 && lng >= 122 && lng <= 154) return { locationName: "東京, 日本", currency: "JPY", flag: "🇯🇵", symbol: "¥" };
-        if (lat >= 33 && lat <= 39 && lng >= 124 && lng <= 131) return { locationName: "首爾, 韓國", currency: "KRW", flag: "🇰🇷", symbol: "₩" };
-        if (lat >= 35 && lat <= 70 && lng >= -10 && lng <= 30) return { locationName: "歐洲 (歐元區)", currency: "EUR", flag: "🇪🇺", symbol: "€" };
-        if (lat >= 24 && lat <= 50 && lng >= -125 && lng <= -66) return { locationName: "美國", currency: "USD", flag: "🇺🇸", symbol: "$" };
-        if (lat >= 5 && lat <= 21 && lng >= 97 && lng <= 106) return { locationName: "曼谷, 泰國", currency: "THB", flag: "🇹🇭", symbol: "฿" };
-        if (lat >= 8 && lat <= 24 && lng >= 102 && lng <= 110) return { locationName: "胡志明市, 越南", currency: "VND", flag: "🇻🇳", symbol: "₫" };
-        if (lat >= 1.1 && lat <= 1.5 && lng >= 103.5 && lng <= 104.1) return { locationName: "新加坡", currency: "SGD", flag: "🇸🇬", symbol: "S$" };
-        if (lat >= 1 && lat <= 7 && lng >= 99 && lng <= 119) return { locationName: "吉隆坡, 馬來西亞", currency: "MYR", flag: "🇲🇾", symbol: "RM" };
-        if (lat <= -10 && lat >= -44 && lng >= 112 && lng <= 154) return { locationName: "雪梨, 澳洲", currency: "AUD", flag: "🇦🇺", symbol: "A$" };
-        if (lat >= 18 && lat <= 54 && lng >= 73 && lng <= 135) return { locationName: "中國", currency: "CNY", flag: "🇨🇳", symbol: "¥" };
-        if (lat >= 21.8 && lat <= 25.3 && lng >= 119.5 && lng <= 122.5) return { locationName: "台灣", currency: "TWD", flag: "🇹🇼", symbol: "NT$" };
-        return { locationName: "國外目的地", currency: "USD", flag: "🌐", symbol: "$" };
+        const isZh = currentLang === 'zh';
+        if (lat >= 24 && lat <= 46 && lng >= 122 && lng <= 154) return { locationName: isZh ? "日本" : "Japan", currency: "JPY", flag: "🇯🇵", symbol: "¥" };
+        if (lat >= 33 && lat <= 39 && lng >= 124 && lng <= 131) return { locationName: isZh ? "韓國" : "South Korea", currency: "KRW", flag: "🇰🇷", symbol: "₩" };
+        if (lat >= 35 && lat <= 70 && lng >= -10 && lng <= 30) return { locationName: isZh ? "歐洲" : "Europe", currency: "EUR", flag: "🇪🇺", symbol: "€" };
+        if (lat >= 24 && lat <= 50 && lng >= -125 && lng <= -66) return { locationName: isZh ? "美國" : "United States", currency: "USD", flag: "🇺🇸", symbol: "$" };
+        if (lat >= 5 && lat <= 21 && lng >= 97 && lng <= 106) return { locationName: isZh ? "泰國" : "Thailand", currency: "THB", flag: "🇹🇭", symbol: "฿" };
+        if (lat >= 8 && lat <= 24 && lng >= 102 && lng <= 110) return { locationName: isZh ? "越南" : "Vietnam", currency: "VND", flag: "🇻🇳", symbol: "₫" };
+        if (lat >= 1.1 && lat <= 1.5 && lng >= 103.5 && lng <= 104.1) return { locationName: isZh ? "新加坡" : "Singapore", currency: "SGD", flag: "🇸🇬", symbol: "S$" };
+        if (lat >= 1 && lat <= 7 && lng >= 99 && lng <= 119) return { locationName: isZh ? "馬來西亞" : "Malaysia", currency: "MYR", flag: "🇲🇾", symbol: "RM" };
+        if (lat <= -10 && lat >= -44 && lng >= 112 && lng <= 154) return { locationName: isZh ? "澳洲" : "Australia", currency: "AUD", flag: "🇦🇺", symbol: "A$" };
+        if (lat >= 18 && lat <= 54 && lng >= 73 && lng <= 135) return { locationName: isZh ? "中國" : "China", currency: "CNY", flag: "🇨🇳", symbol: "¥" };
+        if (lat >= 21.8 && lat <= 25.3 && lng >= 119.5 && lng <= 122.5) return { locationName: isZh ? "台灣" : "Taiwan", currency: "TWD", flag: "🇹🇼", symbol: "NT$" };
+        return { locationName: isZh ? "國外目的地" : "Overseas", currency: "USD", flag: "🌐", symbol: "$" };
     }
 
     function fetchUnifiedLocationAndCurrency(onSuccess) {
-        // 1. IP 定位優先 (免權限彈窗、速度最快)
-        fetch('https://ipapi.co/json/')
+        // 1. IP 定位優先 (免權限彈窗、速度最快，使用 ipwho.is 替代容易被 Cloudflare 阻擋的 ipapi.co)
+        const isZh = currentLang === 'zh';
+        const countryCurrMap = {
+            TW: { locationName: isZh ? "台灣" : "Taiwan", currency: "TWD", flag: "🇹🇼", symbol: "NT$" },
+            JP: { locationName: isZh ? "日本" : "Japan", currency: "JPY", flag: "🇯🇵", symbol: "¥" },
+            KR: { locationName: isZh ? "韓國" : "South Korea", currency: "KRW", flag: "🇰🇷", symbol: "₩" },
+            US: { locationName: isZh ? "美國" : "United States", currency: "USD", flag: "🇺🇸", symbol: "$" },
+            EU: { locationName: isZh ? "歐洲" : "Europe", currency: "EUR", flag: "🇪🇺", symbol: "€" },
+            CN: { locationName: isZh ? "中國" : "China", currency: "CNY", flag: "🇨🇳", symbol: "¥" },
+            TH: { locationName: isZh ? "泰國" : "Thailand", currency: "THB", flag: "🇹🇭", symbol: "฿" },
+            VN: { locationName: isZh ? "越南" : "Vietnam", currency: "VND", flag: "🇻🇳", symbol: "₫" },
+            SG: { locationName: isZh ? "新加坡" : "Singapore", currency: "SGD", flag: "🇸🇬", symbol: "S$" },
+            MY: { locationName: isZh ? "馬來西亞" : "Malaysia", currency: "MYR", flag: "🇲🇾", symbol: "RM" },
+            AU: { locationName: isZh ? "澳洲" : "Australia", currency: "AUD", flag: "🇦🇺", symbol: "A$" }
+        };
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3500);
+
+        fetch('https://ipwho.is/', { signal: controller.signal })
             .then(res => res.json())
             .then(data => {
-                if (data && data.country_code) {
-                    const countryCurrMap = {
-                        TW: { locationName: "台灣", currency: "TWD", flag: "🇹🇼", symbol: "NT$" },
-                        JP: { locationName: "日本", currency: "JPY", flag: "🇯🇵", symbol: "¥" },
-                        KR: { locationName: "韓國", currency: "KRW", flag: "🇰🇷", symbol: "₩" },
-                        US: { locationName: "美國", currency: "USD", flag: "🇺🇸", symbol: "$" },
-                        EU: { locationName: "歐洲", currency: "EUR", flag: "🇪🇺", symbol: "€" },
-                        CN: { locationName: "中國", currency: "CNY", flag: "🇨🇳", symbol: "¥" },
-                        TH: { locationName: "泰國", currency: "THB", flag: "🇹🇭", symbol: "฿" },
-                        VN: { locationName: "越南", currency: "VND", flag: "🇻🇳", symbol: "₫" },
-                        SG: { locationName: "新加坡", currency: "SGD", flag: "🇸🇬", symbol: "S$" },
-                        MY: { locationName: "馬來西亞", currency: "MYR", flag: "🇲🇾", symbol: "RM" },
-                        AU: { locationName: "澳洲", currency: "AUD", flag: "🇦🇺", symbol: "A$" }
-                    };
+                clearTimeout(timeoutId);
+                if (data && data.success !== false && data.country_code) {
                     const meta = countryCurrMap[data.country_code] || {
-                        locationName: data.city || data.country_name || "所在地",
-                        currency: data.currency || "USD",
+                        locationName: data.country || data.city || (isZh ? "所在地" : "Location"),
+                        currency: (data.currency && data.currency.code) || "USD",
                         flag: "🌐",
-                        symbol: "$"
+                        symbol: (data.currency && data.currency.symbol) || "$"
                     };
                     detectedLocationMeta = { source: 'IP', ...meta };
                     if (typeof onSuccess === 'function') onSuccess(detectedLocationMeta);
                 } else {
-                    throw new Error('IP info missing');
+                    throw new Error('IP lookup failed');
                 }
             })
             .catch(() => {
+                clearTimeout(timeoutId);
                 // 2. IP 失敗時自動以 GPS 定位為輔
                 if (navigator.geolocation) {
                     navigator.geolocation.getCurrentPosition(
@@ -533,13 +541,13 @@
                         },
                         () => {
                             // 預設切回當前選擇之源幣別
-                            detectedLocationMeta = { source: 'Default', currency: currentFrom };
+                            detectedLocationMeta = { source: 'Default', locationName: isZh ? "預設" : "Default", currency: currentFrom || "TWD", flag: "📍", symbol: "$" };
                             if (typeof onSuccess === 'function') onSuccess(detectedLocationMeta);
                         },
                         { timeout: 3000, maximumAge: 60000 }
                     );
                 } else {
-                    detectedLocationMeta = { source: 'Default', currency: currentFrom };
+                    detectedLocationMeta = { source: 'Default', locationName: isZh ? "預設" : "Default", currency: currentFrom || "TWD", flag: "📍", symbol: "$" };
                     if (typeof onSuccess === 'function') onSuccess(detectedLocationMeta);
                 }
             });
@@ -1737,6 +1745,9 @@
         } else {
             menu.classList.add('show');
             updateMenuOpenState();
+            if (pureType === 'ai-scan' && typeof window.fetchGpsLocation === 'function') {
+                window.fetchGpsLocation();
+            }
             menu.style.animation = `menuOpen ${animCurve}`;
             menuTimers[menuId] = setTimeout(() => {
                 menu.style.animation = 'none';
@@ -3150,6 +3161,13 @@
             requestAnimationFrame(() => {
                 displayContainer.classList.add('slide-refresh');
             });
+        }
+
+        if (typeof window.fetchGpsLocation === 'function') {
+            const scanMenu = document.getElementById('ai-scan-menu');
+            if (scanMenu && scanMenu.classList.contains('show')) {
+                window.fetchGpsLocation();
+            }
         }
     }
 
@@ -5285,6 +5303,9 @@
 
         /* 監聽視窗尺寸改變 */
         window.addEventListener('resize', () => {
+            syncKeyboardState();
+            updateGridCols();
+            renderMainKeyboard();
             autoScaleText('result-scaler', 'result-wrapper');
             autoScaleText('formula-scaler', 'formula-wrapper');
             autoScaleText('converted-scaler', 'converted-wrapper');

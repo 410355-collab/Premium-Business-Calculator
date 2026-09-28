@@ -22,8 +22,50 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;700&amp;family=Inter:wght@600;800&amp;family=Noto+Sans+TC:wght@500;700;900&amp;family=Noto+Serif+TC:wght@600;900&amp;family=Orbitron:wght@500;700;900&amp;family=Rajdhani:wght@600;700&amp;family=ZCOOL+KuaiLe&amp;display=swap"
         rel="stylesheet">
-    <link rel="stylesheet" href="./style.css">
-    <link rel="stylesheet" href="./ai-scan.css">
+    <link rel="stylesheet" href="./style.css?v=20260928a">
+    <link rel="stylesheet" href="./ai-scan.css?v=20260928a">
+    <style>
+        /* 移除切掉效果，採用 transform 讓文字 100% 完整且按比例縮放 */
+        .key[data-key-id="sin"] .key-text,
+        .key[data-key-id="cos"] .key-text,
+        .key[data-key-id="tan"] .key-text,
+        .key[data-key-id="log"] .key-text,
+        .custom-keyboard-grid .key[data-key-id="sin"] .key-text,
+        .custom-keyboard-grid .key[data-key-id="cos"] .key-text,
+        .custom-keyboard-grid .key[data-key-id="tan"] .key-text,
+        .custom-keyboard-grid .key[data-key-id="log"] .key-text,
+        .pool-key-item .key[data-key-id="sin"] .key-text,
+        .pool-key-item .key[data-key-id="cos"] .key-text,
+        .pool-key-item .key[data-key-id="tan"] .key-text,
+        .pool-key-item .key[data-key-id="log"] .key-text {
+            font-size: 55cqmin !important;
+            font-size: 55cqi !important;
+            font-weight: 800 !important;
+            letter-spacing: -0.05em !important;
+            white-space: nowrap !important;
+            transform: scale(0.48) !important;
+            transform-origin: center center !important;
+        }
+        .key[data-key-id="ln"] .key-text,
+        .custom-keyboard-grid .key[data-key-id="ln"] .key-text,
+        .pool-key-item .key[data-key-id="ln"] .key-text {
+            font-size: 55cqmin !important;
+            font-size: 55cqi !important;
+            font-weight: 800 !important;
+            transform: scale(0.68) !important;
+            transform-origin: center center !important;
+        }
+    </style>
+    <script>
+        // 自動通知 SW 更新並一併強制套用
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                for (var registration of registrations) {
+                    registration.update();
+                }
+            });
+        }
+    </script>
 </head>
 
 <body class="font-tech">
@@ -247,7 +289,11 @@
 
         <!-- 主設定選單 -->
         <div class="overlay-menu" id="settings-menu">
-            <div class="overlay-title" data-i18n="settingsTitle">SETTINGS</div>
+            <div class="settings-header-bar">
+                <div class="overlay-title" data-i18n="settingsTitle">SETTINGS</div>
+                <!-- 右上角圓形頭像 / Google 登入按鈕 -->
+                <div class="cloud-avatar-btn" id="cloud-sync-status-card"></div>
+            </div>
             <div class="setting-box" role="dialog">
                 <div class="setting-row">
                     <span class="setting-label" data-i18n="labelLanguage">LANGUAGE</span>
@@ -530,10 +576,10 @@
 
         <!-- 掃描記帳操作頁 -->
         <div class="overlay-menu" id="ai-scan-menu">
-            <div class="overlay-title" data-i18n="aiScanTitle">📷 掃描記帳</div>
+            <div class="overlay-title" data-i18n="aiScanTitle">掃描記帳</div>
             <div class="ai-gps-info-bar" id="ai-gps-info-bar">
                 <span class="gps-badge-icon">📍</span>
-                <span class="gps-text" id="ai-gps-status-text" data-i18n="gpsLocating">📍 定位 GPS 中...</span>
+                <span class="gps-text" id="ai-gps-status-text" data-i18n="gpsLocating">定位中...</span>
             </div>
             <div class="ai-scan-inner">
                 <!-- 左欄：發票/照片大圖預覽 (緊貼邊界) -->
@@ -812,9 +858,15 @@
     </div>
 
     <script src="./math.min.js"></script>
-    <script src="./i18n.js"></script>
-    <script src="./script.js"></script>
-    <script src="./ai-scan.js"></script>
+    <script src="./i18n.js?v=20260925e"></script>
+    <script src="./script.js?v=20260925e"></script>
+    <script src="./ai-scan.js?v=20260925e"></script>
+
+    <!-- Firebase Web SDK Compat (CDN) for Google Auth & Cloud Firestore -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="./firebase-sync.js?v=20260927a"></script>
 </body>
 
 </html>
