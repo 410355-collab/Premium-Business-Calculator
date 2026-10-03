@@ -59,9 +59,10 @@
 
     function guardSubMenuOpen(callback) {
         return function(e) {
-            if (isScreenTooSmall()) {
+            const target = e ? (e.currentTarget || e.target) : null;
+            if (isScreenTooSmall() || (target && target.classList && target.classList.contains('disabled-row'))) {
                 triggerVibration(true);
-                showToastMsg(I18N[currentLang].toastScreenTooSmall || "Screen size too small");
+                showToastMsg(I18N[currentLang].toastScreenTooSmall || "目前視窗太小 請切換成全螢幕");
                 return;
             }
             if (typeof callback === 'function') callback(e);
@@ -173,8 +174,8 @@
         'double_zero': { label: '00', action: 'inputNum', param: '00', type: '', category: 'biz', name: '00' },
         'triple_zero': { label: '000', action: 'inputNum', param: '000', type: 'small-text', category: 'biz', name: '000' },
         'plus_minus': { icon: 'plus_minus', action: 'toggleSign', type: 'cyan', category: 'biz', name: '±' },
-        'tax_plus': { customHTML: '<span class="key-text" style="font-size:30cqmin;display:flex;flex-direction:column;line-height:0.95;"><span>+TAX</span><span style="font-size:16cqmin;opacity:0.8;">▲</span></span>', action: 'applyTaxAdd', type: 'cyan', category: 'biz', name: '+TAX' },
-        'tax_minus': { customHTML: '<span class="key-text" style="font-size:30cqmin;display:flex;flex-direction:column;line-height:0.95;"><span>-TAX</span><span style="font-size:16cqmin;opacity:0.8;">▼</span></span>', action: 'applyTaxSub', type: 'cyan', category: 'biz', name: '-TAX' },
+        'tax_plus': { customHTML: '<span class="key-text"><span>+TAX</span><span class="tax-arrow">▲</span></span>', action: 'applyTaxAdd', type: 'cyan', category: 'biz', name: '+TAX' },
+        'tax_minus': { customHTML: '<span class="key-text"><span>-TAX</span><span class="tax-arrow">▼</span></span>', action: 'applyTaxSub', type: 'cyan', category: 'biz', name: '-TAX' },
         'discount': { label: '-%', action: 'applyDiscount', type: 'cyan', category: 'biz', name: '-%' },
 
         // 科學與數學
@@ -492,8 +493,74 @@
         return { locationName: isZh ? "國外目的地" : "Overseas", currency: "USD", flag: "🌐", symbol: "$" };
     }
 
+    const LOCATION_CACHE_KEY = 'app_location_ip_cache_v1';
+    const LOCATION_CACHE_TTL = 60 * 60 * 1000; // 1 小時快取
+
+    async function getIpLocationData() {
+        try {
+            const cachedRaw = localStorage.getItem(LOCATION_CACHE_KEY);
+            if (cachedRaw) {
+                const cached = JSON.parse(cachedRaw);
+                if (cached && cached.timestamp && (Date.now() - cached.timestamp < LOCATION_CACHE_TTL)) {
+                    return cached.data;
+                }
+            }
+        } catch (e) {}
+
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 3500);
+            const res = await fetch('https://ipwho.is/', { signal: controller.signal });
+            clearTimeout(timeoutId);
+            if (res.ok) {
+                const data = await res.json();
+                if (data && data.success !== false) {
+                    try {
+                        localStorage.setItem(LOCATION_CACHE_KEY, JSON.stringify({ timestamp: Date.now(), data }));
+                    } catch (e) {}
+                    return data;
+                }
+            }
+        } catch (e) {
+            console.warn("ipwho.is fetch failed or rate limited:", e);
+        }
+
+        // 網路或 429 限流失敗時，優先退回既有舊快取
+        try {
+            const cachedRaw = localStorage.getItem(LOCATION_CACHE_KEY);
+            if (cachedRaw) {
+                const cached = JSON.parse(cachedRaw);
+                if (cached && cached.data) return cached.data;
+            }
+        } catch (e) {}
+
+        // 若無快取，利用本地時區自動產生備援定位資料並快取 1 小時，防止重複對 API 發出請求
+        let fallbackData = null;
+        try {
+            const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+            let code = 'TW', country = 'Taiwan', currencyCode = 'TWD';
+            if (tz.includes('Seoul')) { code = 'KR'; country = 'South Korea'; currencyCode = 'KRW'; }
+            else if (tz.includes('Tokyo')) { code = 'JP'; country = 'Japan'; currencyCode = 'JPY'; }
+            else if (tz.includes('Shanghai') || tz.includes('Chongqing')) { code = 'CN'; country = 'China'; currencyCode = 'CNY'; }
+            else if (tz.includes('Kuala_Lumpur') || tz.includes('Kuching')) { code = 'MY'; country = 'Malaysia'; currencyCode = 'MYR'; }
+            else if (tz.includes('Singapore')) { code = 'SG'; country = 'Singapore'; currencyCode = 'SGD'; }
+            else if (tz.includes('Sydney') || tz.includes('Melbourne') || tz.includes('Brisbane') || tz.includes('Perth') || tz.startsWith('Australia/')) { code = 'AU'; country = 'Australia'; currencyCode = 'AUD'; }
+            else if (tz.includes('Ho_Chi_Minh') || tz.includes('Hanoi')) { code = 'VN'; country = 'Vietnam'; currencyCode = 'VND'; }
+            else if (tz.includes('Bangkok')) { code = 'TH'; country = 'Thailand'; currencyCode = 'THB'; }
+            else if (tz.startsWith('America/')) { code = 'US'; country = 'United States'; currencyCode = 'USD'; }
+            else if (tz.startsWith('Europe/')) { code = 'EU'; country = 'Europe'; currencyCode = 'EUR'; }
+
+            fallbackData = { country_code: code, country: country, currency: { code: currencyCode } };
+            try {
+                localStorage.setItem(LOCATION_CACHE_KEY, JSON.stringify({ timestamp: Date.now(), data: fallbackData }));
+            } catch (e) {}
+        } catch (e) {}
+
+        return fallbackData;
+    }
+
     function fetchUnifiedLocationAndCurrency(onSuccess) {
-        // 1. IP 定位優先 (免權限彈窗、速度最快，使用 ipwho.is 替代容易被 Cloudflare 阻擋的 ipapi.co)
+        // 1. IP 定位優先 (含 1 小時 LocalStorage 快取與備援)
         const isZh = currentLang === 'zh';
         const countryCurrMap = {
             TW: { locationName: isZh ? "台灣" : "Taiwan", currency: "TWD", flag: "🇹🇼", symbol: "NT$" },
@@ -509,14 +576,9 @@
             AU: { locationName: isZh ? "澳洲" : "Australia", currency: "AUD", flag: "🇦🇺", symbol: "A$" }
         };
 
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 3500);
-
-        fetch('https://ipwho.is/', { signal: controller.signal })
-            .then(res => res.json())
+        getIpLocationData()
             .then(data => {
-                clearTimeout(timeoutId);
-                if (data && data.success !== false && data.country_code) {
+                if (data && data.country_code) {
                     const meta = countryCurrMap[data.country_code] || {
                         locationName: data.country || data.city || (isZh ? "所在地" : "Location"),
                         currency: (data.currency && data.currency.code) || "USD",
@@ -526,11 +588,10 @@
                     detectedLocationMeta = { source: 'IP', ...meta };
                     if (typeof onSuccess === 'function') onSuccess(detectedLocationMeta);
                 } else {
-                    throw new Error('IP lookup failed');
+                    throw new Error('IP lookup unavailable');
                 }
             })
             .catch(() => {
-                clearTimeout(timeoutId);
                 // 2. IP 失敗時自動以 GPS 定位為輔
                 if (navigator.geolocation) {
                     navigator.geolocation.getCurrentPosition(
@@ -544,7 +605,7 @@
                             detectedLocationMeta = { source: 'Default', locationName: isZh ? "預設" : "Default", currency: currentFrom || "TWD", flag: "📍", symbol: "$" };
                             if (typeof onSuccess === 'function') onSuccess(detectedLocationMeta);
                         },
-                        { timeout: 3000, maximumAge: 60000 }
+                        { timeout: 3000, maximumAge: 3600000 }
                     );
                 } else {
                     detectedLocationMeta = { source: 'Default', locationName: isZh ? "預設" : "Default", currency: currentFrom || "TWD", flag: "📍", symbol: "$" };
@@ -750,6 +811,14 @@
         } catch (e) {}
     }
 
+    let hasUserInteracted = false;
+    if (typeof window !== 'undefined') {
+        const markUserInteraction = () => { hasUserInteracted = true; };
+        ['pointerdown', 'touchstart', 'mousedown', 'keydown', 'click'].forEach(evt => {
+            window.addEventListener(evt, markUserInteraction, { capture: true, once: true });
+        });
+    }
+
     /* ─── 觸覺震動引擎（支援 Android 實體震動 + iOS 擬巧觸覺雙引擎） ─── */
     function triggerVibration(isError = false) {
         const toggle = getHapticToggle();
@@ -757,7 +826,9 @@
 
         let didVibrate = false;
 
-        if (typeof navigator !== 'undefined' && navigator.vibrate) {
+        const canVibrate = hasUserInteracted || (typeof navigator !== 'undefined' && navigator.userActivation && navigator.userActivation.hasBeenActive);
+
+        if (canVibrate && typeof navigator !== 'undefined' && navigator.vibrate) {
             try {
                 didVibrate = navigator.vibrate(isError ? [35, 40, 35] : 8);
             } catch (e) {}
@@ -3090,7 +3161,7 @@
                 glider.className = 'selector-glider';
                 selector.prepend(glider);
             }
-            const activeBtn = selector.querySelector('.selector-btn.active, .lang-btn.active, .font-btn.active, .grid-preset-btn.active, .pool-tab-btn.active, .mode-btn.active');
+            const activeBtn = selector.querySelector('.selector-btn.active, .lang-btn.active, .font-btn.active, .grid-preset-btn.active, .pool-tab-btn.active, .mode-btn.active, .theme-mode-btn.active');
             if (activeBtn && activeBtn.offsetWidth > 0) {
                 const sRect = selector.getBoundingClientRect();
                 const bRect = activeBtn.getBoundingClientRect();
@@ -3280,12 +3351,17 @@
 
     function renderThemePalette() {
         const palette = document.getElementById('theme-palette');
+        if (!palette) return;
         const savedColor = localStorage.getItem(KEY_THEME_COLOR) || '#29b6f6';
+        const customMenu = document.getElementById('custom-color-menu');
+        const isMenuOpen = customMenu && customMenu.classList.contains('show');
+        const isCustom = isMenuOpen || !THEME_COLORS.includes(savedColor);
+
         let html = THEME_COLORS.map(c => `
-            <div class="color-swatch ${c === savedColor ? 'active' : ''}" style="background:${c}" data-color="${c}"></div>
+            <div class="color-swatch ${!isCustom && c === savedColor ? 'active' : ''}" style="background:${c}" data-color="${c}"></div>
         `).join('');
-        const isCustom = !THEME_COLORS.includes(savedColor);
-        html += `<div class="color-swatch custom-btn ${isCustom ? 'active' : ''}">+</div>`;
+        const customBg = isCustom ? `style="background:${savedColor}"` : '';
+        html += `<div class="color-swatch custom-btn ${isCustom ? 'active' : ''}" ${customBg}>+</div>`;
         palette.innerHTML = html;
         applyThemeColor(savedColor);
     }
@@ -3366,12 +3442,27 @@
         if (valB) valB.textContent = b;
     }
 
+    function syncCustomBtnVisuals(hex) {
+        const palette = document.getElementById('theme-palette');
+        if (palette) {
+            const customBtn = palette.querySelector('.custom-btn');
+            if (customBtn) {
+                customBtn.style.backgroundColor = hex;
+                if (!customBtn.classList.contains('active')) {
+                    palette.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
+                    customBtn.classList.add('active');
+                }
+            }
+        }
+    }
+
     function updateCustomPicker() {
         const rgb = hsvToRgb(curH, curS, curV);
         const hex = "#" + ((1 << 24) + (rgb.r << 16) + (rgb.g << 8) + rgb.b).toString(16).slice(1).toUpperCase();
         
         updateCustomPickerVisuals(hex, rgb.r, rgb.g, rgb.b);
         applyThemeColor(hex);
+        syncCustomBtnVisuals(hex);
     }
 
     function syncPickerFromHex(hex) {
@@ -3391,11 +3482,14 @@
     const toggleCustomColorMenu = throttle(function() {
         triggerVibration();
         const menu = document.getElementById('custom-color-menu');
-        const isShowing = menu.classList.toggle('show');
-        if (isShowing) {
-            const activeColor = localStorage.getItem(KEY_THEME_COLOR) || '#29b6f6';
-            syncPickerFromHex(activeColor);
+        if (menu) {
+            const isShowing = menu.classList.toggle('show');
+            if (isShowing) {
+                const activeColor = localStorage.getItem(KEY_THEME_COLOR) || '#29b6f6';
+                syncPickerFromHex(activeColor);
+            }
         }
+        renderThemePalette();
     }, 250);
 
     function updateFromHex() {
@@ -3411,6 +3505,7 @@
             curV = hsv.v;
             updateCustomPickerVisuals(hex, r, g, b);
             applyThemeColor(hex);
+            syncCustomBtnVisuals(hex);
         }
     }
 
@@ -3426,11 +3521,17 @@
             if (themeColorMeta) themeColorMeta.setAttribute('content', '#0f1015');
             if (statusBarMeta) statusBarMeta.setAttribute('content', 'black-translucent');
         }
+        document.querySelectorAll('.theme-mode-btn').forEach(btn => {
+            btn.classList.toggle('active', (btn.dataset.theme === 'light') === isLight);
+        });
+        updateGliders();
+        requestAnimationFrame(() => updateGliders());
+        setTimeout(updateGliders, 50);
     }
 
-    function toggleLightMode() {
+    function setThemeMode(mode) {
         triggerVibration();
-        const isLight = document.getElementById('theme-toggle').checked;
+        const isLight = (mode === 'light');
         applyLightMode(isLight);
         localStorage.setItem(KEY_LIGHT_MODE, isLight ? 'true' : 'false');
     }
@@ -3467,8 +3568,7 @@
         document.getElementById('haptic-toggle').checked = true;
         const catToggle = document.getElementById('category-bubble-toggle');
         if (catToggle) catToggle.checked = true;
-        document.getElementById('theme-toggle').checked = false;
-        document.body.classList.remove('light-mode');
+        applyLightMode(false);
 
         isTaxExcluded = false;
 
@@ -4477,12 +4577,9 @@
         let detectedCurrency = null;
 
         try {
-            const res = await fetch('https://ipwho.is/');
-            if (res.ok) {
-                const data = await res.json();
-                if (data.currency && data.currency.code) {
-                    detectedCurrency = data.currency.code;
-                }
+            const data = await getIpLocationData();
+            if (data && data.currency && data.currency.code) {
+                detectedCurrency = data.currency.code;
             }
         } catch (e) {
             console.warn("API detection failed, trying Local Timezone fallback...");
@@ -4914,6 +5011,10 @@
             attachSmartTap(btn, () => setFontStyle(btn.dataset.font));
         });
 
+        document.querySelectorAll('.theme-mode-btn').forEach(btn => {
+            attachSmartTap(btn, () => setThemeMode(btn.dataset.theme));
+        });
+
         document.querySelectorAll('.currency-btn-group').forEach(btn => {
             attachSmartTap(btn, () => {
                 const code = btn.dataset.code;
@@ -5031,7 +5132,6 @@
             });
         }
         document.getElementById('hex-input').addEventListener('change', updateFromHex);
-        document.getElementById('theme-toggle').addEventListener('change', toggleLightMode);
         attachSmartTap(document.getElementById('btn-dec-minus'), () => changeDecimals(-1));
         attachSmartTap(document.getElementById('btn-dec-plus'), () => changeDecimals(1));
         
@@ -5358,10 +5458,8 @@
             }
         }
 
-        if (localStorage.getItem(KEY_LIGHT_MODE) === 'true') {
-            document.body.classList.add('light-mode');
-            document.getElementById('theme-toggle').checked = true;
-        }
+        const isLightStored = localStorage.getItem(KEY_LIGHT_MODE) === 'true';
+        applyLightMode(isLightStored);
 
         if (localStorage.getItem(KEY_HAPTIC) !== null) {
             document.getElementById('haptic-toggle').checked = (localStorage.getItem(KEY_HAPTIC) === 'true');

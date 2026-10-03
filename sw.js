@@ -1,4 +1,4 @@
-const CACHE_NAME = 'business-calc-v35';
+const CACHE_NAME = 'business-calc-v36';
 // 只預快取不帶版本號的核心靜態資源（JS/CSS 由 fetch handler 動態快取，避免版本號不同步問題）
 const ASSETS_TO_CACHE = [
   './',
@@ -69,10 +69,11 @@ self.addEventListener('fetch', (event) => {
       fetch(event.request)
         .then((networkResponse) => {
           if (networkResponse && networkResponse.status === 200) {
-            const responseToCache = networkResponse.clone();
+            const responseToCache1 = networkResponse.clone();
+            const responseToCache2 = networkResponse.clone();
             caches.open(CACHE_NAME).then((cache) => {
-              cache.put(event.request, responseToCache);
-              cache.put('./index.html', responseToCache.clone());
+              cache.put(event.request, responseToCache1);
+              cache.put('./index.html', responseToCache2);
             });
           }
           return networkResponse;

@@ -501,7 +501,12 @@
 
                 <div class="setting-row">
                     <span class="setting-label" data-i18n="labelLightMode">LIGHT MODE</span>
-                    <label class="switch"><input type="checkbox" id="theme-toggle"><span class="slider"></span></label>
+                    <div class="option-selector">
+                        <button class="selector-btn theme-mode-btn active" data-theme="dark"
+                            data-i18n="themeDark">DARK</button>
+                        <button class="selector-btn theme-mode-btn" data-theme="light"
+                            data-i18n="themeLight">LIGHT</button>
+                    </div>
                 </div>
             </div>
             <div class="btn-group">
@@ -561,7 +566,7 @@
                 <div class="setting-row" style="flex-direction:column;align-items:flex-start;gap:6px;">
                     <span class="setting-label" data-i18n="aiApiKeyLabel">GEMINI API KEY</span>
                     <div class="ai-key-input-row">
-                        <input type="password" class="ai-apikey-input" id="ai-gemini-key-input" placeholder="請輸入個人 API Key" data-i18n-placeholder="aiApiKeyPlaceholder">
+                        <input type="text" class="ai-apikey-input" id="ai-gemini-key-input" placeholder="請輸入個人 API Key" data-i18n-placeholder="aiApiKeyPlaceholder">
                         <button class="ai-apikey-save-btn" id="ai-gemini-key-save" data-i18n="btnDone">SAVE</button>
                     </div>
                     <div class="ai-key-status default" id="ai-gemini-key-status" data-i18n="aiKeyDefaultStatus">🔑 請輸入個人 API Key 以開啓 AI 掃描</div>
@@ -859,8 +864,8 @@
 
     <script src="./math.min.js"></script>
     <script src="./i18n.js?v=20260925e"></script>
-    <script src="./script.js?v=20260925e"></script>
-    <script src="./ai-scan.js?v=20260925e"></script>
+    <script src="./script.js?v=20261003a"></script>
+    <script src="./ai-scan.js?v=20260928g"></script>
 
     <!-- Firebase Web SDK Compat (CDN) for Google Auth & Cloud Firestore -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>

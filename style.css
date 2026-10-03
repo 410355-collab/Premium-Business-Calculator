@@ -53,22 +53,22 @@
             --app-font: var(--font-cute);
         }
 
-        /* Light Mode Variables (Enhanced Contrast & Outdoor Readability) */
+        /* Light Mode Variables (Optimal Glass Balance & Contrast) */
         body.light-mode {
             --bg-color: #e2e8f0;
-            --card-bg: rgba(255, 255, 255, 0.82);
-            --operator-bg: rgba(203, 213, 225, 0.82);
+            --card-bg: rgba(255, 255, 255, 0.72);
+            --operator-bg: rgba(203, 213, 225, 0.72);
             --text-color: #0f172a;
             --text-muted: rgba(15, 23, 42, 0.78);
 
             --capsule-bg: #ffffff;
             --capsule-border: 0.5px solid rgba(15, 23, 42, 0.15);
-            --dropdown-bg: rgba(255, 255, 255, 0.8);
-            --capsule-glass-bg: rgba(255, 255, 255, 0.45);
-            --capsule-btn-bg: rgba(255, 255, 255, 0.35);
-            --setting-box-bg: rgba(255, 255, 255, 0.55);
-            --input-bg: rgba(0, 0, 0, 0.06);
-            --overlay-gradient: linear-gradient(160deg, rgba(230, 235, 248, 0.60) 0%, rgba(210, 220, 235, 0.68) 100%);
+            --dropdown-bg: rgba(255, 255, 255, 0.78);
+            --capsule-glass-bg: rgba(255, 255, 255, 0.55);
+            --capsule-btn-bg: rgba(255, 255, 255, 0.45);
+            --setting-box-bg: rgba(255, 255, 255, 0.65);
+            --input-bg: rgba(0, 0, 0, 0.05);
+            --overlay-gradient: linear-gradient(160deg, rgba(230, 235, 248, 0.70) 0%, rgba(210, 220, 235, 0.75) 100%);
         }
 
         * {
@@ -1516,6 +1516,31 @@
             font-weight: 800;
         }
 
+        /* ─── 含稅 / 未稅按鍵：高權重防覆蓋動態容器查詢縮放 ─── */
+        body .key[data-key-id="tax_plus"] .key-text,
+        body .key[data-key-id="tax_minus"] .key-text,
+        body .pool-key-item .key[data-key-id="tax_plus"] .key-text,
+        body .pool-key-item .key[data-key-id="tax_minus"] .key-text,
+        body .custom-keyboard-grid .key[data-key-id="tax_plus"] .key-text,
+        body .custom-keyboard-grid .key[data-key-id="tax_minus"] .key-text {
+            font-size: 26cqmin !important;
+            font-size: 26cqi !important;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            justify-content: center !important;
+            line-height: 0.92 !important;
+        }
+
+        body .key[data-key-id="tax_plus"] .tax-arrow,
+        body .key[data-key-id="tax_minus"] .tax-arrow {
+            font-size: 0.55em !important;
+            opacity: 0.85 !important;
+        }
+
+
         body.light-mode .key {
             box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08), inset 0 0.5px 0.5px rgba(255, 255, 255, 0.85);
         }
@@ -1889,6 +1914,8 @@
             scrollbar-width: none;
             -ms-overflow-style: none;
             touch-action: pan-y;
+            container-type: size;
+            container-name: kbwrap;
         }
 
         .keyboard-custom-wrapper::-webkit-scrollbar {
@@ -1914,9 +1941,13 @@
             align-items: center;
             justify-content: space-between;
             gap: 6px;
+            row-gap: 4px;
             width: 100%;
             margin-bottom: 6px;
             flex-shrink: 0;
+            min-width: 0;
+            overflow: hidden;
+            flex-wrap: wrap;
         }
 
         .compact-grid-selector {
@@ -1928,10 +1959,10 @@
         .snapshot-selector-bar.compact-snapshot-bar {
             display: flex;
             align-items: center;
-            justify-content: flex-end;
+            justify-content: flex-start;
             gap: 6px;
-            width: auto;
-            flex: 0 0 auto;
+            flex: 1 1 100%;
+            min-width: 0;
             margin: 0;
             padding: 0;
             border: none;
@@ -1943,14 +1974,24 @@
             margin: 0;
             white-space: nowrap;
             letter-spacing: 0.5px;
+            flex: 0 0 auto;
         }
 
         .compact-snapshot-bar .snapshot-btn-group {
             display: flex;
             align-items: center;
             gap: 4px;
-            overflow: visible;
+            flex: 1 1 auto;
+            min-width: 0;
+            overflow-x: auto;
+            overflow-y: hidden;
+            scrollbar-width: none;
+            -webkit-overflow-scrolling: touch;
             flex-wrap: nowrap;
+        }
+
+        .compact-snapshot-bar .snapshot-btn-group::-webkit-scrollbar {
+            display: none;
         }
 
         .compact-snapshot-bar .snapshot-chip {
@@ -1958,6 +1999,7 @@
             font-size: 10px;
             border-radius: 9px;
             white-space: nowrap;
+            flex: 0 0 auto;
         }
 
         .grid-preset-btn {
@@ -1988,7 +2030,7 @@
             gap: 6px;
             width: 100%;
             align-items: stretch;
-            flex: 1 1 auto;
+            flex: 0 0 auto;
             min-height: 0;
         }
 
@@ -2003,8 +2045,10 @@
             align-items: center;
             justify-content: center;
             gap: 2px;
-            flex: 0 0 62%;
-            max-width: 62%;
+            flex: 0 0 auto;
+            width: fit-content;
+            max-width: none;
+            align-self: flex-start;
             box-shadow:
                 0 4px 14px rgba(0, 0, 0, 0.25),
                 inset 0 0.5px 0 rgba(255, 255, 255, 0.35),
@@ -2016,37 +2060,6 @@
             transition: flex 0.22s ease, max-width 0.22s ease;
         }
 
-        /* 依規格動態調整左上預覽比例 */
-        .keyboard-custom-wrapper[data-grid="3x4"] .custom-grid-container {
-            flex: 0 0 52%;
-            max-width: 52%;
-        }
-
-        .keyboard-custom-wrapper[data-grid="4x4"] .custom-grid-container {
-            flex: 0 0 58%;
-            max-width: 58%;
-        }
-
-        .keyboard-custom-wrapper[data-grid="4x5"] .custom-grid-container {
-            flex: 0 0 62%;
-            max-width: 62%;
-        }
-
-        .keyboard-custom-wrapper[data-grid="4x6"] .custom-grid-container {
-            flex: 0 0 65%;
-            max-width: 65%;
-        }
-
-        .keyboard-custom-wrapper[data-grid="5x4"] .custom-grid-container {
-            flex: 0 0 70%;
-            max-width: 70%;
-        }
-
-        .keyboard-custom-wrapper[data-grid="6x4"] .custom-grid-container {
-            flex: 0 0 74%;
-            max-width: 74%;
-        }
-
         body.light-mode .custom-grid-container {
             background: linear-gradient(180deg, rgba(255, 255, 255, 0.65) 0%, rgba(240, 245, 255, 0.58) 100%);
             border: 0.5px solid rgba(0, 0, 0, 0.12);
@@ -2054,25 +2067,34 @@
         }
 
         .custom-keyboard-grid {
+            --gap: 5px;
+            --by-w: calc((62cqw - 16px - var(--gap) * (var(--grid-cols, 4) - 1)) / var(--grid-cols, 4));
+            --by-h: calc((60cqh - 12px - 18px - var(--gap) * (var(--grid-rows, 5) - 1)) / var(--grid-rows, 5));
+            --key-size: max(24px, min(var(--by-w), var(--by-h), 56px));
+
             display: grid;
-            grid-template-columns: repeat(var(--grid-cols, 4), 1fr);
-            grid-template-rows: repeat(var(--grid-rows, 5), 1fr);
-            gap: 5px;
-            width: 100%;
-            height: 100%;
+            grid-template-columns: repeat(var(--grid-cols, 4), var(--key-size));
+            grid-template-rows: repeat(var(--grid-rows, 5), var(--key-size));
+            gap: var(--gap);
+            width: max-content;
+            height: max-content;
             justify-items: center;
             align-items: center;
+            justify-content: center;
+            align-content: center;
             user-select: none;
             -webkit-user-select: none;
             touch-action: none;
         }
 
         .custom-keyboard-grid .key {
-            width: 100%;
-            max-width: 52px;
-            max-height: 52px;
+            width: var(--key-size);
+            height: var(--key-size);
+            max-width: none;
+            max-height: none;
             aspect-ratio: 1 / 1;
             border-radius: 50% !important;
+            flex: none;
             cursor: grab;
             touch-action: none;
             place-self: center;
@@ -2124,7 +2146,7 @@
                 inset 0 0.5px 0 rgba(255, 255, 255, 0.35),
                 inset 0 -0.5px 0 rgba(255, 255, 255, 0.1),
                 inset 0 0 12px rgba(255, 255, 255, 0.06);
-            contain: layout style;
+            contain: size layout style;
             overflow: hidden;
         }
 
@@ -2463,9 +2485,9 @@
         }
 
         body.light-mode .overlay-menu {
-            background: rgba(255, 255, 255, 0.10);
-            -webkit-backdrop-filter: blur(10px);
-            backdrop-filter: blur(10px);
+            background: rgba(255, 255, 255, 0.35);
+            -webkit-backdrop-filter: blur(16px);
+            backdrop-filter: blur(16px);
         }
 
         .overlay-menu.show {
@@ -2514,11 +2536,11 @@
 
         body.light-mode .setting-box {
             border: 0.5px solid rgba(0, 0, 0, 0.12);
-            background: linear-gradient(180deg, rgba(255, 255, 255, 0.45) 0%, rgba(240, 245, 255, 0.38) 100%);
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.68) 0%, rgba(240, 245, 255, 0.60) 100%);
             box-shadow:
-                0 4px 12px rgba(0, 0, 0, 0.04),
+                0 4px 14px rgba(0, 0, 0, 0.04),
                 0 10px 24px rgba(0, 0, 0, 0.03),
-                inset 0 0.5px 0 rgba(255, 255, 255, 0.9),
+                inset 0 0.5px 0 rgba(255, 255, 255, 0.95),
                 inset 0 -0.5px 0.5px rgba(0, 0, 0, 0.03);
         }
 
@@ -2687,7 +2709,8 @@
         .color-swatch.custom-btn.active {
             border-style: solid;
             border-color: var(--text-color);
-            color: var(--equal-text);
+            color: #ffffff;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
             background: var(--accent-main);
         }
 
@@ -3295,15 +3318,15 @@
 
         .history-tab-btn.active {
             color: #ffffff;
-            background: linear-gradient(135deg, rgba(41, 182, 246, 0.85) 0%, rgba(3, 169, 244, 0.95) 100%);
-            box-shadow: 0 4px 12px rgba(41, 182, 246, 0.35), inset 0 0.5px 0 rgba(255, 255, 255, 0.5);
+            background: linear-gradient(135deg, color-mix(in srgb, var(--accent-main) 85%, transparent) 0%, color-mix(in srgb, var(--accent-main) 95%, #000) 100%);
+            box-shadow: 0 4px 12px color-mix(in srgb, var(--accent-main) 35%, transparent), inset 0 0.5px 0 rgba(255, 255, 255, 0.5);
             font-weight: 800;
         }
 
         .history-tab-btn[data-mode="business"].active {
-            background: linear-gradient(135deg, rgba(0, 229, 255, 0.85) 0%, rgba(0, 184, 212, 0.95) 100%);
-            box-shadow: 0 4px 12px rgba(0, 229, 255, 0.35), inset 0 0.5px 0 rgba(255, 255, 255, 0.5);
-            color: #000000;
+            background: linear-gradient(135deg, color-mix(in srgb, var(--accent-main) 85%, transparent) 0%, color-mix(in srgb, var(--accent-main) 95%, #000) 100%);
+            box-shadow: 0 4px 12px color-mix(in srgb, var(--accent-main) 35%, transparent), inset 0 0.5px 0 rgba(255, 255, 255, 0.5);
+            color: #ffffff;
         }
 
         body.light-mode .history-mode-tabs {
@@ -3317,7 +3340,7 @@
 
         body.light-mode .history-tab-btn.active {
             color: #fff;
-            background: #0288d1;
+            background: var(--accent-main);
         }
 
         /* 歷史紀錄摘要卡片 */
@@ -3655,8 +3678,9 @@
         .history-btn-group .clear-btn,
         .history-btn-group .share-btn,
         .history-btn-group .done-btn {
-            padding: 11px 6px !important;
-            font-size: 14.5px !important;
+            padding: 14px 6px !important;
+            font-size: 15.5px !important;
+            font-weight: 900 !important;
             border-radius: 38px !important;
             white-space: nowrap;
             display: flex;
@@ -3665,7 +3689,7 @@
             text-align: center;
             width: 100%;
             box-sizing: border-box;
-            min-height: 42px;
+            min-height: 50px !important;
         }
 
         .history-btn-group .excel-btn {
@@ -3727,15 +3751,16 @@
 
         @media (max-height: 560px) {
             .history-btn-group {
-                gap: 6px !important;
+                gap: 8px !important;
             }
 
             .history-btn-group .clear-btn,
             .history-btn-group .share-btn,
             .history-btn-group .done-btn {
-                padding: 7px 4px !important;
-                min-height: 32px !important;
-                font-size: 11.5px !important;
+                padding: 12px 4px !important;
+                min-height: 46px !important;
+                font-size: 14.5px !important;
+                font-weight: 900 !important;
                 border-radius: 38px !important;
             }
         }
@@ -3863,10 +3888,10 @@
         }
 
         body.light-mode .modal-card {
-            border-top: 0.5px solid rgba(255, 255, 255, 0.9);
+            border-top: 0.5px solid rgba(255, 255, 255, 0.95);
             border-left: 0.5px solid rgba(0, 0, 0, 0.08);
             border-right: 0.5px solid rgba(0, 0, 0, 0.08);
-            background: linear-gradient(180deg, rgba(255, 255, 255, 0.65) 0%, rgba(240, 245, 255, 0.68) 100%);
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.72) 0%, rgba(245, 248, 255, 0.68) 100%);
             box-shadow:
                 0 -10px 30px rgba(0, 0, 0, 0.12),
                 inset 0 0.5px 0 rgba(255, 255, 255, 0.95);
@@ -4428,7 +4453,7 @@
         .clear-btn {
             color: var(--accent-main);
             border: 0.5px solid rgba(255, 255, 255, 0.2);
-            border-radius: 38px;
+            border-radius: 38px !important;
             padding: 14px;
             font-size: 16px;
             font-weight: 900;
@@ -4805,7 +4830,7 @@
 
             .done-btn,
             .clear-btn {
-                border-radius: 12px !important;
+                border-radius: 38px !important;
             }
         }
 
@@ -4839,6 +4864,10 @@
                 position: relative;
                 min-height: 0;
                 min-width: 0;
+            }
+
+            body.light-mode .left-panel {
+                background: rgba(255, 255, 255, 0.35);
             }
 
             .action-bar {
@@ -4977,8 +5006,8 @@
 
             #keyboard-settings-menu .compact-snapshot-bar {
                 margin: 0 !important;
-                flex: 0 0 auto !important;
-                width: auto !important;
+                flex: 1 1 0 !important;
+                min-width: 0 !important;
                 display: flex !important;
                 align-items: center !important;
                 justify-content: flex-end !important;
@@ -5023,69 +5052,68 @@
             .custom-grid-container {
                 flex: 1 1 auto !important;
                 height: 100% !important;
-                width: -webkit-fit-content !important;
-                width: -moz-fit-content !important;
-                width: fit-content !important;
-                max-width: 100% !important;
                 min-height: 0 !important;
+                width: 100% !important;
+                max-width: 100% !important;
                 overflow: hidden !important;
-                padding: 6px 8px !important;
+                padding: 6px 6px !important;
                 display: flex !important;
                 flex-direction: column !important;
                 align-items: center !important;
-                justify-content: center !important;
+                justify-content: flex-start !important;
+            }
+
+            .custom-grid-container .pool-shelf-label {
+                margin-top: 2px !important;
+                margin-bottom: 4px !important;
+                flex: 0 0 auto !important;
             }
 
             .custom-keyboard-grid {
+                display: grid !important;
+                grid-template-columns: repeat(var(--grid-cols, 4), 1fr) !important;
+                grid-template-rows: repeat(var(--grid-rows, 5), 1fr) !important;
                 height: 100% !important;
-                width: -webkit-fit-content !important;
-                width: -moz-fit-content !important;
-                width: fit-content !important;
+                width: 100% !important;
+                flex: 1 1 auto !important;
+                min-height: 0 !important;
                 justify-items: center !important;
                 align-items: center !important;
                 align-content: center !important;
                 justify-content: center !important;
-                gap: 6px !important;
-                /* 上下左右間隙完全相等且均勻 */
+                gap: 4px !important;
                 padding: 2px !important;
-                --calc-key-size: min(calc((66vh - 44px) / var(--grid-rows, 4)), 62px);
             }
 
             .keyboard-custom-wrapper[data-grid="6x4"] .custom-keyboard-grid {
-                --calc-key-size: min(calc((66vh - 44px) / 4), calc((50vw - 40px) / 6), 58px);
-                gap: 6px !important;
+                gap: 4px !important;
             }
 
             .keyboard-custom-wrapper[data-grid="5x4"] .custom-keyboard-grid {
-                --calc-key-size: min(calc((66vh - 44px) / 4), calc((46vw - 40px) / 5), 60px);
-                gap: 6px !important;
+                gap: 4px !important;
             }
 
             .keyboard-custom-wrapper[data-grid="4x6"] .custom-keyboard-grid {
-                --calc-key-size: min(calc((66vh - 44px) / 6), 46px);
-                gap: 5px !important;
+                gap: 3px !important;
             }
 
             .keyboard-custom-wrapper[data-grid="4x5"] .custom-keyboard-grid {
-                --calc-key-size: min(calc((66vh - 44px) / 5), 54px);
-                gap: 6px !important;
+                gap: 4px !important;
             }
 
             .keyboard-custom-wrapper[data-grid="4x4"] .custom-keyboard-grid {
-                --calc-key-size: min(calc((66vh - 44px) / 4), 62px);
-                gap: 7px !important;
+                gap: 5px !important;
             }
 
             .keyboard-custom-wrapper[data-grid="3x4"] .custom-keyboard-grid {
-                --calc-key-size: min(calc((66vh - 44px) / 4), 64px);
-                gap: 8px !important;
+                gap: 5px !important;
             }
 
             .custom-keyboard-grid .key {
-                width: var(--calc-key-size, 54px) !important;
-                height: var(--calc-key-size, 54px) !important;
-                max-width: var(--calc-key-size, 54px) !important;
-                max-height: var(--calc-key-size, 54px) !important;
+                width: 100% !important;
+                height: 100% !important;
+                max-width: 100% !important;
+                max-height: 100% !important;
                 aspect-ratio: 1 / 1 !important;
                 border-radius: 50% !important;
                 place-self: center !important;
@@ -5226,7 +5254,7 @@
 
             .done-btn,
             .clear-btn {
-                border-radius: 16px !important;
+                border-radius: 38px !important;
             }
         }
 
@@ -5370,7 +5398,7 @@
 
             .done-btn,
             .clear-btn {
-                border-radius: 12px !important;
+                border-radius: 38px !important;
             }
 
             /* Mode E 自訂鍵盤超緊湊 */
@@ -5394,8 +5422,10 @@
             }
 
             .custom-keyboard-grid .key {
-                max-width: 22px !important;
-                max-height: 22px !important;
+                width: var(--calc-key-size, 100%) !important;
+                height: var(--calc-key-size, 100%) !important;
+                max-width: 100% !important;
+                max-height: 100% !important;
                 container-type: size !important;
                 contain: none !important;
             }
@@ -5546,7 +5576,7 @@
 
             .done-btn,
             .clear-btn {
-                border-radius: 16px !important;
+                border-radius: 38px !important;
             }
         }
 
@@ -5941,7 +5971,7 @@
 
             .done-btn,
             .clear-btn {
-                border-radius: 14px !important;
+                border-radius: 38px !important;
             }
         }
 
@@ -6516,8 +6546,8 @@
 .cloud-avatar-circle:active {
     transform: scale(1.08);
     background: rgba(255, 255, 255, 0.16);
-    border-color: var(--accent-main, #29b6f6);
-    box-shadow: 0 0 12px rgba(41, 182, 246, 0.4);
+    border-color: var(--accent-main);
+    box-shadow: 0 0 12px color-mix(in srgb, var(--accent-main) 40%, transparent);
 }
 
 .google-avatar-icon {
@@ -6536,7 +6566,7 @@
 .cloud-avatar-text {
     font-size: 14px;
     font-weight: 700;
-    color: var(--accent-main, #29b6f6);
+    color: var(--accent-main);
 }
 
 .online-sync-dot {

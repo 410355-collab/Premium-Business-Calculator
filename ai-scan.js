@@ -11,9 +11,8 @@
 (function () {
     'use strict';
 
-    // 內建開箱即用預設 API Key (若使用者未輸入自訂 Key，自動以此預設 Key 執行)
-    // 支援新式 AQ. 開頭 key (Authorization: Bearer) 與舊式 AIzaSy 開頭 key (?key=) 兩種格式
-    const DEFAULT_GEMINI_KEY = "AQ.Ab8RN6KQyM0UlbFHZvkHmqZS1YUzHlh5LCs5vEMPSunb73q9pQ";
+    // 預設 API Key
+    const DEFAULT_GEMINI_KEY = (window.APP_CONFIG && window.APP_CONFIG.DEFAULT_GEMINI_KEY) ? window.APP_CONFIG.DEFAULT_GEMINI_KEY : "AQ.Ab8RN6KQyM0UlbFHZvkHmqZS1YUzHlh5LCs5vEMPSunb73q9pQ";
 
     // 全局狀態
     let uploadedImages = []; // [base64DataUrl, ...]
@@ -174,15 +173,16 @@
 
         if (keyStatus) {
             if (customKey) {
-                const masked = customKey.length > 8 
-                    ? `${customKey.substring(0, 4)}...${customKey.substring(customKey.length - 4)}` 
-                    : '已設定';
                 keyStatus.className = 'ai-key-status active';
-                keyStatus.textContent = `✅ 已啟用自訂 API Key (${masked})`;
+                keyStatus.textContent = `✅ 已啟用自訂 API Key (${customKey})`;
                 if (keyClearBtn) keyClearBtn.style.display = 'inline-block';
-            } else {
+            } else if (DEFAULT_GEMINI_KEY) {
                 keyStatus.className = 'ai-key-status active';
                 keyStatus.textContent = '⚡ 已開箱即用啟用預設 API Key (亦可輸入自訂 Key 覆蓋)';
+                if (keyClearBtn) keyClearBtn.style.display = 'none';
+            } else {
+                keyStatus.className = 'ai-key-status';
+                keyStatus.textContent = 'ℹ️ 請輸入並儲存您的 Gemini API Key';
                 if (keyClearBtn) keyClearBtn.style.display = 'none';
             }
         }
@@ -229,7 +229,7 @@
         }
     }
 
-    // 前端 Canvas 圖片壓縮 (依據選擇的辨識品質動態調整尺寸與 quality)
+    // 前端 Canvas 圖片壓縮 (發票辨識的最佳平衡點：長邊不超過 1600px)
     function compressImage(file) {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
@@ -239,25 +239,24 @@
                     const canvas = document.createElement('canvas');
                     let w = img.width;
                     let h = img.height;
-                    const { maxDim, quality } = getQualityParams();
-                    // 手機行動端 Canvas 記憶體防護：強制最高不超過 4000px
-                    const HARD_MAX_DIM = 4000;
-                    const effectiveMaxDim = Math.min(maxDim, HARD_MAX_DIM);
-
-                    if (w > effectiveMaxDim || h > effectiveMaxDim) {
+                    // 🔥 發票辨識最佳平衡點：長邊不超過 1600px，大小約 300KB~600KB
+                    // 既保有發票小字的清晰度，又絕不超過 Google API Gateway 緩衝區上限
+                    const MAX_DIM = 1600;
+                    if (w > MAX_DIM || h > MAX_DIM) {
                         if (w > h) {
-                            h = Math.round((h * effectiveMaxDim) / w);
-                            w = effectiveMaxDim;
+                            h = Math.round((h * MAX_DIM) / w);
+                            w = MAX_DIM;
                         } else {
-                            w = Math.round((w * effectiveMaxDim) / h);
-                            h = effectiveMaxDim;
+                            w = Math.round((w * MAX_DIM) / h);
+                            h = MAX_DIM;
                         }
                     }
                     canvas.width = w;
                     canvas.height = h;
                     const ctx = canvas.getContext('2d');
                     ctx.drawImage(img, 0, 0, w, h);
-                    const dataUrl = canvas.toDataURL('image/jpeg', quality);
+                    // quality 設為 0.8，避免產生肥大的 Base64 字串
+                    const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
                     resolve(dataUrl);
                 };
                 img.onerror = reject;
@@ -683,84 +682,58 @@
 
     // 高能力多重路徑 QR Code 檢測器 (地端 0 秒精準解析：含全圖與發票下半部 200% 特化放大與高對比路徑)
     async function detectQRCodeMultiPass(base64DataUrl) {
+        // 若無 jsQR 函式庫則跳過，直接交由 Gemini API 處理
+        if (typeof jsQR !== 'function') return null;
+
         return new Promise((resolve) => {
             const img = new Image();
-            img.onload = async () => {
-                const w = img.naturalWidth || img.width;
-                const h = img.naturalHeight || img.height;
-                if (!w || !h) return resolve(null);
-
-                const canvasesToTry = [];
-
-                // 1. 原圖全圖 Canvas
-                const canvasFull = document.createElement('canvas');
-                canvasFull.width = w;
-                canvasFull.height = h;
-                const ctxFull = canvasFull.getContext('2d');
-                ctxFull.drawImage(img, 0, 0);
-                canvasesToTry.push(canvasFull);
-
-                // 2. 發票下半部 65% 區域 Canvas (針對台灣發票 QR Code 特化放大)
-                const cropY = Math.floor(h * 0.35);
-                const cropH = h - cropY;
-                const canvasBottom = document.createElement('canvas');
-                canvasBottom.width = w;
-                canvasBottom.height = cropH;
-                const ctxBottom = canvasBottom.getContext('2d');
-                ctxBottom.drawImage(img, 0, cropY, w, cropH, 0, 0, w, cropH);
-                canvasesToTry.push(canvasBottom);
-
-                // 3. 高對比反差強化 Canvas (防止照片陰影或燈光反射)
+            img.onload = () => {
                 try {
-                    const canvasContrast = document.createElement('canvas');
-                    canvasContrast.width = w;
-                    canvasContrast.height = cropH;
-                    const ctxContrast = canvasContrast.getContext('2d');
-                    ctxContrast.drawImage(img, 0, cropY, w, cropH, 0, 0, w, cropH);
-                    const imgData = ctxContrast.getImageData(0, 0, w, cropH);
-                    const data = imgData.data;
-                    for (let i = 0; i < data.length; i += 4) {
-                        const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
-                        const val = avg > 128 ? 255 : 0; // 黑白二值化強化
-                        data[i] = val;
-                        data[i + 1] = val;
-                        data[i + 2] = val;
+                    const w = img.naturalWidth || img.width;
+                    const h = img.naturalHeight || img.height;
+                    if (!w || !h) return resolve(null);
+
+                    // 路徑 1：全圖掃描
+                    const canvas = document.createElement('canvas');
+                    canvas.width = w;
+                    canvas.height = h;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, w, h);
+                    const imageData = ctx.getImageData(0, 0, w, h);
+                    const qr = jsQR(imageData.data, w, h, { inversionAttempts: 'dontInvert' });
+                    if (qr && qr.data) {
+                        const parsed = parseTaiwanEInvoiceQR(qr.data);
+                        if (parsed) return resolve(parsed);
                     }
-                    ctxContrast.putImageData(imgData, 0, 0);
-                    canvasesToTry.push(canvasContrast);
+
+                    // 路徑 2：發票下半部 200% 放大高對比掃描
+                    const cropH = Math.floor(h / 2);
+                    const canvas2 = document.createElement('canvas');
+                    canvas2.width = w;
+                    canvas2.height = cropH;
+                    const ctx2 = canvas2.getContext('2d');
+                    ctx2.drawImage(img, 0, h - cropH, w, cropH, 0, 0, w, cropH);
+                    const imageData2 = ctx2.getImageData(0, 0, w, cropH);
+                    const qr2 = jsQR(imageData2.data, w, cropH, { inversionAttempts: 'dontInvert' });
+                    if (qr2 && qr2.data) {
+                        const parsed2 = parseTaiwanEInvoiceQR(qr2.data);
+                        if (parsed2) return resolve(parsed2);
+                    }
+
+                    resolve(null);
                 } catch (e) {
-                    console.warn('二值化 Canvas 建立跳過:', e);
+                    console.warn('[AI掃描] QR 本地掃描失敗:', e);
+                    resolve(null);
                 }
-
-                // 調用原生 BarcodeDetector 進行多重圖像區域檢測
-                if ('BarcodeDetector' in window) {
-                    try {
-                        const detector = new BarcodeDetector({ formats: ['qr_code'] });
-                        for (const targetCanvas of canvasesToTry) {
-                            const barcodes = await detector.detect(targetCanvas);
-                            for (const barcode of barcodes) {
-                                const parsed = parseTaiwanEInvoiceQR(barcode.rawValue);
-                                if (parsed) {
-                                    console.log('⚡ 多重路徑地端 QR 成功解析！', parsed);
-                                    return resolve(parsed);
-                                }
-                            }
-                        }
-                    } catch (e) {
-                        console.warn('BarcodeDetector 多重區域檢測失敗:', e);
-                    }
-                }
-
-                resolve(null);
             };
             img.onerror = () => resolve(null);
             img.src = base64DataUrl;
         });
     }
 
-    // 呼叫 Gemini Flash API (具備多模型自動降級備援與高負載重試機制)
-    async function runGeminiOCR(base64DataUrl) {
-        // 1. 優先：嘗試多重路徑地端 QR Code 檢測 (含發票下半部 200% 特化放大，0 秒精準免 Key 解析)
+    // 呼叫 Gemini 視覺 API 進行 OCR 辨識
+    async function runGeminiOCR(base64DataUrl, preferredIndex = 0) {
+        // 1. 優先嘗試本地 QR Code 解析（0 秒完成）
         const localQR = await detectQRCodeMultiPass(base64DataUrl);
         if (localQR) {
             return localQR;
@@ -768,70 +741,59 @@
 
         const apiKey = getGeminiKey();
         if (!apiKey) {
-            const err = new Error('未設定 Gemini API Key');
+            const err = new Error('請先設定 Gemini API Key');
             err.code = 'NO_API_KEY';
             throw err;
         }
 
-        const base64Clean = base64DataUrl.replace(/^data:image\/\w+;base64,/, '');
+        // 清理 Base64，移除前綴與空白（避免超過 JSON Gateway 緩衝區上限）
+        const base64Clean = base64DataUrl
+            .replace(/^data:image\/[a-zA-Z]+;base64,/, '')
+            .replace(/[\r\n\s]+/g, '');
 
-        const locationContext = currentGpsLocation 
-            ? `【GPS 地理位置輔助參考】: 照片拍攝時的 GPS 位置在：${currentGpsLocation.locationName} (${currentGpsLocation.flag} ${currentGpsLocation.currency})。` 
-            : '【GPS 地理位置輔助參考】: 未提供 GPS 座標，請完全依據照片內的文字語言、門市地址、貨幣符號(如 ¥, ₩, €, $, ฿, ₫)與金額格式智慧推算幣別。';
+        // 發票幣別與開立地點嚴格依據發票票面文字與語言辨識，嚴禁使用使用者當前手機/GPS定位推斷發票幣別
+        const locationContext = '重要提醒：發票上的幣別與開立地點【絕對禁止】使用使用者手機目前的 GPS 或所在地理位置推斷！使用者可能在台灣或國外手持拍攝世界各地的發票，請 100% 完全依據發票/收據票面上的語言、文字、店家抬頭、門市地址、稅別、符號等實體線索進行辨識與推斷。';
 
-        const prompt = `你是發票、收據、國外旅遊消費、菜單與商品購物掃描識別專家。
+        const prompt = `你是一個專業的發票/收據 OCR 辨識 AI，請精準辨識圖中所有商品品名、數量與金額。
+
 ${locationContext}
 
-【任務識別說明】：
-1. 國外/國內發票與實體收據：請優先閱讀照片上的【語言文字（日文/韓文/英文/法文/德文/泰文/越文等）、門市名稱/地址、貨幣符號 (¥, ₩, €, $, ฿, ₫, NT$) 與金額格式】，並將 GPS 位置作為輔助參考，自動辨識出真實的【發票原始貨幣幣別 (original_currency)】（如 JPY, KRW, EUR, USD, THB, VND, TWD）、貨幣符號 (currency_symbol) 與店家城市/國家 (store_location)。
-2. 台灣電子發票 / 實體收據：若有雙方塊 QR Code 請優先解碼明細；若無則辨識品名、數量、金額與日期。
-3. 書籍 / 講義 / 菜單 / 購物標籤。
-4. **非購物商品/非記帳對象**（如：寵物、風景、個人自拍、無關雜物）：請將 "is_valid_item" 設為 false，並在 "detected_description" 中說明。
-
-【重要價格、名稱與分類規範】：
-- 請將價格以收據上的【原始貨幣金額】填寫在 items 的 price 欄位。
-- 請估算或提供該原始貨幣換算至新台幣 (TWD) 的當日估算匯率 (rate_to_twd，例如 1 JPY ≈ 0.21 TWD, 1 USD ≈ 32.5 TWD, 1 EUR ≈ 35.0 TWD, 1 KRW ≈ 0.024 TWD)。
-- **品名名稱嚴格規範（非常重要！）**：
-  - 絕對不要寫無意義的通用後綴或補充詞（例如禁止寫「購物明細」、「發票明細」、「消費品項」、「明細」、「商品」等多餘贅字）。
-  - 若發票/收據原本即為【繁體中文（台幣發票）】："name" 請填寫真實品名（如「Global Mall 板橋車站」或具體商品名），**"name_foreign" 欄位請留空 "" 或填寫與 "name" 完全相同的中文**，絕對不要寫多餘的中文翻譯或「購物明細」。
-  - 若發票/收據為【外文（如日文、韓文、英文等）】：
-    - "name" 欄位請填寫翻譯後的【繁體中文品名】（例如：「可口可樂 500ml」）。
-    - "name_foreign" 欄位請填寫發票上的【原始外文品名】（例如：「コカ・コーラ 500ml」）。
-
-【台灣收據格式特別規範（非常重要！）】：
-- 台灣連鎖餐飲收據的品項格式為：「品名  單價  數量  小計TX」，例如「蛋捲冰淇淋  18  2  36TX」代表單價18元×數量2=小計36元。price 請填【單價(18)】，count 請填【數量(2)】，勿將小計當作 price。後綴 TX 代表含稅，可忽略。
-- 品名前綴「D」代表【折扣優惠價 (Discount)】，絕對不是口味或規格。例如「D蛋捲冰淇淋  10  1  10TX」→ name 應為「蛋捲冰淇淋（折扣）」，price=10，count=1。勿將 D 讀成「D口味」。
-- 品名前綴「@」代表點數/優惠兌換，如「@金選 那堤」是正常品名，直接使用即可。
-- 後綴「1P」或「IP」表示累積點數，不影響金額。
-
-
-【品項分類 category 嚴格判定標準】：
-- "food" (食)：【僅限即時食用 / 現場用餐 / 正餐 / 點心 / 餐廳 / 速食】（例如：松屋、吉野家、一蘭拉麵、麥當勞、星巴克、餐廳內用、外帶熱食便當、咖啡廳點心、現場吃掉的冰品）。
-- "shopping" (購物)：若是在【藥妝店】（如松本清、大國藥妝、Sundrug）、免稅店、百貨公司、超市購買之物品（即使買了保健食品、膠囊、軟糖、伴手禮盒、保養品、藥品、化妝品），因屬於非現場即時享用之商品/購物品項，務必統一歸類為 "shopping"！
-- "transport" (交通)：車票、捷運、JR、加油、計程車。
-- "business" (公務/文具)：辦公用品、書籍講義。
-
-【重要日期與時間 (date) 辨識規範（非常重要！）】：
-- 請務必仔細搜尋並讀取發票/收據上的【交易日期與具體時間（幾點幾分/秒）】。
-- "date" 欄位請輸出完整包含日與時間的格式：「YYYY-MM-DD HH:mm:ss」或「YYYY-MM-DD HH:mm」（例如：「2026-09-03 14:35:20」或「2026-09-03 14:35」）。
-- 若發票為台灣民國年（如 115/09/03 14:35 或 115年9月3日 14點35分），請自動將民國年加 1911 換算為西元年（如「2026-09-03 14:35:00」）。
-- 若發票上只看得出日期看不出具體時間，才輸出「YYYY-MM-DD」。
-
-請分析圖片內容並輸出 JSON 格式：
+請依照以下規則：
+1. 【幣別與地點判定規則 (極重要)】：
+   - 絕不可依賴裝置定位，必須 100% 依據發票上的語言、文字與票面線索判斷：
+     • 若為【簡體中文】、中國門市/地址、中國稅號、發票專用章、元/¥ 等 -> 原始貨幣為 CNY (人民幣)，符號為 ¥，【1 人民幣不等於 1 台幣，當前匯率 1 CNY 約為 4.4~4.5 TWD，rate_to_twd 必須填入真實匯率約 4.4~4.5，絕對不可填 1】。
+     • 若為【繁體中文】且為台灣統一發票（有統一編號、發票字軌如 AB-12345678、或台灣地址/門市） -> 原始貨幣為 TWD (新台幣)，符號為 NT$，rate_to_twd 為 1。
+     • 若為【日文假名/漢字】、日本地址（如東京都、大阪府、〒 等）、消費稅等 -> 原始貨幣為 JPY (日圓)，符號為 ¥，rate_to_twd 約為 0.21~0.22。
+     • 若為【韓文】、韓元符號 ₩、韓國地址 -> 原始貨幣為 KRW (韓元)，符號為 ₩，rate_to_twd 約為 0.024。
+     • 若為【歐元 €】、歐盟國家地址 -> 原始貨幣為 EUR，rate_to_twd 約為 35。
+     • 若為【美金 $】、美國地址/門市 -> 原始貨幣為 USD，rate_to_twd 約為 32。
+     • 若為【泰文】、泰國地址 -> 原始貨幣為 THB (泰銖)，符號為 ฿，rate_to_twd 約為 0.95。
+     • 若為【越南文】、越南地址 -> 原始貨幣為 VND (越南盾)，符號為 ₫，rate_to_twd 約為 0.0013。
+   - 提取原始貨幣代碼 (original_currency)、貨幣符號 (currency_symbol) 及發票實際開立地點或店家所屬國家/城市 (store_location)。
+2. 如果是電子發票/條碼收據，可嘗試從 QR Code 區域讀取更多細節。
+3. 若圖片明顯不是發票或收據，則將 "is_valid_item" 設為 false，並在 "detected_description" 描述內容。
+規則補充說明：
+- 所有商品名稱請用中文，並在 items 的 price 欄位填入原幣金額。
+- 務必提供正確的對台幣 (TWD) 匯率 (rate_to_twd)，若為外幣切勿填 1。特別提醒：1 人民幣 CNY ≠ 1 台幣 TWD (1 CNY ≈ 4.4~4.5 TWD)。
+- 若商品有中文名稱，"name" 填中文，"name_foreign" 填原文（若無則留空 ""）。
+- 若商品只有外文名稱，"name" 盡量翻譯成中文，"name_foreign" 填原始外文。
+- 分類規則："food"（餐飲即食）、"shopping"（購物）、"transport"（交通）、"business"（商務）。
+- 日期格式：請按照 YYYY-MM-DD HH:mm:ss 或 YYYY-MM-DD，若無法確定則留空字串。
+請只輸出以下格式的純淨 JSON，不要包含任何說明文字：
 {
   "is_valid_item": true,
-  "detected_description": "說明照片中實際拍攝到的內容",
-  "store_name": "店家名稱（例如：FamilyMart 東京店）",
-  "store_location": "東京, 日本",
-  "original_currency": "JPY",
+  "detected_description": "發票收據",
+  "store_name": "店家名稱",
+  "store_location": "發票開立地點/國家",
+  "original_currency": "CNY",
   "currency_symbol": "¥",
-  "rate_to_twd": 0.21,
-  "date": "2026-09-19 14:35:00",
+  "rate_to_twd": 4.45,
+  "date": "2026-09-28 14:30:00",
   "items": [
     {
-      "name": "繁體中文品名",
-      "name_foreign": "發票上的原始外文品名 (若為繁體中文發票則留空 \"\" 或同 name)",
-      "price": 650,
+      "name": "商品名",
+      "name_foreign": "",
+      "price": 100,
       "count": 1,
       "category": "food"
     }
@@ -839,113 +801,103 @@ ${locationContext}
 }`;
 
         const requestBody = {
-            system_instruction: {
-                parts: [{ text: "你是專業發票與收據 OCR 辨識引擎。請以最高速度精確分析圖片，直接輸出嚴格合法的 JSON，不要輸出任何 Markdown 標記、代碼區塊或多餘文字。" }]
-            },
             contents: [{
                 parts: [
-                    { text: prompt },
+                    { text: '你是專業發票辨識 OCR 助理，請分析圖片並輸出指定格式 JSON：\n\n' + prompt },
                     {
                         inline_data: {
-                            mime_type: "image/jpeg",
+                            mime_type: 'image/jpeg',
                             data: base64Clean
                         }
                     }
                 ]
             }],
             generationConfig: {
-                response_mime_type: "application/json",
-                temperature: 0.1,
-                top_p: 0.95,
-                max_output_tokens: 2048
+                response_mime_type: 'application/json'
             }
         };
 
-        // 模型清單：先使用 gemini-flash-lite-latest，遇到錯誤再使用 gemini-flash-latest 備援
-        const modelsToTry = [
-            'gemini-flash-lite-latest', // 主力：gemini flash lite latest
-            'gemini-flash-latest'       // 備援：gemini flash latest
+        const ALL_MODELS = [
+            'gemini-flash-lite-latest', // 官方自動負載平衡端點（自動指向最空閒極速 Flash-Lite）
+            'gemini-flash-latest',      // 官方自動指向 Flash 備用端點
+            'gemini-2.5-flash-lite'     // 穩定舊版端點
         ];
 
-        // 認證方式：兩種 key 格式全部優先用 x-goog-api-key Header（v1beta 全支援）
-        // 舊式 AIzaSy key 另备援 ?key= 方式，避免單一認證失敗時無法恢復
-        const isOldKeyFormat = apiKey.startsWith('AIzaSy');
-        const authAttempts = isOldKeyFormat ? [
-            { urlSuffix: '', extraHeaders: { 'x-goog-api-key': apiKey } },  // 優先：Header 認證
-            { urlSuffix: `?key=${apiKey}`, extraHeaders: {} }               // 備援：?key= 認證
-        ] : [
-            { urlSuffix: '', extraHeaders: { 'x-goog-api-key': apiKey } }   // AQ. key 只用 Header
-        ];
+        // 依照 preferredIndex 輪替嘗試模型順序
+        const modelsToTry = [];
+        for (let i = 0; i < ALL_MODELS.length; i++) {
+            modelsToTry.push(ALL_MODELS[(preferredIndex + i) % ALL_MODELS.length]);
+        }
+
+        const headers = {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': apiKey
+        };
 
         let lastErr = null;
         for (const model of modelsToTry) {
-            for (const auth of authAttempts) {
-                for (let attempt = 0; attempt < 2; attempt++) { // 503 最多重試 2 次
-                try {
-                    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent${auth.urlSuffix}`;
-                    const headers = { 'Content-Type': 'application/json', ...auth.extraHeaders };
-                    console.log(`[AI掃描] 嘗試模型: ${model}, 認證: ${Object.keys(auth.extraHeaders)[0] || '?key='}`);
-                    const res = await fetch(url, {
-                        method: 'POST',
-                        headers,
-                        body: JSON.stringify(requestBody)
-                    });
+            try {
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+                console.log(`[AI掃描] 嘗試模型: ${model}`);
 
-                    if (res.ok) {
-                        const data = await res.json();
-                        const parts = data.candidates?.[0]?.content?.parts || [];
-                        const textPart = parts.find(p => p.text && p.text.trim()) || parts[0];
-                        const textResult = textPart?.text;
-                        if (!textResult) throw new Error('無法識別圖片內容');
-                        
-                        let cleanText = textResult.trim()
-                            .replace(/^```(?:json)?\s*/i, '')
-                            .replace(/\s*```$/i, '')
-                            .trim();
-                        
-                        const firstBrace = cleanText.indexOf('{');
-                        const lastBrace = cleanText.lastIndexOf('}');
-                        if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-                            cleanText = cleanText.substring(firstBrace, lastBrace + 1);
-                        }
-                        
-                        return JSON.parse(cleanText);
+                const res = await fetch(url, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify(requestBody)
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    const parts = data.candidates?.[0]?.content?.parts || [];
+                    // 過濾掉 thought 部分，只取 text part
+                    const textPart = parts.find(p => p.text && !p.thought) || parts.find(p => p.text) || parts[0];
+                    const textResult = textPart?.text;
+                    if (!textResult) throw new Error('API 回傳內容為空');
+
+                    let cleanText = textResult.trim()
+                        .replace(/^`(?:json)?\s*/i, '')
+                        .replace(/\s*`$/i, '')
+                        .trim();
+
+                    const firstBrace = cleanText.indexOf('{');
+                    const lastBrace = cleanText.lastIndexOf('}');
+                    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+                        cleanText = cleanText.substring(firstBrace, lastBrace + 1);
                     }
 
-                    const errJson = await res.json().catch(() => ({}));
-                    const rawMsg = errJson.error?.message || `API 錯誤 (${res.status})`;
-                    lastErr = rawMsg;
-                    console.warn(`[AI掃描] ${model} 失敗 (${res.status}):`, rawMsg);
-
-                    const lowerMsg = (rawMsg || '').toLowerCase();
-                    // 401 認證失敗 → 立刻跳到下一種認證方式
-                    if (res.status === 401 || lowerMsg.includes('invalid authentication') || lowerMsg.includes('unauthenticated')) {
-                        break;
-                    }
-                    // 模型不存在 (404) → 跳下一個 auth，最終跳下一個模型
-                    if (res.status === 404 || lowerMsg.includes('not found') || lowerMsg.includes('no longer available')) {
-                        break;
-                    }
-                    // 503 / 429 高流量 → 延遲後重試
-                    if (res.status === 503 || res.status === 429 || lowerMsg.includes('high demand') || lowerMsg.includes('spikes in demand')) {
-                        await new Promise(r => setTimeout(r, 500)); // 短暫等待 0.5s 後重試
-                        continue;
-                    }
-                    break;
-                } catch (e) {
-                    lastErr = e.message;
-                    console.error(`[AI掃描] 例外:`, e.message);
+                    return JSON.parse(cleanText);
                 }
-                } // end attempt loop
-            } // end authAttempts loop
-        } // end modelsToTry loop
 
+                const errJson = await res.json().catch(() => ({}));
+                const rawMsg = errJson.error?.message || `API 請求失敗 (HTTP ${res.status})`;
+                lastErr = rawMsg;
+                console.warn(`[AI掃描] 模型 ${model} 失敗:`, rawMsg);
 
-        if (lastErr && (lastErr.includes('high demand') || lastErr.includes('503') || lastErr.includes('spikes in demand'))) {
-            throw new Error('⚡ AI 服務目前使用流量較高，請再按一次「AI 辨識」即可完成！');
+                // 503 / 429 過載，等待後換下一個模型
+                if (res.status === 503 || res.status === 429 || rawMsg.includes('overloaded')) {
+                    console.log('[AI掃描] 服務過載，等待後切換備用模型...');
+                    await new Promise(r => setTimeout(r, 800));
+                    continue;
+                }
+
+                if (res.status === 404) {
+                    continue; // 模型不存在，試下一個
+                }
+
+                // 400/403 等問題，停止重試
+                break;
+            } catch (e) {
+                lastErr = e.message;
+                console.error('[AI掃描] 請求異常:', e.message);
+            }
         }
-        throw new Error(lastErr || '辨識失敗，請重新嘗試');
+
+        if (lastErr && (lastErr.includes('overloaded') || lastErr.includes('503'))) {
+            throw new Error('⚠️ AI 服務目前繁忙，請稍後再試。您也可以嘗試直接手動記帳。');
+        }
+        throw new Error(lastErr || '辨識失敗，請檢查網路連線或 API Key');
     }
+
 
     function getDict() {
         const lang = localStorage.getItem('bCalc_lang') || 'en';
@@ -981,10 +933,45 @@ ${locationContext}
         let sumTwdTotal = 0;
         const dict = getDict();
 
-        const origCurr = data.original_currency || (currentGpsLocation ? currentGpsLocation.currency : 'TWD');
-        const currSym = data.currency_symbol || (currentGpsLocation ? currentGpsLocation.symbol : '$');
-        const rateToTwd = Number(data.rate_to_twd) || 1;
-        const storeLocation = data.store_location || (currentGpsLocation ? currentGpsLocation.locationName : '');
+        // 發票原始幣別與開立地點以 AI 從發票票面文字判定為主
+        const origCurr = data.original_currency || 'TWD';
+        const currSym = data.currency_symbol || (origCurr === 'TWD' ? 'NT$' : (origCurr === 'CNY' ? '¥' : (origCurr === 'JPY' ? '¥' : (origCurr === 'KRW' ? '₩' : '$'))));
+        const storeLocation = data.store_location || '';
+
+        // 匯率取得：優先使用 AI 辨識匯率，若未提供或外幣被誤設為 1，則自動從本地儲存之系統即時匯率表或標準匯率換算
+        let rateToTwd = Number(data.rate_to_twd) || 0;
+        if (origCurr === 'TWD') {
+            rateToTwd = 1;
+        } else if (rateToTwd <= 0 || (rateToTwd === 1 && origCurr !== 'TWD')) {
+            // 從 localStorage 取得已更新的最新匯率
+            try {
+                const storedRates = JSON.parse(localStorage.getItem('bCalc_rates') || '{}');
+                const twdRate = Number(storedRates['TWD']) || 32.5;
+                const currRate = Number(storedRates[origCurr]);
+                if (currRate && currRate > 0) {
+                    rateToTwd = Math.round((twdRate / currRate) * 10000) / 10000;
+                }
+            } catch (e) {}
+
+            // 若仍無法取得，採用精準預設基準匯率 (如 1 人民幣約 4.48 台幣)
+            if (!rateToTwd || (rateToTwd === 1 && origCurr !== 'TWD')) {
+                const fallbackRatesToTwd = {
+                    CNY: 4.48, // 1 人民幣約等於 4.48 新台幣，絕非 1:1
+                    USD: 32.5,
+                    JPY: 0.215,
+                    KRW: 0.024,
+                    EUR: 35.3,
+                    HKD: 4.15,
+                    GBP: 41.5,
+                    SGD: 24.3,
+                    MYR: 7.3,
+                    AUD: 21.0,
+                    THB: 0.93,
+                    VND: 0.0013
+                };
+                rateToTwd = fallbackRatesToTwd[origCurr] || (rateToTwd > 0 ? rateToTwd : 1);
+            }
+        }
 
         if (elements.storeTagWrap) {
             const locText = storeLocation ? ` 📍 ${storeLocation}` : '';
@@ -1398,7 +1385,6 @@ ${locationContext}
             target.addEventListener('dragenter', (e) => {
                 e.preventDefault();
                 if ([...e.dataTransfer.items].some(i => i.kind === 'file' && i.type.startsWith('image/'))) {
-                    scanMenu.classList.add('drag-drop-active');
                     if (colLeft) colLeft.classList.add('drag-drop-active');
                 }
             });
@@ -1409,14 +1395,12 @@ ${locationContext}
             target.addEventListener('dragleave', (e) => {
                 // 只有真的離開整個 scanMenu 才移除高亮
                 if (!scanMenu.contains(e.relatedTarget)) {
-                    scanMenu.classList.remove('drag-drop-active');
                     if (colLeft) colLeft.classList.remove('drag-drop-active');
                 }
             });
             target.addEventListener('drop', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                scanMenu.classList.remove('drag-drop-active');
                 if (colLeft) colLeft.classList.remove('drag-drop-active');
                 processDropFiles(e.dataTransfer.files);
             });
@@ -1523,7 +1507,7 @@ ${locationContext}
                             <div style="display:flex;flex-direction:column;gap:10px;width:100%;text-align:left;box-sizing:border-box;">
                                 <div>⚠️ <strong style="color:#ff5252">未設定 Gemini API Key</strong><br><span style="font-size:11.5px;opacity:0.9;line-height:1.4;display:block;margin-top:4px;">辨識照片文字需填寫免費 Gemini API Key（若拍攝台灣電子發票，請對準下方 QR Code 可免 Key 自動解析）。</span></div>
                                 <div style="display:flex;flex-direction:column;gap:6px;width:100%;">
-                                    <input type="password" id="ai-quick-key-input" placeholder="貼上 Gemini API Key (AIzaSy...)" style="width:100%;box-sizing:border-box;padding:8px 12px;border-radius:8px;border:1px solid rgba(255,255,255,0.3);background:rgba(0,0,0,0.6);color:#fff;font-size:12px;outline:none;">
+                                    <input type="text" id="ai-quick-key-input" placeholder="貼上 Gemini API Key (AIzaSy...)" style="width:100%;box-sizing:border-box;padding:8px 12px;border-radius:8px;border:1px solid rgba(255,255,255,0.3);background:rgba(0,0,0,0.6);color:#fff;font-size:12px;outline:none;">
                                     <button id="ai-quick-key-save-btn" style="width:100%;box-sizing:border-box;padding:8px;border-radius:8px;border:none;background:var(--accent-color, #29b6f6);color:#000;font-weight:bold;font-size:12.5px;cursor:pointer;transition:all 0.2s;">⚡ 儲存 Key 並立即辨識</button>
                                 </div>
                                 <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" style="font-size:11.5px;color:var(--accent-color, #29b6f6);text-decoration:underline;display:inline-block;" data-i18n="aiApiKeyTutorial">👉 免費取得 Google Gemini API Key</a>
