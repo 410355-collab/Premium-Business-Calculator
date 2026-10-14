@@ -12,7 +12,7 @@
     'use strict';
 
     // 預設 API Key
-    const DEFAULT_GEMINI_KEY = (window.APP_CONFIG && window.APP_CONFIG.DEFAULT_GEMINI_KEY) ? window.APP_CONFIG.DEFAULT_GEMINI_KEY : "AQ.Ab8RN6LFppC7GxjTFZ4URswVZuGB0p4RiX8lTrjuwBg2EHfLDw";
+    const DEFAULT_GEMINI_KEY = (window.APP_CONFIG && window.APP_CONFIG.DEFAULT_GEMINI_KEY) ? window.APP_CONFIG.DEFAULT_GEMINI_KEY : "AQ.Ab8RN6I-qsmsbVWhfIWCH333AQluNrnMI0nlSNJ3rdbCNR96gQ";
 
     // 全局狀態
     let uploadedImages = []; // [base64DataUrl, ...]

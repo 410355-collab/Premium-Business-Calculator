@@ -12,6 +12,9 @@
 
     let currentUser = null;
     let isSyncing = false;
+    const META_APPLIED = '_cloud_appliedAt'; // 本機上次套用/上傳的雲端版本時間
+    const META_DIRTY = '_cloud_dirty';       // 本機有尚未上傳的修改
+    let pendingSync = false;
 
     // Keys to sync between local storage and Firestore
     const SYNC_KEYS = [
@@ -141,88 +144,99 @@
         });
     }
 
-    // Sync Local Storage data to Cloud Firestore (Automatic & Silent)
     async function syncToCloud(uid, showToast = false) {
-        if (!uid || isSyncing) return;
+        if (!uid) return;
+        if (isSyncing) { pendingSync = true; return; }
         isSyncing = true;
+        localStorage.setItem(META_DIRTY, '0'); // 先清除，上傳期間若有新修改會被重新標記
 
         try {
             const dataToSync = {
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             };
-
-            // Dynamically collect all app keys starting with bCalc_
             for (let i = 0; i < localStorage.length; i++) {
                 const key = localStorage.key(i);
                 if (key && key.startsWith('bCalc_')) {
                     const val = localStorage.getItem(key);
-                    if (val !== null) {
-                        dataToSync[key] = val;
-                    }
+                    if (val !== null) dataToSync[key] = val;
                 }
             }
 
-            await db.collection('users').doc(uid).set(dataToSync, { merge: true });
-            
+            const ref = db.collection('users').doc(uid);
+            await ref.set(dataToSync, { merge: true });
+
+            // 記下這次雲端版本的時間，下次登入就不會誤判為「雲端有更新」
+            const snap = await ref.get({ source: 'server' });
+            const ts = (snap.data() && snap.data().updatedAt && snap.data().updatedAt.toMillis())
+                || Date.now();
+            localStorage.setItem(META_APPLIED, String(ts));
+
             if (showToast && typeof window.showToastMsg === 'function') {
                 window.showToastMsg('☁️ 雲端同步完成');
             }
         } catch (err) {
             console.error("Cloud Sync Error:", err);
+            localStorage.setItem(META_DIRTY, '1'); // 失敗要保留待上傳標記
             handleFirestoreError(err);
         } finally {
             isSyncing = false;
+            if (pendingSync) {
+                pendingSync = false;
+                syncToCloud(uid, false);
+            }
         }
     }
 
-    // Pull Firestore data to local storage and refresh app UI
     async function syncFromCloud(uid) {
         if (!uid) return;
         try {
-            const doc = await db.collection('users').doc(uid).get();
-            if (doc.exists) {
-                const cloudData = doc.data() || {};
-                let needReload = false;
-                let hasLocalOnlyData = false;
+            const ref = db.collection('users').doc(uid);
+            const doc = await ref.get({ source: 'server' });
 
-                // Sync all keys present in cloudData or local
+            // 雲端沒有資料：把本機備份上去
+            if (!doc.exists) {
+                await syncToCloud(uid, false);
+                return;
+            }
+
+            const cloudData = doc.data() || {};
+            const cloudTs = (cloudData.updatedAt && cloudData.updatedAt.toMillis()) || 0;
+            const appliedTs = parseInt(localStorage.getItem(META_APPLIED) || '0', 10);
+            const dirty = localStorage.getItem(META_DIRTY) === '1';
+            const neverSynced = appliedTs === 0;
+
+            // 這台裝置同步過、且本機有未上傳的修改 → 以本機為準上傳
+            if (!neverSynced && dirty) {
+                await syncToCloud(uid, false);
+                return;
+            }
+
+            // 雲端沒有比本機已套用的版本更新 → 什麼都不用做（不重載）
+            if (cloudTs <= appliedTs) return;
+
+            // 雲端較新（或這台裝置第一次登入）→ 套用雲端資料
+            let changed = false;
+            window._isPullingCloud = true;
+            try {
                 Object.keys(cloudData).forEach(key => {
-                    if (key.startsWith('bCalc_')) {
-                        const localVal = localStorage.getItem(key);
-                        if (localVal !== cloudData[key]) {
-                            // Suppress auto-push while pulling from cloud
-                            window._isPullingCloud = true;
-                            localStorage.setItem(key, cloudData[key]);
-                            window._isPullingCloud = false;
-                            needReload = true;
-                        }
+                    if (key.startsWith('bCalc_') && localStorage.getItem(key) !== cloudData[key]) {
+                        localStorage.setItem(key, cloudData[key]);
+                        changed = true;
                     }
                 });
+            } finally {
+                window._isPullingCloud = false;
+            }
 
-                // Check if local has keys not yet in cloud
-                for (let i = 0; i < localStorage.length; i++) {
-                    const localKey = localStorage.key(i);
-                    if (localKey && localKey.startsWith('bCalc_') && cloudData[localKey] === undefined) {
-                        hasLocalOnlyData = true;
-                        break;
-                    }
-                }
+            // 關鍵：先記錄已套用的版本，重載後就不會再進到這裡
+            localStorage.setItem(META_APPLIED, String(cloudTs));
+            localStorage.setItem(META_DIRTY, '0');
 
-                if (hasLocalOnlyData) {
-                    await syncToCloud(uid, false);
+            if (changed) {
+                if (typeof window.showToastMsg === 'function') {
+                    window.showToastMsg('☁️ 已從雲端載入最新紀錄');
                 }
-
-                if (needReload) {
-                    if (typeof window.showToastMsg === 'function') {
-                        window.showToastMsg('☁️ 已從雲端載入最新紀錄');
-                    }
-                    setTimeout(() => {
-                        window.location.reload();
-                    }, 400);
-                }
-            } else {
-                // New user doc: initial silent backup of local settings to cloud
-                await syncToCloud(uid, false);
+                setTimeout(() => window.location.reload(), 400);
             }
         } catch (err) {
             console.error("Fetch Cloud Sync Error:", err);
@@ -248,8 +262,10 @@
     const originalSetItem = Storage.prototype.setItem;
     Storage.prototype.setItem = function (key, value) {
         originalSetItem.apply(this, arguments);
-        if (this === localStorage && typeof key === 'string' && key.startsWith('bCalc_')) {
-            if (!window._isPullingCloud && typeof window.triggerCloudSync === 'function') {
+        if (this === localStorage && typeof key === 'string' && key.startsWith('bCalc_')
+            && !window._isPullingCloud) {
+            originalSetItem.call(localStorage, META_DIRTY, '1'); // 標記本機有未上傳修改
+            if (typeof window.triggerCloudSync === 'function') {
                 window.triggerCloudSync();
             }
         }
