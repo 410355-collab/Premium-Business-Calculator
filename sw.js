@@ -1,8 +1,9 @@
-const CACHE_NAME = 'business-calc-v36';
+const CACHE_NAME = 'business-calc-v44';
 // 只預快取不帶版本號的核心靜態資源（JS/CSS 由 fetch handler 動態快取，避免版本號不同步問題）
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
+  './splash.html',
   './xlsx.full.min.js',
   './math.min.js',
   './manifest.json',

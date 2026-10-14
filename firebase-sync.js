@@ -1,7 +1,7 @@
 (function () {
     // Firebase Configuration provided by user
     const firebaseConfig = {
-        apiKey: "AIzaSyBXk1vli02uCUFda-_LuuATKPxydmMFSTE",
+        apiKey: "AIzaSyCDi3qPySBJtr5CxpsIk2kQm7adS_ozHMY",
         authDomain: "premium-business-calculator.firebaseapp.com",
         projectId: "premium-business-calculator",
         storageBucket: "premium-business-calculator.firebasestorage.app",
@@ -83,7 +83,7 @@
             `;
 
             document.getElementById('btn-user-profile-avatar')?.addEventListener('click', () => {
-                if (confirm(`目前登入帳號：\n${displayName} (${email})\n\n是否要登出 Google 帳號？`)) {
+                if (confirm(`確定要登出 Google 帳號嗎？\n(${displayName})`)) {
                     handleSignOut();
                 }
             });
@@ -108,25 +108,40 @@
         }
     }
 
-    function handleGoogleLogin() {
+    let isLoggingIn = false;
+
+    async function handleGoogleLogin() {
+        if (isLoggingIn) return;
+        isLoggingIn = true;
+        const btn = document.getElementById('btn-google-login');
+        if (btn) btn.style.pointerEvents = 'none';
+
         const provider = new firebase.auth.GoogleAuthProvider();
-        auth.signInWithPopup(provider).catch((error) => {
+        try {
+            await auth.signInWithPopup(provider);
+        } catch (error) {
             console.error("Google Login Error:", error);
-            if (error.code !== 'auth/popup-closed-by-user') {
+            if (error.code !== 'auth/popup-closed-by-user' && error.code !== 'auth/cancelled-popup-request') {
                 alert("Google 登入失敗: " + error.message);
             }
-        });
+        } finally {
+            isLoggingIn = false;
+            if (btn) btn.style.pointerEvents = 'auto';
+        }
     }
 
     function handleSignOut() {
         auth.signOut().then(() => {
             updateSyncUI(null);
+            if (typeof window.showToastMsg === 'function') {
+                window.showToastMsg('👋 已安全登出');
+            }
         }).catch((err) => {
             console.error("Sign Out Error:", err);
         });
     }
 
-    // Sync Local Storage data to Cloud Firestore
+    // Sync Local Storage data to Cloud Firestore (Automatic & Silent)
     async function syncToCloud(uid, showToast = false) {
         if (!uid || isSyncing) return;
         isSyncing = true;
@@ -136,20 +151,25 @@
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             };
 
-            SYNC_KEYS.forEach(key => {
-                const val = localStorage.getItem(key);
-                if (val !== null) {
-                    dataToSync[key] = val;
+            // Dynamically collect all app keys starting with bCalc_
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && key.startsWith('bCalc_')) {
+                    const val = localStorage.getItem(key);
+                    if (val !== null) {
+                        dataToSync[key] = val;
+                    }
                 }
-            });
+            }
 
             await db.collection('users').doc(uid).set(dataToSync, { merge: true });
             
-            if (showToast && typeof window.showNotification === 'function') {
-                window.showNotification('☁️ 雲端同步完成');
+            if (showToast && typeof window.showToastMsg === 'function') {
+                window.showToastMsg('☁️ 雲端同步完成');
             }
         } catch (err) {
             console.error("Cloud Sync Error:", err);
+            handleFirestoreError(err);
         } finally {
             isSyncing = false;
         }
@@ -161,34 +181,61 @@
         try {
             const doc = await db.collection('users').doc(uid).get();
             if (doc.exists) {
-                const cloudData = doc.data();
+                const cloudData = doc.data() || {};
                 let needReload = false;
+                let hasLocalOnlyData = false;
 
-                SYNC_KEYS.forEach(key => {
-                    if (cloudData[key] !== undefined) {
+                // Sync all keys present in cloudData or local
+                Object.keys(cloudData).forEach(key => {
+                    if (key.startsWith('bCalc_')) {
                         const localVal = localStorage.getItem(key);
                         if (localVal !== cloudData[key]) {
+                            // Suppress auto-push while pulling from cloud
+                            window._isPullingCloud = true;
                             localStorage.setItem(key, cloudData[key]);
+                            window._isPullingCloud = false;
                             needReload = true;
                         }
                     }
                 });
 
-                // First time login with local data: back up local data to cloud
-                if (!cloudData.bCalc_history && localStorage.getItem('bCalc_history')) {
-                    await syncToCloud(uid);
-                } else if (needReload) {
-                    // Trigger UI re-renders if available
-                    if (typeof window.renderCustomKeyboard === 'function') window.renderCustomKeyboard();
-                    if (typeof window.renderHistory === 'function') window.renderHistory();
-                    if (typeof window.applyTheme === 'function') window.applyTheme();
+                // Check if local has keys not yet in cloud
+                for (let i = 0; i < localStorage.length; i++) {
+                    const localKey = localStorage.key(i);
+                    if (localKey && localKey.startsWith('bCalc_') && cloudData[localKey] === undefined) {
+                        hasLocalOnlyData = true;
+                        break;
+                    }
+                }
+
+                if (hasLocalOnlyData) {
+                    await syncToCloud(uid, false);
+                }
+
+                if (needReload) {
+                    if (typeof window.showToastMsg === 'function') {
+                        window.showToastMsg('☁️ 已從雲端載入最新紀錄');
+                    }
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 400);
                 }
             } else {
-                // New user doc: initial backup of local settings to cloud
-                await syncToCloud(uid);
+                // New user doc: initial silent backup of local settings to cloud
+                await syncToCloud(uid, false);
             }
         } catch (err) {
             console.error("Fetch Cloud Sync Error:", err);
+            handleFirestoreError(err);
+        }
+    }
+
+    function handleFirestoreError(err) {
+        const errMsg = err ? (err.message || String(err)) : '';
+        if (err && err.code === 'permission-denied') {
+            alert("⚠️ 雲端同步失敗（權限不足）：\n請至 Firebase 控制台的 Firestore Database -> 規則 (Rules) 開啟讀寫權限！");
+        } else if (err && (err.code === 'not-found' || errMsg.includes('database') && errMsg.includes('not exist'))) {
+            alert("⚠️ 尚未建立 Firestore 資料庫：\n請至 Firebase 控制台點選「Firestore Database」並點擊「建立資料庫」。");
         }
     }
 
@@ -197,23 +244,27 @@
         return (str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
 
-    // Intercept localStorage.setItem to automatically trigger cloud sync when app data changes
-    const originalSetItem = localStorage.setItem;
-    localStorage.setItem = function (key, value) {
+    // Intercept Storage.prototype.setItem so ANY calculation, input, or setting change automatically syncs to cloud
+    const originalSetItem = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (key, value) {
         originalSetItem.apply(this, arguments);
-        if (key && key.startsWith('bCalc_')) {
-            window.triggerCloudSync();
+        if (this === localStorage && typeof key === 'string' && key.startsWith('bCalc_')) {
+            if (!window._isPullingCloud && typeof window.triggerCloudSync === 'function') {
+                window.triggerCloudSync();
+            }
         }
     };
 
-    // Export global functions to window for automatic trigger when user changes settings
+    // Automatic silent background sync with breathing dot indicator
     window.triggerCloudSync = function () {
-        if (currentUser) {
-            // Debounced sync (1 second)
-            if (window._cloudSyncTimer) clearTimeout(window._cloudSyncTimer);
-            window._cloudSyncTimer = setTimeout(() => {
-                syncToCloud(currentUser.uid);
-            }, 1000);
-        }
+        if (!currentUser) return;
+        const dot = document.querySelector('.online-sync-dot');
+        if (dot) dot.classList.add('syncing');
+
+        if (window._cloudSyncTimer) clearTimeout(window._cloudSyncTimer);
+        window._cloudSyncTimer = setTimeout(async () => {
+            await syncToCloud(currentUser.uid, false);
+            if (dot) dot.classList.remove('syncing');
+        }, 800);
     };
 })();

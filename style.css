@@ -1,4 +1,5 @@
         :root {
+            color-scheme: dark;
             /* Font Variables */
             --font-tech: 'Orbitron', 'Noto Sans TC', sans-serif;
             --font-business: 'Inter', 'Noto Sans TC', sans-serif;
@@ -379,6 +380,8 @@
         .header-area.is-animating .capsule {
             transition: none;
             pointer-events: none;
+            overflow: hidden;
+            flex-shrink: 0;
         }
 
         body.light-mode .capsule {
@@ -648,7 +651,7 @@
         #label-to {
             white-space: nowrap;
             overflow: hidden;
-            text-overflow: ellipsis;
+            text-overflow: clip;
             max-width: clamp(36px, 14vw, 95px);
             flex-shrink: 1;
             min-width: 0;
@@ -1155,8 +1158,8 @@
             -webkit-backdrop-filter: blur(14px) saturate(190%);
             backdrop-filter: blur(14px) saturate(190%);
             color: var(--accent-main);
-            font-weight: 900;
-            font-size: 13px;
+            font-weight: 800;
+            font-size: 16px;
             height: var(--capsule-height);
             padding: 0 18px;
             display: flex;
@@ -1181,7 +1184,7 @@
                 inset 0 -0.5px 0 rgba(255, 255, 255, 0.15),
                 inset 0 0 10px rgba(255, 255, 255, 0.08);
             white-space: nowrap;
-            letter-spacing: 1.2px;
+            letter-spacing: 0.5px;
             text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
             will-change: transform, opacity;
             touch-action: none;
@@ -5844,7 +5847,8 @@
         .ios-prompt-icon {
             width: 40px;
             height: 40px;
-            border-radius: 8px;
+            border-radius: 10px;
+            object-fit: contain;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
         }
 
@@ -6238,6 +6242,7 @@
             width: 44px;
             height: 44px;
             border-radius: 10px;
+            object-fit: contain;
             box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
             flex-shrink: 0;
         }
@@ -6335,7 +6340,7 @@
             }
 
             .toast {
-                font-size: 16px;
+                font-size: 18px;
             }
 
             .mem-indicator {
@@ -6579,4 +6584,256 @@
     background: #00e676;
     border: 2px solid #0f1015;
     box-shadow: 0 0 6px #00e676;
-}
+    transition: background 0.3s ease, box-shadow 0.3s ease;
+}
+
+.online-sync-dot.syncing {
+    background: #00e5ff;
+    box-shadow: 0 0 8px #00e5ff;
+    animation: syncDotPulse 0.8s infinite alternate ease-in-out;
+}
+
+@keyframes syncDotPulse {
+    from { transform: scale(0.85); opacity: 0.6; }
+    to { transform: scale(1.25); opacity: 1; }
+}
+
+
+/* ==========================================
+   全螢幕啟動動畫 (Splash Screen Animation)
+   ========================================== */
+.splash-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 999999;
+    background: #0a0d12;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    cursor: pointer;
+    font-family: "Rajdhani", "Segoe UI", system-ui, sans-serif;
+    color: #00e5ff;
+    transition: opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.6s;
+    opacity: 1;
+    visibility: visible;
+}
+
+.splash-overlay.fade-out {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+}
+
+.splash-grid {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background:
+        radial-gradient(circle at 50% 48%, rgba(0, 229, 255, .16), transparent 55%),
+        linear-gradient(rgba(0, 229, 255, .06) 1px, transparent 1px) 0 0/40px 40px,
+        linear-gradient(90deg, rgba(0, 229, 255, .06) 1px, transparent 1px) 0 0/40px 40px;
+    -webkit-mask-image: radial-gradient(circle at 50% 50%, #000 20%, transparent 75%);
+    mask-image: radial-gradient(circle at 50% 50%, #000 20%, transparent 75%);
+    opacity: 0;
+    animation: splashFadeIn 1s 0.1s forwards;
+}
+
+.splash-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.splash-stage {
+    position: relative;
+    width: min(62vmin, 320px);
+    aspect-ratio: 1;
+}
+
+.splash-stage svg {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    filter: drop-shadow(0 0 6px rgba(0, 229, 255, 0.35));
+    animation: splashGlow 2.4s 3.2s ease-in-out infinite;
+}
+
+.splash-line {
+    fill: none;
+    stroke: #00e5ff;
+    stroke-width: 8;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    animation: splashDraw var(--t, .9s) var(--d, 0s) cubic-bezier(.65, 0, .35, 1) forwards;
+}
+
+.splash-frame {
+    --t: 1.3s;
+    --d: .1s;
+    stroke-width: 9;
+}
+
+.splash-disp-o {
+    --t: .9s;
+    --d: .9s;
+}
+
+.splash-disp-i {
+    --t: .8s;
+    --d: 1.1s;
+    stroke-width: 6;
+}
+
+.splash-face {
+    fill: #151a21;
+    opacity: 0;
+    animation: splashFadeIn .8s .4s forwards;
+}
+
+.splash-key {
+    fill: rgba(0, 229, 255, 0);
+    transform-box: fill-box;
+    transform-origin: center;
+    opacity: 0;
+    animation: splashPop .5s var(--d) cubic-bezier(.34, 1.56, .64, 1) forwards,
+        splashFlash .6s calc(var(--d) + .25s) ease-out;
+}
+
+.splash-key.splash-line {
+    opacity: 1;
+    animation: splashDraw .6s var(--d) cubic-bezier(.65, 0, .35, 1) forwards,
+        splashFillFlash .7s calc(var(--d) + .5s) ease-out;
+}
+
+.splash-scan {
+    position: absolute;
+    left: 3%;
+    right: 3%;
+    height: 3px;
+    top: 0;
+    border-radius: 2px;
+    background: linear-gradient(90deg, transparent, #00e5ff, transparent);
+    box-shadow: 0 0 18px 4px rgba(0, 229, 255, .35);
+    opacity: 0;
+    animation: splashScan 1.2s 1.9s ease-in-out forwards;
+}
+
+@keyframes splashDraw {
+    to { stroke-dashoffset: 0; }
+}
+
+@keyframes splashFadeIn {
+    to { opacity: 1; }
+}
+
+@keyframes splashPop {
+    0% { opacity: 0; transform: scale(.4); }
+    100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes splashFillFlash {
+    0% { fill: rgba(0, 229, 255, .9); }
+    100% { fill: rgba(0, 229, 255, 0); }
+}
+
+@keyframes splashFlash {
+    0% { fill: rgba(0, 229, 255, .9); }
+    100% { fill: rgba(0, 229, 255, 0); }
+}
+
+@keyframes splashScan {
+    0% { top: 2%; opacity: 0; }
+    10% { opacity: 1; }
+    90% { opacity: 1; }
+    100% { top: 96%; opacity: 0; }
+}
+
+@keyframes splashGlow {
+    0%, 100% { filter: drop-shadow(0 0 6px rgba(0, 229, 255, .35)); }
+    50% { filter: drop-shadow(0 0 22px rgba(0, 229, 255, .75)); }
+}
+
+/* ─── 修正特定螢幕比例與低高度下貨幣下拉選單 (.dropdown-options) 被 .left-panel 截斷問題 ─── */
+.phone-container.dropdown-open .left-panel,
+.phone-container.dropdown-open .header-area {
+    overflow: visible !important;
+    contain: none !important;
+}
+
+/* 讓淡出範圍可以平滑動畫 */
+@property --fade-top    { syntax: '<length>'; inherits: false; initial-value: 0px; }
+@property --fade-bottom { syntax: '<length>'; inherits: false; initial-value: 0px; }
+
+.dropdown-options {
+    --fade-top: 0px;
+    --fade-bottom: 0px;
+    max-height: min(380px, calc(100dvh - var(--capsule-btn-height) - 90px)) !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none !important;          /* Firefox */
+    -ms-overflow-style: none !important;        /* IE/Edge */
+    -webkit-mask-image: linear-gradient(to bottom,
+        rgba(0,0,0,0)    0,
+        rgba(0,0,0,0.12) calc(var(--fade-top) * 0.38),
+        rgba(0,0,0,0.50) calc(var(--fade-top) * 0.72),
+        #000             var(--fade-top),
+        #000             calc(100% - var(--fade-bottom)),
+        rgba(0,0,0,0.50) calc(100% - var(--fade-bottom) * 0.72),
+        rgba(0,0,0,0.12) calc(100% - var(--fade-bottom) * 0.38),
+        rgba(0,0,0,0)    100%) !important;
+    mask-image: linear-gradient(to bottom,
+        rgba(0,0,0,0)    0,
+        rgba(0,0,0,0.12) calc(var(--fade-top) * 0.38),
+        rgba(0,0,0,0.50) calc(var(--fade-top) * 0.72),
+        #000             var(--fade-top),
+        #000             calc(100% - var(--fade-bottom)),
+        rgba(0,0,0,0.50) calc(100% - var(--fade-bottom) * 0.72),
+        rgba(0,0,0,0.12) calc(100% - var(--fade-bottom) * 0.38),
+        rgba(0,0,0,0)    100%) !important;
+    transition:
+        --fade-top 0.2s ease,
+        --fade-bottom 0.2s ease,
+        transform 0.22s var(--ios-spring-bouncy),
+        opacity 0.16s ease,
+        visibility 0.22s !important;
+}
+
+.dropdown-options::-webkit-scrollbar {
+    display: none !important;                  /* Chrome / Safari / Edge 完全隱藏捲軸 */
+    width: 0 !important;
+    height: 0 !important;
+}
+
+.dropdown-options.fade-top    { --fade-top: 32px; }
+.dropdown-options.fade-bottom { --fade-bottom: 42px; }
+
+/* 通知字體與膠囊 (.same-currency-label) 保持一致 */
+.toast {
+    font-size: 16px !important;
+}
+
+@media screen and (max-width: 768px) {
+    .toast {
+        font-size: 18px !important;
+    }
+}
+
+#label-from,
+#label-to {
+    transition: max-width 0.28s cubic-bezier(0.32, 0.72, 0, 1),
+                margin-left 0.28s cubic-bezier(0.32, 0.72, 0, 1),
+                opacity 0.2s ease;
+}
+#label-from.label-hidden,
+#label-to.label-hidden {
+    max-width: 0 !important;
+    margin-left: -4.5px; /* 抵銷 flex gap,讓國旗與 ▼ 間距正常 */
+    opacity: 0;
+    pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+    #label-from, #label-to { transition: none; }
+}
+

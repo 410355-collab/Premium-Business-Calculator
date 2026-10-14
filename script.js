@@ -77,6 +77,7 @@
         updateCachedWidths();
         checkSmallScreenThreshold();
 
+        fitCurrencyLabels();
         // 螢幕方向改變時，即時同步當前模式之鍵盤佈局與網格
         syncKeyboardState();
         if (typeof updateGridCols === 'function') updateGridCols();
@@ -99,6 +100,9 @@
         handleWindowResize();
         checkSmallScreenThreshold();
     });
+    if (document.fonts && document.fonts.ready) {
+        document.fonts.ready.then(() => fitCurrencyLabels());
+    }
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', () => {
             DOM.init();
@@ -266,7 +270,7 @@
     const KEY_KEYBOARD_GRID_LANDSCAPE = 'bCalc_keyboard_grid_landscape';
 
     function isLandscapeMode() {
-        return window.innerWidth > window.innerHeight;
+        return window.matchMedia('(min-aspect-ratio: 3/2)').matches;
     }
 
     let activeEditOrientation = isLandscapeMode() ? 'landscape' : 'portrait';
@@ -472,7 +476,7 @@
     let fontStyle = localStorage.getItem(KEY_FONT_STYLE) || 'tech';
     let currentLang = localStorage.getItem(KEY_LANG) || 'en';
     
-    let currentFrom = localStorage.getItem(KEY_CURRENCY_FROM) || "KRW";
+    let currentFrom = localStorage.getItem(KEY_CURRENCY_FROM) || "TWD";
     let currentTo = localStorage.getItem(KEY_CURRENCY_TO) || "TWD";
 
     /* 🌐 統一 IP 定位為主、GPS 定位為輔模組 (跨計算機全功能共享) */
@@ -1579,6 +1583,7 @@
         capsule.style.transform = '';
         headerArea.classList.remove('is-animating', 'is-expanding', 'is-collapsing');
         capsuleAnimating = false;
+        fitCurrencyLabels();
     }
 
     function setCapsuleCollapsed(collapsed, options = {}) {
@@ -1599,6 +1604,7 @@
             headerArea.classList.toggle('collapsed', collapsed);
             headerArea.classList.remove('is-animating', 'is-expanding', 'is-collapsing');
             capsuleAnimating = false;
+            fitCurrencyLabels();
             return;
         }
 
@@ -1616,16 +1622,19 @@
         }
 
         const last = capsule.getBoundingClientRect();
-        const scaleX = first.width / last.width || 1;
-        const scaleY = first.height / last.height || 1;
-        const dx = (first.left + first.width / 2) - (last.left + last.width / 2);
-        const dy = (first.top + first.height / 2) - (last.top + last.height / 2);
 
         const animation = capsule.animate([
-            { transform: `translate3d(${dx}px, ${dy}px, 0) scale(${scaleX}, ${scaleY})` },
-            { transform: 'translate3d(0, 0, 0) scale(1.018, 1.018)', offset: 0.78 },
-            { transform: 'translate3d(0, 0, 0) scale(1, 1)' }
-        ], { duration: CAPSULE_ANIM_MS, easing: CAPSULE_EASING, fill: 'both' });
+            { width: `${first.width}px`, minWidth: '0px' },
+            { width: `${last.width}px`, minWidth: '0px' }
+        ], { duration: CAPSULE_ANIM_MS, easing: CAPSULE_EASING, fill: 'backwards' });
+
+        // 內容淡入,避免文字突然切換
+        Array.from(capsule.children).forEach(child => {
+            child.animate([
+                { opacity: 0 },
+                { opacity: 1 }
+            ], { duration: CAPSULE_ANIM_MS * 0.6, delay: CAPSULE_ANIM_MS * 0.25, easing: 'ease-out', fill: 'backwards' });
+        });
 
         activeCapsuleAnim = animation;
 
@@ -1702,6 +1711,23 @@
         updateDropdownBackdrop();
     }, 250);
 
+    function fitCurrencyLabels() {
+        const h = document.getElementById('header-area');
+        if (!h || h.classList.contains('collapsed')) return;
+        ['from', 'to'].forEach(t => {
+            const l = document.getElementById(`label-${t}`);
+            if (!l) return;
+            const was = l.classList.contains('label-hidden');
+            l.style.transition = 'none';
+            l.classList.remove('label-hidden');
+            const hide = l.scrollWidth > l.clientWidth + 1;
+            l.classList.toggle('label-hidden', was);
+            void l.offsetWidth;
+            l.style.transition = '';
+            if (hide !== was) l.classList.toggle('label-hidden', hide);
+        });
+    }
+
     function selectCurrency(type, code, flag) {
         triggerVibration();
         if (type === 'from') {
@@ -1720,6 +1746,7 @@
         updateDropdownBackdrop();
         checkSameCurrency();
         updateDisplay();
+        fitCurrencyLabels();
     }
 
     const swapCurrencies = throttle(function() {
@@ -3553,6 +3580,10 @@
         localStorage.removeItem(KEY_FONT_STYLE);
         localStorage.removeItem(KEY_LANG);
         localStorage.removeItem(KEY_CATEGORY_BUBBLE);
+        // 一併清除使用者自訂的 Gemini API Key，回復使用內建預設 Key
+        localStorage.removeItem('calc_gemini_api_key');
+        const geminiKeyInput = document.getElementById('ai-gemini-key-input');
+        if (geminiKeyInput) geminiKeyInput.value = '';
         isCategoryBubbleEnabled = true;
         updateCategorySummaryVisibility();
 
@@ -3592,10 +3623,15 @@
         baseRateCurrency = "USD";
         document.getElementById('custom-color-menu').classList.remove('show');
 
-        currentFrom = "KRW";
+        currentFrom = "TWD";
         currentTo = "TWD";
         selectCurrency('from', currentFrom, flags[currentFrom]);
         selectCurrency('to', currentTo, flags[currentTo]);
+
+        detectLocationCurrency(true).then(() => {
+            checkSameCurrency();
+            updateDisplay();
+        });
 
         renderThemePalette();
         fetchRates(true);
@@ -5033,7 +5069,30 @@
             });
         });
 
+        // ─── 綁定下拉選單動態遮罩漸層提示 (有東西可捲才淡出) ───
+        function bindDropdownFade(el) {
+            if (!el || el._hasFadeBound) return;
+            el._hasFadeBound = true;
+            const update = () => {
+                const canUp   = el.scrollTop > 2;
+                const canDown = el.scrollTop + el.clientHeight < el.scrollHeight - 2;
+                el.classList.toggle('fade-top', canUp);
+                el.classList.toggle('fade-bottom', canDown);
+            };
+            el.addEventListener('scroll', update, { passive: true });
+            // 選單打開 (class 變成 show) 或內容改變時重新計算
+            if (window.MutationObserver) {
+                new MutationObserver(() => requestAnimationFrame(update))
+                    .observe(el, { attributes: true, attributeFilter: ['class'] });
+            }
+            if (window.ResizeObserver) {
+                new ResizeObserver(update).observe(el);
+            }
+            requestAnimationFrame(update);
+        }
+
         document.querySelectorAll('.dropdown-options').forEach(el => {
+            bindDropdownFade(el);
             attachSmartTap(el, (e, option) => {
                 const type = el.id.split('-')[1];
                 selectCurrency(type, option.dataset.code, option.dataset.flag);
@@ -5671,8 +5730,150 @@
         window.toggleMenu = toggleMenu;
         window.updateGliders = updateGliders;
 
+        // 🎙️ 自然語音數字與算式解析輔助函數
+        function parseZhNumber(str) {
+            if (!str) return 0;
+            const zhNumMap = { '零':0, '一':1, '二':2, '兩':2, '三':3, '四':4, '五':5, '六':6, '七':7, '八':8, '九':9 };
+            let total = 0, section = 0, current = 0;
+            for (let char of str) {
+                if (zhNumMap[char] !== undefined) {
+                    current = zhNumMap[char];
+                } else if (char === '十') {
+                    section += (current || 1) * 10;
+                    current = 0;
+                } else if (char === '百') {
+                    section += (current || 1) * 100;
+                    current = 0;
+                } else if (char === '千') {
+                    section += (current || 1) * 1000;
+                    current = 0;
+                } else if (char === '萬') {
+                    total += (section + current) * 10000;
+                    section = 0;
+                    current = 0;
+                } else if (char === '億') {
+                    total += (section + current) * 100000000;
+                    section = 0;
+                    current = 0;
+                }
+            }
+            return total + section + current;
+        }
+
+        function normalizeChineseNumbers(text) {
+            if (!text) return '';
+            return text.replace(/[零一二兩三四五六七八九十百千萬億]+/g, m => {
+                const val = parseZhNumber(m);
+                return val > 0 ? val.toString() : m;
+            });
+        }
+
+        function parseVoiceExpression(rawText) {
+            if (!rawText) return null;
+            let s = rawText.trim();
+            // 全形轉半形
+            s = s.replace(/[\uff01-\uff5e]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xfee0));
+            // 中文數字
+            s = normalizeChineseNumbers(s);
+            // 根號 / 跟號 / 開根號
+            s = s.replace(/(?:根號|跟號|開根號|開根|平方根)\s*([0-9.]+)/g, (m, p) => 'sqrt(' + p + ')');
+            // 平方 / 立方
+            s = s.replace(/([0-9.]+)\s*(?:的)?平方/g, (m, p) => '(' + p + '^2)');
+            s = s.replace(/([0-9.]+)\s*(?:的)?立方/g, (m, p) => '(' + p + '^3)');
+            // 運算符號
+            s = s.replace(/加/g, ' + ')
+                 .replace(/減/g, ' - ')
+                 .replace(/乘(?:以)?/g, ' * ')
+                 .replace(/除(?:以)?/g, ' / ')
+                 .replace(/次(?:方)?/g, ' ^ ');
+
+            // 模式 1：品名在前方，算式在後方（如：便當 50 + sqrt(10000) 元）
+            const firstMathIdx = s.search(/\d|sqrt/);
+            if (firstMathIdx !== -1) {
+                let item = s.slice(0, firstMathIdx).replace(/元|塊錢|塊/g, '').trim();
+                let expr = s.slice(firstMathIdx).replace(/元|塊錢|塊/g, '').trim();
+                try {
+                    if (window.math && typeof window.math.evaluate === 'function') {
+                        const val = window.math.evaluate(expr);
+                        if (typeof val === 'number' && !isNaN(val) && val > 0) {
+                            return { item: item || '語音速記', amount: Math.round(val * 100) / 100, expr: expr };
+                        }
+                    }
+                } catch(e) {}
+            }
+
+            // 模式 2：算式在前方，品名在後方（如：50 + sqrt(10000) 元 便當）
+            const matchSuffix = s.match(/^([\d\.\s\+\-\*\/\(\)\^\%]|sqrt)+/);
+            if (matchSuffix && matchSuffix[0].trim()) {
+                let expr = matchSuffix[0].trim();
+                let item = s.slice(matchSuffix[0].length).replace(/元|塊錢|塊/g, '').trim();
+                try {
+                    if (window.math && typeof window.math.evaluate === 'function') {
+                        const val = window.math.evaluate(expr);
+                        if (typeof val === 'number' && !isNaN(val) && val > 0) {
+                            return { item: item || '語音速記', amount: Math.round(val * 100) / 100, expr: expr };
+                        }
+                    }
+                } catch(e) {}
+            }
+
+            return null;
+        }
+
+        // 調用 Gemini API 解析複雜自然語音句子
+        async function parseVoiceWithGeminiApi(text) {
+            const apiKey = (typeof window.getGeminiKey === 'function') ? window.getGeminiKey() : (localStorage.getItem('calc_gemini_api_key') || '');
+            if (!apiKey) return null;
+
+            const prompt = `請解析以下這段語音記帳文字，辨識出：品名(item)、計算算式與最終計算金額數值(amount，必須是數字)，以及消費分類(category: food | shopping | transport | other)。
+如果句子中有數學運算（如「加」、「根號/跟號」、「乘以」等），請計算出最終數值結果填入 amount。
+請僅回傳 JSON 格式，不要有任何多餘文字：
+{"item":"品名","amount":150,"category":"food"}`;
+
+            const requestBody = {
+                contents: [{
+                    parts: [
+                        { text: prompt + '\n\n語音文字："' + text + '"' }
+                    ]
+                }],
+                generationConfig: {
+                    response_mime_type: 'application/json'
+                }
+            };
+
+            const models = ['gemini-flash-lite-latest', 'gemini-flash-latest'];
+            for (const model of models) {
+                try {
+                    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+                    const res = await fetch(url, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'x-goog-api-key': apiKey
+                        },
+                        body: JSON.stringify(requestBody)
+                    });
+                    if (res.ok) {
+                        const data = await res.json();
+                        const parts = data.candidates?.[0]?.content?.parts || [];
+                        const textPart = parts.find(p => p.text && !p.thought) || parts[0];
+                        if (textPart && textPart.text) {
+                            let clean = textPart.text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+                            const parsed = JSON.parse(clean);
+                            if (parsed && typeof parsed.amount === 'number' && !isNaN(parsed.amount) && parsed.amount > 0) {
+                                return parsed;
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.warn('[Gemini 語音解析] 嘗試模型出錯:', model, e);
+                }
+            }
+            return null;
+        }
+
         // 🎙️ 人性化 Google 助理 / URL 語音捷徑記帳解析引擎
-        function handleVoiceUrlParams() {
+        async function handleVoiceUrlParams() {
             try {
                 const urlParams = new URLSearchParams(window.location.search);
                 // 支援多種常見參數名：item / name / note / memo / text / desc
@@ -5687,13 +5888,28 @@
                 let amountVal = null;
                 let category = 'other';
 
-                // 1. 如果從語音輸入混在一起（例如 item=午餐120 或 item=120元午餐）
-                if (!rawAmount && itemName) {
-                    const matchNum = itemName.match(/(\d+(?:\.\d+)?)/);
-                    if (matchNum) {
-                        amountVal = parseFloat(matchNum[1]);
-                        // 清理品名中的數字與「元/塊/塊錢」
-                        itemName = itemName.replace(matchNum[1], '').replace(/元|塊錢|塊/g, '').trim();
+                // 1. 先嘗試自然語言表達式解析（例如：便當50加跟號10000）
+                const exprRes = parseVoiceExpression(itemName);
+                if (exprRes) {
+                    itemName = exprRes.item;
+                    amountVal = exprRes.amount;
+                } else if (!rawAmount && itemName) {
+                    // 若本地算式未能解析且有 API Key，嘗試 Gemini AI 深度解析
+                    if (itemName.length >= 3 && /加|減|乘|除|根|跟|百|千|萬|平方/.test(itemName)) {
+                        const aiRes = await parseVoiceWithGeminiApi(itemName);
+                        if (aiRes) {
+                            itemName = aiRes.item || itemName;
+                            amountVal = aiRes.amount;
+                            if (aiRes.category) category = aiRes.category;
+                        }
+                    }
+
+                    if (amountVal === null) {
+                        const matchNum = itemName.match(/(\d+(?:\.\d+)?)/);
+                        if (matchNum) {
+                            amountVal = parseFloat(matchNum[1]);
+                            itemName = itemName.replace(matchNum[1], '').replace(/元|塊錢|塊/g, '').trim();
+                        }
                     }
                 } else if (rawAmount) {
                     const numMatch = String(rawAmount).match(/(\d+(?:\.\d+)?)/);
@@ -5707,14 +5923,16 @@
 
                 // 2. 人性化分類自動推論
                 const lowerCat = rawCat.toLowerCase();
-                if (lowerCat.includes('food') || lowerCat.includes('食') || lowerCat.includes('餐') || /午餐|晚餐|早餐|飲料|咖啡|便當|麵|飯|小吃|餐廳|宵夜|點心|水果|奶茶/.test(itemName)) {
-                    category = 'food';
-                } else if (lowerCat.includes('shop') || lowerCat.includes('購') || /買|衣服|鞋|超市|超商|全家|7-11|藥妝|玩具|日用品|禮物/.test(itemName)) {
-                    category = 'shopping';
-                } else if (lowerCat.includes('trans') || lowerCat.includes('行') || /車|捷運|公車|高鐵|計程車|Uber|加油|停車|機車|路邊/.test(itemName)) {
-                    category = 'transport';
-                } else if (rawCat) {
-                    category = rawCat;
+                if (category === 'other') {
+                    if (lowerCat.includes('food') || lowerCat.includes('食') || lowerCat.includes('餐') || /午餐|晚餐|早餐|飲料|咖啡|便當|麵|飯|小吃|餐廳|宵夜|點心|水果|奶茶/.test(itemName)) {
+                        category = 'food';
+                    } else if (lowerCat.includes('shop') || lowerCat.includes('購') || /買|衣服|鞋|超市|超商|全家|7-11|藥妝|玩具|日用品|禮物/.test(itemName)) {
+                        category = 'shopping';
+                    } else if (lowerCat.includes('trans') || lowerCat.includes('行') || /車|捷運|公車|高鐵|計程車|Uber|加油|停車|機車|路邊/.test(itemName)) {
+                        category = 'transport';
+                    } else if (rawCat) {
+                        category = rawCat;
+                    }
                 }
 
                 // 3. 自動寫入歷史紀錄
@@ -5894,7 +6112,31 @@
 
                         const currentText = (finalTranscript + ' ' + interimTranscript).trim();
                         if (currentText) {
-                            // 即時拆解品名與金額帶入編輯框
+                            lastRecognizedText = currentText;
+
+                            // 1. 先嘗試自然語言表達式解析（例如：便當50加跟號10000、35乘3咖啡）
+                            const exprRes = parseVoiceExpression(currentText);
+                            if (exprRes) {
+                                if (voiceInputItem) voiceInputItem.value = exprRes.item;
+                                if (voiceInputAmount) voiceInputAmount.value = exprRes.amount;
+
+                                if (/午餐|晚餐|早餐|飲料|咖啡|便當|麵|飯|小吃|餐廳|宵夜|點心|水果|奶茶/.test(exprRes.item)) {
+                                    selectedVoiceCategory = 'food';
+                                } else if (/買|衣服|鞋|超市|超商|全家|7-11|藥妝|玩具|日用品|禮物/.test(exprRes.item)) {
+                                    selectedVoiceCategory = 'shopping';
+                                } else if (/車|捷運|公車|高鐵|計程車|Uber|加油|停車|機車|路邊/.test(exprRes.item)) {
+                                    selectedVoiceCategory = 'transport';
+                                }
+                                if (voiceCatChips) {
+                                    voiceCatChips.forEach(c => {
+                                        c.classList.toggle('active', c.dataset.cat === selectedVoiceCategory);
+                                    });
+                                }
+                                if (voiceHint) voiceHint.textContent = `✨ 智慧算式解析：${exprRes.item} $${exprRes.amount} (${exprRes.expr})`;
+                                return;
+                            }
+
+                            // 2. 基礎數字提取
                             const matchNum = currentText.match(/(\d+(?:\.\d+)?)/);
                             if (matchNum) {
                                 const amt = parseFloat(matchNum[1]);
@@ -5920,6 +6162,25 @@
                             } else {
                                 if (voiceInputItem) voiceInputItem.value = currentText;
                                 if (voiceHint) voiceHint.textContent = `🗣️ 語音辨識中：${currentText}`;
+
+                                // 若包含運算字眼但本地表達式未捕捉，且是 finalTranscript，調用 Gemini API
+                                if (event.results[event.results.length - 1].isFinal && /加|減|乘|除|根|跟|百|千|萬|平方/.test(currentText)) {
+                                    parseVoiceWithGeminiApi(currentText).then(aiRes => {
+                                        if (aiRes && aiRes.amount) {
+                                            if (voiceInputItem) voiceInputItem.value = aiRes.item || currentText;
+                                            if (voiceInputAmount) voiceInputAmount.value = aiRes.amount;
+                                            if (aiRes.category) {
+                                                selectedVoiceCategory = aiRes.category;
+                                                if (voiceCatChips) {
+                                                    voiceCatChips.forEach(c => {
+                                                        c.classList.toggle('active', c.dataset.cat === selectedVoiceCategory);
+                                                    });
+                                                }
+                                            }
+                                            if (voiceHint) voiceHint.textContent = `✨ AI 智能解析完成：${aiRes.item} $${aiRes.amount}`;
+                                        }
+                                    }).catch(e => console.warn(e));
+                                }
                             }
                         }
                     };
@@ -5976,6 +6237,75 @@
                     }
                 }
             });
+        }
+
+        // ==========================================
+        // 預載入啟動動畫 (Splash Screen) 控制邏輯
+        // ==========================================
+        const splashContainer = document.getElementById('splash-screen-container');
+        if (splashContainer) {
+            let splashContent = document.getElementById('splash-screen');
+
+            const setupSplashDismiss = (splashEl) => {
+                let splashDismissed = false;
+                const dismissSplash = () => {
+                    if (splashDismissed) return;
+                    splashDismissed = true;
+                    splashEl.classList.add('fade-out');
+                    setTimeout(() => {
+                        if (splashContainer && splashContainer.parentNode) {
+                            splashContainer.remove();
+                        }
+                    }, 600);
+                };
+
+                // 讀取最外層 data-duration 毫秒數，預設安全上限 3100ms
+                const customDuration = parseInt(splashEl.getAttribute('data-duration'), 10);
+                const durationMs = (!isNaN(customDuration) && customDuration > 0) ? customDuration : 3100;
+                const splashTimer = setTimeout(dismissSplash, durationMs);
+
+                // 若頁面資源預載入已完成 (onload / readyState complete)，直接淡出進入，不浪費時間跑完無謂動畫
+                if (document.readyState === 'complete') {
+                    dismissSplash();
+                } else {
+                    window.addEventListener('load', dismissSplash, { once: true });
+                }
+
+                // 點擊任意位置可直接跳過動畫
+                splashEl.addEventListener('click', () => {
+                    clearTimeout(splashTimer);
+                    dismissSplash();
+                });
+            };
+
+            if (splashContent) {
+                setupSplashDismiss(splashContent);
+            } else {
+                fetch('./splash.html?v=20261004a')
+                    .then(res => {
+                        if (!res.ok) throw new Error('splash.html not found');
+                        return res.text();
+                    })
+                    .then(htmlText => {
+                        const parser = new DOMParser();
+                        const doc = parser.parseFromString(htmlText, 'text/html');
+                        const loadedSplashContent = doc.getElementById('splash-screen');
+
+                        if (loadedSplashContent) {
+                            const styleTags = doc.querySelectorAll('style');
+                            styleTags.forEach(style => {
+                                document.head.appendChild(style.cloneNode(true));
+                            });
+
+                            splashContainer.appendChild(loadedSplashContent);
+                            setupSplashDismiss(loadedSplashContent);
+                        }
+                    })
+                    .catch(err => {
+                        console.warn('Splash animation load bypassed:', err);
+                        if (splashContainer) splashContainer.remove();
+                    });
+            }
         }
 
     }); // DOMContentLoaded

@@ -11,8 +11,8 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="BusinessCalc">
-    <link rel="icon" type="image/png" href="app_icon.png">
-    <link rel="apple-touch-icon" href="app_icon.png">
+    <link rel="icon" type="image/png" href="app_icon.png?v=20261004d">
+    <link rel="apple-touch-icon" href="app_icon.png?v=20261004d">
 
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#0f1015">
@@ -22,7 +22,7 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;700&amp;family=Inter:wght@600;800&amp;family=Noto+Sans+TC:wght@500;700;900&amp;family=Noto+Serif+TC:wght@600;900&amp;family=Orbitron:wght@500;700;900&amp;family=Rajdhani:wght@600;700&amp;family=ZCOOL+KuaiLe&amp;display=swap"
         rel="stylesheet">
-    <link rel="stylesheet" href="./style.css?v=20260928a">
+    <link rel="stylesheet" href="./style.css?v=20261004b">
     <link rel="stylesheet" href="./ai-scan.css?v=20260928a">
     <style>
         /* 移除切掉效果，採用 transform 讓文字 100% 完整且按比例縮放 */
@@ -69,6 +69,41 @@
 </head>
 
 <body class="font-tech">
+
+    <!-- 預載入啟動動畫 (Splash Screen Animation) -->
+    <div id="splash-screen-container">
+        <div id="splash-screen" class="splash-overlay">
+            <div class="splash-grid"></div>
+            <div class="splash-wrap" id="splash-wrap">
+                <div class="splash-stage">
+                    <svg viewBox="0 0 512 512" aria-label="計算機啟動動畫">
+                        <rect class="splash-face" x="14" y="14" width="484" height="484" rx="110"/>
+                        <rect class="splash-line splash-frame" pathLength="1" x="14" y="14" width="484" height="484" rx="110"/>
+
+                        <rect class="splash-line splash-disp-o" pathLength="1" x="90" y="80" width="334" height="112" rx="14"/>
+                        <rect class="splash-line splash-disp-i" pathLength="1" x="108" y="96" width="298" height="80" rx="10"/>
+
+                        <!-- 第一排按鈕 -->
+                        <rect class="splash-line splash-key" pathLength="1" style="--d:1.3s" x="92" y="222" width="68" height="54" rx="9"/>
+                        <rect class="splash-line splash-key" pathLength="1" style="--d:1.4s" x="179" y="222" width="68" height="54" rx="9"/>
+                        <rect class="splash-line splash-key" pathLength="1" style="--d:1.5s" x="266" y="222" width="68" height="54" rx="9"/>
+                        <rect class="splash-line splash-key" pathLength="1" style="--d:1.6s" x="353" y="222" width="68" height="54" rx="9"/>
+                        <!-- 第二排按鈕 -->
+                        <rect class="splash-line splash-key" pathLength="1" style="--d:1.5s" x="92" y="292" width="68" height="54" rx="9"/>
+                        <rect class="splash-line splash-key" pathLength="1" style="--d:1.6s" x="179" y="292" width="68" height="54" rx="9"/>
+                        <rect class="splash-line splash-key" pathLength="1" style="--d:1.7s" x="266" y="292" width="68" height="54" rx="9"/>
+                        <!-- 長鍵（等號） -->
+                        <rect class="splash-line splash-key" pathLength="1" style="--d:1.9s" x="353" y="292" width="68" height="124" rx="9"/>
+                        <!-- 第三排按鈕 -->
+                        <rect class="splash-line splash-key" pathLength="1" style="--d:1.7s" x="92" y="362" width="68" height="54" rx="9"/>
+                        <rect class="splash-line splash-key" pathLength="1" style="--d:1.8s" x="179" y="362" width="68" height="54" rx="9"/>
+                        <rect class="splash-line splash-key" pathLength="1" style="--d:1.9s" x="266" y="362" width="68" height="54" rx="9"/>
+                    </svg>
+                    <div class="splash-scan"></div>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- SVG Optical Filter Definitions for Apple Liquid Glass Refraction (CSS + SVG Liquid Glass Effect) -->
     <svg class="liquid-glass-svg-defs" aria-hidden="true"
@@ -871,7 +906,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
-    <script src="./firebase-sync.js?v=20260927a"></script>
+    <script src="./firebase-sync.js?v=20261011a"></script>
 </body>
 
 </html>

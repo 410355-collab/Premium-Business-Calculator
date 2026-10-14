@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>啟動動畫預覽 (Splash Screen)</title>
+  <style>
+    :root {
+      box-sizing: border-box;
+      padding-top: env(safe-area-inset-top, 0px);
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      height: 100%;
+      margin: 0;
+      background: #0b0f14;
+    }
+
+    body {
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      cursor: pointer;
+    }
+
+    /* ==========================================
+   全螢幕啟動動畫 (Splash Screen Animation)
+   變數只定義在 .splash-overlay 內，避免與主程式衝突
+   ========================================== */
+    .splash-overlay {
+      --bg: #0b0f14;
+      --panel: #131820;
+      --line: #18d4ea;
+      --soft: rgba(24, 212, 234, .22);
+
+      position: fixed;
+      inset: 0;
+      z-index: 999999;
+      background: radial-gradient(circle at 50% 46%, #111922 0%, var(--bg) 70%);
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      cursor: pointer;
+      font-family: "Rajdhani", "Segoe UI", system-ui, sans-serif;
+      color: var(--line);
+      transition: opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.6s;
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .splash-overlay.fade-out {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    /* 背景：極細網格，邊緣淡出 */
+    .splash-grid {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background:
+        linear-gradient(rgba(24, 212, 234, .05) 1px, transparent 1px) 0 0/36px 36px,
+        linear-gradient(90deg, rgba(24, 212, 234, .05) 1px, transparent 1px) 0 0/36px 36px;
+      -webkit-mask-image: radial-gradient(circle at 50% 50%, #000 10%, transparent 70%);
+      mask-image: radial-gradient(circle at 50% 50%, #000 10%, transparent 70%);
+      opacity: 0;
+      animation: splashFadeIn .8s 0s ease-out forwards;
+    }
+
+    .splash-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /* 圖示：淡入並輕微上移定位 */
+    .splash-stage {
+      position: relative;
+      width: min(56vmin, 300px);
+      aspect-ratio: 1;
+      animation: splashSettle .5s cubic-bezier(.2, .7, .2, 1) both;
+    }
+
+    .splash-stage svg {
+      width: 100%;
+      height: 100%;
+      overflow: visible;
+      filter: drop-shadow(0 0 7px var(--soft));
+    }
+
+    /* 描邊繪製：所有線條共用 pathLength=1 */
+    .splash-line {
+      fill: none;
+      stroke: var(--line);
+      stroke-width: 7;
+      stroke-linejoin: round;
+      stroke-linecap: round;
+      stroke-dasharray: 1;
+      stroke-dashoffset: 1;
+      animation: splashDraw var(--t, .45s) var(--d, 0s) cubic-bezier(.4, 0, .2, 1) forwards;
+    }
+
+    .splash-frame {
+      --t: .35s;
+      --d: 0s;
+      stroke-width: 8;
+      animation-timing-function: cubic-bezier(.2, .7, .2, 1);
+    }
+
+    .splash-disp-o {
+      --t: .4s;
+      --d: .12s;
+    }
+
+    .splash-disp-i {
+      --t: .4s;
+      --d: .2s;
+      stroke-width: 5;
+    }
+
+    /* 內部填色（淡入） */
+    .splash-face {
+      fill: var(--panel);
+      opacity: 0;
+      animation: splashFadeIn .25s 0s ease-out forwards;
+    }
+
+    /* 螢幕：描邊完成後，內部柔和淡入一層底色 */
+    .splash-glass {
+      fill: rgba(24, 212, 234, .07);
+      opacity: 0;
+      animation: splashFadeIn .5s .8s ease-out forwards;
+    }
+
+    /* 光點沿外框走一圈（僅一次） */
+    .splash-comet {
+      fill: none;
+      stroke: #e6fdff;
+      stroke-width: 9;
+      stroke-linecap: round;
+      stroke-dasharray: .07 .93;
+      stroke-dashoffset: 0;
+      opacity: 0;
+      filter: drop-shadow(0 0 6px var(--line));
+      animation: splashChase .5s 0s cubic-bezier(.2, .7, .2, 1);
+    }
+
+    /* 螢幕：一片柔光掃過（僅一次） */
+    .splash-vscan {
+      fill: url(#splash-vg);
+      opacity: 0;
+      animation: splashVScan .9s 1s ease-in-out forwards;
+    }
+
+    /* 按鍵：依序描出，描完後各自短暫亮起再退回 */
+    .splash-key.splash-line {
+      --t: .4s;
+      fill: rgba(24, 212, 234, 0);
+      animation: splashDraw .4s var(--d) cubic-bezier(.4, 0, .2, 1) forwards,
+        splashLit .6s calc(var(--d) + .45s) ease-out;
+    }
+
+    @keyframes splashDraw {
+      to {
+        stroke-dashoffset: 0;
+      }
+    }
+
+    @keyframes splashFadeIn {
+      to {
+        opacity: 1;
+      }
+    }
+
+    @keyframes splashSettle {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+
+      to {
+        opacity: 1;
+        transform: none;
+      }
+    }
+
+    @keyframes splashLit {
+      0% {
+        fill: rgba(24, 212, 234, .38);
+      }
+
+      100% {
+        fill: rgba(24, 212, 234, 0);
+      }
+    }
+
+    @keyframes splashChase {
+      0% {
+        stroke-dashoffset: 0;
+        opacity: 1;
+      }
+
+      100% {
+        stroke-dashoffset: -1;
+        opacity: 1;
+      }
+    }
+
+    @keyframes splashVScan {
+      0% {
+        opacity: 0;
+        transform: translateY(0);
+      }
+
+      25% {
+        opacity: 1;
+      }
+
+      75% {
+        opacity: 1;
+      }
+
+      100% {
+        opacity: 0;
+        transform: translateY(130px);
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      * {
+        animation-duration: .01s !important;
+        animation-delay: 0s !important;
+        animation-iteration-count: 1 !important;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- 全螢幕啟動動畫 Overlay 主體（data-duration 單位：毫秒） -->
+  <div id="splash-screen" class="splash-overlay" data-duration="2200">
+    <div class="splash-grid"></div>
+    <div class="splash-wrap" id="splash-wrap">
+      <div class="splash-stage">
+        <svg viewBox="0 0 512 512" aria-label="計算機啟動動畫">
+          <defs>
+            <linearGradient id="splash-vg" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#18d4ea" stop-opacity="0" />
+              <stop offset=".6" stop-color="#18d4ea" stop-opacity=".2" />
+              <stop offset="1" stop-color="#18d4ea" stop-opacity=".38" />
+            </linearGradient>
+            <clipPath id="splash-dc">
+              <rect x="108" y="96" width="298" height="80" rx="10" />
+            </clipPath>
+          </defs>
+
+          <rect class="splash-face" x="14" y="14" width="484" height="484" rx="110" />
+          <rect class="splash-line splash-frame" pathLength="1" x="14" y="14" width="484" height="484" rx="110" />
+
+          <rect class="splash-glass" x="108" y="96" width="298" height="80" rx="10" />
+          <rect class="splash-comet" pathLength="1" x="14" y="14" width="484" height="484" rx="110" />
+          <rect class="splash-line splash-disp-o" pathLength="1" x="90" y="80" width="334" height="112" rx="14" />
+          <rect class="splash-line splash-disp-i" pathLength="1" x="108" y="96" width="298" height="80" rx="10" />
+          <g clip-path="url(#splash-dc)">
+            <rect class="splash-vscan" x="108" y="46" width="298" height="60" />
+          </g>
+
+          <!-- 第一排按鈕 -->
+          <rect class="splash-line splash-key" pathLength="1" style="--d:.3s" x="92" y="222" width="68" height="54"
+            rx="9" />
+          <rect class="splash-line splash-key" pathLength="1" style="--d:.35s" x="179" y="222" width="68" height="54"
+            rx="9" />
+          <rect class="splash-line splash-key" pathLength="1" style="--d:.4s" x="266" y="222" width="68" height="54"
+            rx="9" />
+          <rect class="splash-line splash-key" pathLength="1" style="--d:.45s" x="353" y="222" width="68" height="54"
+            rx="9" />
+          <!-- 第二排按鈕 -->
+          <rect class="splash-line splash-key" pathLength="1" style="--d:.4s" x="92" y="292" width="68" height="54"
+            rx="9" />
+          <rect class="splash-line splash-key" pathLength="1" style="--d:.45s" x="179" y="292" width="68" height="54"
+            rx="9" />
+          <rect class="splash-line splash-key" pathLength="1" style="--d:.5s" x="266" y="292" width="68" height="54"
+            rx="9" />
+          <!-- 長鍵（等號） -->
+          <rect class="splash-line splash-key" pathLength="1" style="--d:.6s" x="353" y="292" width="68" height="124"
+            rx="9" />
+          <!-- 第三排按鈕 -->
+          <rect class="splash-line splash-key" pathLength="1" style="--d:.5s" x="92" y="362" width="68" height="54"
+            rx="9" />
+          <rect class="splash-line splash-key" pathLength="1" style="--d:.55s" x="179" y="362" width="68" height="54"
+            rx="9" />
+          <rect class="splash-line splash-key" pathLength="1" style="--d:.6s" x="266" y="362" width="68" height="54"
+            rx="9" />
+        </svg>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 單獨在瀏覽器開啟 splash.html 預覽時點擊重新播放
+    if (window.location.pathname.endsWith('splash.html')) {
+      document.body.addEventListener('click', () => {
+        const w = document.getElementById('splash-wrap'), p = w.parentNode, n = w.cloneNode(true);
+        p.replaceChild(n, w);
+        document.getElementById('splash-screen').classList.remove('fade-out');
+        const g = document.querySelector('.splash-grid');
+        g.style.animation = 'none'; void g.offsetWidth; g.style.animation = '';
+      });
+    }
+  </script>
+</body>
+
+</html>

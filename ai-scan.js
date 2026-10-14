@@ -12,7 +12,7 @@
     'use strict';
 
     // 預設 API Key
-    const DEFAULT_GEMINI_KEY = (window.APP_CONFIG && window.APP_CONFIG.DEFAULT_GEMINI_KEY) ? window.APP_CONFIG.DEFAULT_GEMINI_KEY : "AQ.Ab8RN6KQyM0UlbFHZvkHmqZS1YUzHlh5LCs5vEMPSunb73q9pQ";
+    const DEFAULT_GEMINI_KEY = (window.APP_CONFIG && window.APP_CONFIG.DEFAULT_GEMINI_KEY) ? window.APP_CONFIG.DEFAULT_GEMINI_KEY : "AQ.Ab8RN6LFppC7GxjTFZ4URswVZuGB0p4RiX8lTrjuwBg2EHfLDw";
 
     // 全局狀態
     let uploadedImages = []; // [base64DataUrl, ...]
@@ -159,6 +159,7 @@
         const customKey = localStorage.getItem('calc_gemini_api_key');
         return (customKey && customKey.trim()) ? customKey.trim() : DEFAULT_GEMINI_KEY;
     }
+    window.getGeminiKey = getGeminiKey;
 
     // 更新設定選單中的 Gemini API Key UI 狀態
     function updateGeminiKeyUI() {
