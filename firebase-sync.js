@@ -1,5 +1,5 @@
 (function () {
-    // Firebase Configuration provided by user
+    // ===== Firebase 設定（維持不變）=====
     const firebaseConfig = {
         apiKey: "AIzaSyCDi3qPySBJtr5CxpsIk2kQm7adS_ozHMY",
         authDomain: "premium-business-calculator.firebaseapp.com",
@@ -10,60 +10,45 @@
         measurementId: "G-ZJB8H8WJHC"
     };
 
+    // ===== 常數 =====
+    const META_APPLIED = '_cloud_appliedAt';  // 本機已套用的雲端版本時間戳
+    const META_DIRTY = '_cloud_dirty';        // 本機有尚未上傳的修改
+    const SKIP_EMPTY_HISTORY = true;          // true：歷史為空時不覆蓋雲端
+    const PUSH_DELAY_MS = 800;                // 合併短時間內的多次修改
+
+    // ===== 狀態 =====
     let currentUser = null;
     let isSyncing = false;
-    const META_APPLIED = '_cloud_appliedAt'; // 本機上次套用/上傳的雲端版本時間
-    const META_DIRTY = '_cloud_dirty';       // 本機有尚未上傳的修改
     let pendingSync = false;
+    let pushTimer = null;
 
-    // Keys to sync between local storage and Firestore
-    const SYNC_KEYS = [
-        'bCalc_history',
-        'bCalc_keyboard_layout',
-        'bCalc_keyboard_snapshots',
-        'bCalc_theme_color',
-        'bCalc_light_mode',
-        'bCalc_decimals',
-        'bCalc_tax_rates',
-        'bCalc_percent_mode',
-        'bCalc_haptic',
-        'bCalc_large_number_format',
-        'bCalc_category_bubble',
-        'bCalc_curr_from',
-        'bCalc_curr_to',
-        'bCalc_tax_excluded',
-        'bCalc_font_style',
-        'bCalc_lang'
-    ];
-
-    // Initialize Firebase if compat SDK loaded
-    if (typeof firebase !== 'undefined') {
-        if (!firebase.apps.length) {
-            firebase.initializeApp(firebaseConfig);
-        }
-    } else {
-        console.warn("Firebase SDK is not loaded.");
+    if (typeof firebase === 'undefined') {
+        console.warn('Firebase SDK is not loaded.');
         return;
+    }
+    if (!firebase.apps.length) {
+        firebase.initializeApp(firebaseConfig);
     }
 
     const auth = firebase.auth();
     const db = firebase.firestore();
+    const originalSetItem = Storage.prototype.setItem;
 
-    // DOM Elements for UI
-    document.addEventListener('DOMContentLoaded', () => {
+    // ===== UI 初始化 =====
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initSyncUI);
+    } else {
         initSyncUI();
-    });
+    }
 
     function initSyncUI() {
-        const loginContainer = document.getElementById('cloud-sync-status-card');
-        if (!loginContainer) return;
+        const card = document.getElementById('cloud-sync-status-card');
+        if (!card) return;
 
-        // Monitor Auth State
         auth.onAuthStateChanged((user) => {
             currentUser = user;
             updateSyncUI(user);
             if (user) {
-                // Pull cloud data and merge on login
                 syncFromCloud(user.uid);
             }
         });
@@ -80,7 +65,7 @@
 
             card.innerHTML = `
                 <div class="cloud-avatar-circle logged-in" id="btn-user-profile-avatar" title="${escapeHtml(displayName)} (${escapeHtml(email)}) - 點擊登出">
-                    ${photoUrl ? `<img src="${photoUrl}" class="cloud-avatar-img" alt="Avatar" referrerpolicy="no-referrer">` : `<span class="cloud-avatar-text">${escapeHtml(displayName.charAt(0).toUpperCase())}</span>`}
+                    ${photoUrl ? `<img src="${escapeHtml(photoUrl)}" class="cloud-avatar-img" alt="Avatar" referrerpolicy="no-referrer">` : `<span class="cloud-avatar-text">${escapeHtml(displayName.charAt(0).toUpperCase())}</span>`}
                     <span class="online-sync-dot" title="雲端自動同步中"></span>
                 </div>
             `;
@@ -105,12 +90,12 @@
             document.getElementById('btn-google-login')?.addEventListener('click', handleGoogleLogin);
         }
 
-        // Apply i18n translations if function available
         if (typeof window.applyTranslations === 'function') {
             window.applyTranslations();
         }
     }
 
+    // ===== 登入 / 登出 =====
     let isLoggingIn = false;
 
     async function handleGoogleLogin() {
@@ -123,9 +108,9 @@
         try {
             await auth.signInWithPopup(provider);
         } catch (error) {
-            console.error("Google Login Error:", error);
+            console.error('Google Login Error:', error);
             if (error.code !== 'auth/popup-closed-by-user' && error.code !== 'auth/cancelled-popup-request') {
-                alert("Google 登入失敗: " + error.message);
+                alert('Google 登入失敗: ' + error.message);
             }
         } finally {
             isLoggingIn = false;
@@ -136,90 +121,43 @@
     function handleSignOut() {
         auth.signOut().then(() => {
             updateSyncUI(null);
-            if (typeof window.showToastMsg === 'function') {
-                window.showToastMsg('👋 已安全登出');
-            }
+            showToast('👋 已安全登出');
         }).catch((err) => {
-            console.error("Sign Out Error:", err);
+            console.error('Sign Out Error:', err);
         });
     }
 
-    async function syncToCloud(uid, showToast = false) {
-        if (!uid) return;
-        if (isSyncing) { pendingSync = true; return; }
-        isSyncing = true;
-        localStorage.setItem(META_DIRTY, '0'); // 先清除，上傳期間若有新修改會被重新標記
-
-        try {
-            const dataToSync = {
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            };
-            for (let i = 0; i < localStorage.length; i++) {
-                const key = localStorage.key(i);
-                if (key && key.startsWith('bCalc_')) {
-                    const val = localStorage.getItem(key);
-                    if (val !== null) dataToSync[key] = val;
-                }
-            }
-
-            const ref = db.collection('users').doc(uid);
-            await ref.set(dataToSync, { merge: true });
-
-            // 記下這次雲端版本的時間，下次登入就不會誤判為「雲端有更新」
-            const snap = await ref.get({ source: 'server' });
-            const ts = (snap.data() && snap.data().updatedAt && snap.data().updatedAt.toMillis())
-                || Date.now();
-            localStorage.setItem(META_APPLIED, String(ts));
-
-            if (showToast && typeof window.showToastMsg === 'function') {
-                window.showToastMsg('☁️ 雲端同步完成');
-            }
-        } catch (err) {
-            console.error("Cloud Sync Error:", err);
-            localStorage.setItem(META_DIRTY, '1'); // 失敗要保留待上傳標記
-            handleFirestoreError(err);
-        } finally {
-            isSyncing = false;
-            if (pendingSync) {
-                pendingSync = false;
-                syncToCloud(uid, false);
-            }
-        }
-    }
-
+    // ===== 從雲端載入（登入時）=====
     async function syncFromCloud(uid) {
         if (!uid) return;
         try {
-            const ref = db.collection('users').doc(uid);
-            const doc = await ref.get({ source: 'server' });
+            const doc = await db.collection('users').doc(uid).get({ source: 'server' });
 
-            // 雲端沒有資料：把本機備份上去
+            // 雲端沒有資料：把本機上傳
             if (!doc.exists) {
-                await syncToCloud(uid, false);
+                await pushAll(uid);
                 return;
             }
 
             const cloudData = doc.data() || {};
             const cloudTs = (cloudData.updatedAt && cloudData.updatedAt.toMillis()) || 0;
             const appliedTs = parseInt(localStorage.getItem(META_APPLIED) || '0', 10);
-            const dirty = localStorage.getItem(META_DIRTY) === '1';
-            const neverSynced = appliedTs === 0;
 
-            // 這台裝置同步過、且本機有未上傳的修改 → 以本機為準上傳
-            if (!neverSynced && dirty) {
-                await syncToCloud(uid, false);
+            // 這個雲端版本已套用過，不重複處理
+            if (cloudTs && cloudTs === appliedTs) return;
+
+            // 本機有尚未上傳的修改：先上傳，不覆蓋
+            if (localStorage.getItem(META_DIRTY) === '1') {
+                await pushAll(uid);
                 return;
             }
 
-            // 雲端沒有比本機已套用的版本更新 → 什麼都不用做（不重載）
-            if (cloudTs <= appliedTs) return;
-
-            // 雲端較新（或這台裝置第一次登入）→ 套用雲端資料
             let changed = false;
             window._isPullingCloud = true;
             try {
                 Object.keys(cloudData).forEach(key => {
-                    if (key.startsWith('bCalc_') && localStorage.getItem(key) !== cloudData[key]) {
+                    if (!key.startsWith('bCalc_') || typeof cloudData[key] !== 'string') return;
+                    if (localStorage.getItem(key) !== cloudData[key]) {
                         localStorage.setItem(key, cloudData[key]);
                         changed = true;
                     }
@@ -228,59 +166,110 @@
                 window._isPullingCloud = false;
             }
 
-            // 關鍵：先記錄已套用的版本，重載後就不會再進到這裡
-            localStorage.setItem(META_APPLIED, String(cloudTs));
+            localStorage.setItem(META_APPLIED, String(cloudTs || Date.now()));
             localStorage.setItem(META_DIRTY, '0');
 
             if (changed) {
-                if (typeof window.showToastMsg === 'function') {
-                    window.showToastMsg('☁️ 已從雲端載入最新紀錄');
-                }
+                showToast('☁️ 已從雲端載入最新紀錄');
                 setTimeout(() => window.location.reload(), 400);
             }
         } catch (err) {
-            console.error("Fetch Cloud Sync Error:", err);
+            console.error('Fetch Cloud Sync Error:', err);
             handleFirestoreError(err);
         }
     }
 
-    function handleFirestoreError(err) {
-        const errMsg = err ? (err.message || String(err)) : '';
-        if (err && err.code === 'permission-denied') {
-            alert("⚠️ 雲端同步失敗（權限不足）：\n請至 Firebase 控制台的 Firestore Database -> 規則 (Rules) 開啟讀寫權限！");
-        } else if (err && (err.code === 'not-found' || errMsg.includes('database') && errMsg.includes('not exist'))) {
-            alert("⚠️ 尚未建立 Firestore 資料庫：\n請至 Firebase 控制台點選「Firestore Database」並點擊「建立資料庫」。");
+    // ===== 上傳到雲端 =====
+    function collectLocalData() {
+        const data = {};
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith('bCalc_')) {
+                const val = localStorage.getItem(key);
+                if (val !== null) data[key] = val;
+            }
+        }
+        if (SKIP_EMPTY_HISTORY && data['bCalc_history'] === '[]') {
+            delete data['bCalc_history'];
+        }
+        return data;
+    }
+
+    async function pushAll(uid) {
+        if (!uid) return;
+        if (isSyncing) { pendingSync = true; return; }
+        isSyncing = true;
+        setDot('syncing');
+        localStorage.setItem(META_DIRTY, '0');
+
+        try {
+            const payload = {
+                ...collectLocalData(),
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            };
+            const ref = db.collection('users').doc(uid);
+            await ref.set(payload, { merge: true });
+
+            // 讀回伺服器時間，記為已套用版本，避免自己上傳後又被下載重整
+            const snap = await ref.get({ source: 'server' });
+            const ts = (snap.data() && snap.data().updatedAt && snap.data().updatedAt.toMillis()) || Date.now();
+            localStorage.setItem(META_APPLIED, String(ts));
+        } catch (err) {
+            console.error('Cloud Sync Error:', err);
+            localStorage.setItem(META_DIRTY, '1');
+            handleFirestoreError(err);
+        } finally {
+            isSyncing = false;
+            setDot('idle');
+            if (pendingSync) {
+                pendingSync = false;
+                pushAll(uid);
+            }
         }
     }
 
-    // Helper HTML escaper
+    function setDot(state) {
+        const dot = document.querySelector('.online-sync-dot');
+        if (!dot) return;
+        dot.classList.toggle('syncing', state === 'syncing');
+    }
+
+    // ===== 錯誤處理 =====
+    function handleFirestoreError(err) {
+        const msg = err ? (err.message || String(err)) : '';
+        if (err && err.code === 'permission-denied') {
+            alert('⚠️ 雲端同步失敗（權限不足）：\n請至 Firebase 控制台的 Firestore Database -> 規則 (Rules) 開啟讀寫權限！');
+        } else if (err && (err.code === 'not-found' || (msg.includes('database') && msg.includes('not exist')))) {
+            alert('⚠️ 尚未建立 Firestore 資料庫：\n請至 Firebase 控制台點選「Firestore Database」並點擊「建立資料庫」。');
+        }
+    }
+
+    function showToast(msg) {
+        if (typeof window.showToastMsg === 'function') {
+            window.showToastMsg(msg);
+        }
+    }
+
     function escapeHtml(str) {
         return (str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
 
-    // Intercept Storage.prototype.setItem so ANY calculation, input, or setting change automatically syncs to cloud
-    const originalSetItem = Storage.prototype.setItem;
+    // ===== 攔截 localStorage 寫入，自動排程上傳 =====
     Storage.prototype.setItem = function (key, value) {
         originalSetItem.apply(this, arguments);
-        if (this === localStorage && typeof key === 'string' && key.startsWith('bCalc_')
-            && !window._isPullingCloud) {
-            originalSetItem.call(localStorage, META_DIRTY, '1'); // 標記本機有未上傳修改
-            if (typeof window.triggerCloudSync === 'function') {
-                window.triggerCloudSync();
-            }
-        }
+        if (this !== localStorage || typeof key !== 'string' || !key.startsWith('bCalc_')) return;
+        if (window._isPullingCloud) return;
+        if (!currentUser) return;
+
+        originalSetItem.call(localStorage, META_DIRTY, '1');
+        clearTimeout(pushTimer);
+        pushTimer = setTimeout(() => pushAll(currentUser.uid), PUSH_DELAY_MS);
     };
 
-    // Automatic silent background sync with breathing dot indicator
+    // ===== 對外介面 =====
     window.triggerCloudSync = function () {
         if (!currentUser) return;
-        const dot = document.querySelector('.online-sync-dot');
-        if (dot) dot.classList.add('syncing');
-
-        if (window._cloudSyncTimer) clearTimeout(window._cloudSyncTimer);
-        window._cloudSyncTimer = setTimeout(async () => {
-            await syncToCloud(currentUser.uid, false);
-            if (dot) dot.classList.remove('syncing');
-        }, 800);
+        clearTimeout(pushTimer);
+        pushAll(currentUser.uid);
     };
 })();

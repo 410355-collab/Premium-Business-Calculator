@@ -11,8 +11,8 @@
 (function () {
     'use strict';
 
-    // 預設 API Key
-    const DEFAULT_GEMINI_KEY = (window.APP_CONFIG && window.APP_CONFIG.DEFAULT_GEMINI_KEY) ? window.APP_CONFIG.DEFAULT_GEMINI_KEY : "AQ.Ab8RN6I-qsmsbVWhfIWCH333AQluNrnMI0nlSNJ3rdbCNR96gQ";
+    // 預設 API Key (已改為後端 Vercel Serverless 代理解析，不再硬編碼至前端防止 GitHub 封鎖)
+    const DEFAULT_GEMINI_KEY = (window.APP_CONFIG && window.APP_CONFIG.DEFAULT_GEMINI_KEY) ? window.APP_CONFIG.DEFAULT_GEMINI_KEY : "";
 
     // 全局狀態
     let uploadedImages = []; // [base64DataUrl, ...]
@@ -177,13 +177,9 @@
                 keyStatus.className = 'ai-key-status active';
                 keyStatus.textContent = `✅ 已啟用自訂 API Key (${customKey})`;
                 if (keyClearBtn) keyClearBtn.style.display = 'inline-block';
-            } else if (DEFAULT_GEMINI_KEY) {
-                keyStatus.className = 'ai-key-status active';
-                keyStatus.textContent = '⚡ 已開箱即用啟用預設 API Key (亦可輸入自訂 Key 覆蓋)';
-                if (keyClearBtn) keyClearBtn.style.display = 'none';
             } else {
-                keyStatus.className = 'ai-key-status';
-                keyStatus.textContent = 'ℹ️ 請輸入並儲存您的 Gemini API Key';
+                keyStatus.className = 'ai-key-status active';
+                keyStatus.textContent = '⚡ 已啟用雲端後端安全辨識 (亦可輸入自訂 Key 覆蓋)';
                 if (keyClearBtn) keyClearBtn.style.display = 'none';
             }
         }
@@ -741,11 +737,7 @@
         }
 
         const apiKey = getGeminiKey();
-        if (!apiKey) {
-            const err = new Error('請先設定 Gemini API Key');
-            err.code = 'NO_API_KEY';
-            throw err;
-        }
+        // 若無自訂 Key，將無縫切換為 Vercel 後端代理 /api/gemini 處理，無需報錯阻擋
 
         // 清理 Base64，移除前綴與空白（避免超過 JSON Gateway 緩衝區上限）
         const base64Clean = base64DataUrl
@@ -831,15 +823,23 @@ ${locationContext}
         }
 
         const headers = {
-            'Content-Type': 'application/json',
-            'x-goog-api-key': apiKey
+            'Content-Type': 'application/json'
         };
+        if (apiKey) {
+            headers['x-goog-api-key'] = apiKey;
+        }
+
+        const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.protocol === 'file:';
+        const proxyBaseUrl = isLocalDev ? 'https://premium-business-calculator.vercel.app' : '';
 
         let lastErr = null;
         for (const model of modelsToTry) {
             try {
-                const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
-                console.log(`[AI掃描] 嘗試模型: ${model}`);
+                // 若有自訂 Key，可直接呼叫官方端點；若無 Key，則自動經由後端 /api/gemini 代理安全辨識
+                const url = apiKey
+                    ? `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`
+                    : `${proxyBaseUrl}/api/gemini?model=${encodeURIComponent(model)}`;
+                console.log(`[AI掃描] 嘗試模型: ${model} (目標: ${url})`);
 
                 const res = await fetch(url, {
                     method: 'POST',

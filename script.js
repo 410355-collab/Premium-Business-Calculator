@@ -5823,7 +5823,6 @@
         // 調用 Gemini API 解析複雜自然語音句子
         async function parseVoiceWithGeminiApi(text) {
             const apiKey = (typeof window.getGeminiKey === 'function') ? window.getGeminiKey() : (localStorage.getItem('calc_gemini_api_key') || '');
-            if (!apiKey) return null;
 
             const prompt = `請解析以下這段語音記帳文字，辨識出：品名(item)、計算算式與最終計算金額數值(amount，必須是數字)，以及消費分類(category: food | shopping | transport | other)。
 如果句子中有數學運算（如「加」、「根號/跟號」、「乘以」等），請計算出最終數值結果填入 amount。
@@ -5841,16 +5840,21 @@
                 }
             };
 
+            const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.protocol === 'file:';
+            const proxyBaseUrl = isLocalDev ? 'https://premium-business-calculator.vercel.app' : '';
+
             const models = ['gemini-flash-lite-latest', 'gemini-flash-latest'];
             for (const model of models) {
                 try {
-                    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+                    const url = apiKey
+                        ? `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`
+                        : `${proxyBaseUrl}/api/gemini?model=${encodeURIComponent(model)}`;
+                    const headers = { 'Content-Type': 'application/json' };
+                    if (apiKey) headers['x-goog-api-key'] = apiKey;
+
                     const res = await fetch(url, {
                         method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'x-goog-api-key': apiKey
-                        },
+                        headers,
                         body: JSON.stringify(requestBody)
                     });
                     if (res.ok) {
