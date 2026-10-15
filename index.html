@@ -890,6 +890,27 @@
             </div>
         </div>
 
+        <!-- 首次開啟 AI 發票辨識：金鑰說明彈窗 -->
+        <div class="modal-overlay alert-overlay" id="ai-key-intro-modal" style="display:none">
+            <div class="alert-card" style="max-width:320px; text-align:left; padding:20px 18px 18px;">
+                <div class="alert-icon-wrap" style="text-align:center; margin-bottom:8px;">
+                    <div class="alert-icon" style="font-size:32px;">🔑</div>
+                    <div class="alert-glow"></div>
+                </div>
+                <div class="alert-title" style="text-align:center; font-size:16px; margin-bottom:12px; font-weight:700;" data-i18n="aiKeyIntroTitle">AI 票據辨識說明</div>
+                <div class="alert-desc" id="ai-key-intro-desc-box" style="font-size:12.5px; line-height:1.65; color:var(--text-secondary); margin-bottom:16px; white-space:pre-line; text-align:left;" data-i18n="aiKeyIntroDesc">
+本功能使用 Google Gemini 進行高速發票與收據辨識。
+
+• 開箱即用：若您未填寫自訂金鑰，系統將自動調用本站提供的共享配額為您辨識。
+• 個人金鑰（推薦）：您亦可隨時在設定中填入您專屬的 Google Gemini API Key（完全免費，享受專屬獨立額度與極速體驗）。
+                </div>
+                <div class="alert-btn-row" style="display:flex; flex-direction:column; gap:8px; width:100%;">
+                    <button class="ai-intro-action-btn primary" id="btn-ai-intro-default" style="width:100%; padding:10px 0; border-radius:10px; background:var(--accent-main, #29b6f6); color:#fff; border:none; font-size:13.5px; font-weight:700; cursor:pointer; transition:transform 0.15s, opacity 0.15s;" data-i18n="aiKeyIntroBtnDefault">使用預設額度繼續</button>
+                    <button class="ai-intro-action-btn secondary" id="btn-ai-intro-setup" style="width:100%; padding:8px 0; border-radius:10px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.18); color:var(--text-main, #fff); font-size:12.5px; cursor:pointer;" data-i18n="aiKeyIntroBtnSetup">前往設定個人金鑰</button>
+                </div>
+            </div>
+        </div>
+
         <!-- PWA Update Notification Banner -->
         <div class="pwa-update-banner" id="pwa-update-banner">
             <span class="pwa-update-text" data-i18n="pwaUpdateMsg">✨ New version available</span>

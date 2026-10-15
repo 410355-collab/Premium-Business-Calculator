@@ -1843,8 +1843,13 @@
         } else {
             menu.classList.add('show');
             updateMenuOpenState();
-            if (pureType === 'ai-scan' && typeof window.fetchGpsLocation === 'function') {
-                window.fetchGpsLocation();
+            if (pureType === 'ai-scan') {
+                if (typeof window.fetchGpsLocation === 'function') {
+                    window.fetchGpsLocation();
+                }
+                if (typeof window.checkAndShowKeyIntroModal === 'function') {
+                    window.checkAndShowKeyIntroModal();
+                }
             }
             menu.style.animation = `menuOpen ${animCurve}`;
             menuTimers[menuId] = setTimeout(() => {
@@ -3582,8 +3587,10 @@
         localStorage.removeItem(KEY_CATEGORY_BUBBLE);
         // 一併清除使用者自訂的 Gemini API Key，回復使用內建預設 Key
         localStorage.removeItem('calc_gemini_api_key');
+        localStorage.removeItem('calc_ai_key_intro_seen'); // 重設後下次開啟 AI 辨識重新彈出金鑰說明視窗
         const geminiKeyInput = document.getElementById('ai-gemini-key-input');
         if (geminiKeyInput) geminiKeyInput.value = '';
+        if (typeof window.updateGeminiKeyUI === 'function') window.updateGeminiKeyUI();
         isCategoryBubbleEnabled = true;
         updateCategorySummaryVisibility();
 

@@ -217,10 +217,101 @@
         if (keyClearBtn) {
             keyClearBtn.addEventListener('click', () => {
                 localStorage.removeItem('calc_gemini_api_key');
+                localStorage.removeItem('calc_ai_key_intro_seen');
                 if (keyInput) keyInput.value = '';
                 updateGeminiKeyUI();
                 if (window.showToastMsg) {
                     window.showToastMsg('已清除 API Key');
+                }
+            });
+        }
+
+        initKeyIntroModal();
+    }
+
+    // 🔑 首次開啟 AI 發票掃描彈窗邏輯
+    function checkAndShowKeyIntroModal() {
+        const hasCustomKey = !!localStorage.getItem('calc_gemini_api_key');
+        const hasSeenIntro = localStorage.getItem('calc_ai_key_intro_seen');
+        // 若使用者沒有自訂 key 且尚未看過說明彈窗，則彈出說明
+        if (!hasCustomKey && !hasSeenIntro) {
+            const modal = document.getElementById('ai-key-intro-modal');
+            if (modal) {
+                modal.style.display = 'flex';
+                modal.classList.add('show');
+            }
+        }
+    }
+    window.checkAndShowKeyIntroModal = checkAndShowKeyIntroModal;
+
+    function initKeyIntroModal() {
+        const modal = document.getElementById('ai-key-intro-modal');
+        const btnDefault = document.getElementById('btn-ai-intro-default');
+        const btnSetup = document.getElementById('btn-ai-intro-setup');
+
+        function closeModal() {
+            localStorage.setItem('calc_ai_key_intro_seen', 'true');
+            if (modal) {
+                modal.classList.remove('show');
+                modal.style.display = 'none';
+            }
+        }
+
+        if (btnDefault) {
+            btnDefault.addEventListener('click', () => {
+                closeModal();
+            });
+        }
+
+        if (btnSetup) {
+            btnSetup.addEventListener('click', () => {
+                closeModal();
+                // 關閉目前掃描頁面並開啟設定中的 Gemini Key 設定頁
+                if (typeof window.toggleMenu === 'function') {
+                    window.toggleMenu('ai-scan');
+                    setTimeout(() => {
+                        window.toggleMenu('settings');
+
+                        // 1. 讓主設定選單中的「AI 辨識設定」按鈕閃爍
+                        const openAiSettingBtn = document.getElementById('btn-open-ai-scan-settings');
+                        if (openAiSettingBtn) {
+                            openAiSettingBtn.classList.remove('ai-setting-highlight');
+                            void openAiSettingBtn.offsetWidth; // 強制重繪
+                            openAiSettingBtn.classList.add('ai-setting-highlight');
+                        }
+
+                        // 2. 自動滑順切換進入 AI 辨識子選單，並讓金鑰輸入框閃爍聚焦
+                        if (typeof window.navigateSubMenu === 'function') {
+                            setTimeout(() => {
+                                window.navigateSubMenu('settings-menu', 'ai-scan-settings-menu', 'forward');
+                                setTimeout(() => {
+                                    const keyInput = document.getElementById('ai-gemini-key-input');
+                                    const keyRow = keyInput ? keyInput.closest('.setting-row') : null;
+                                    const targetEl = keyRow || keyInput;
+                                    if (targetEl) {
+                                        targetEl.classList.remove('ai-setting-highlight');
+                                        void targetEl.offsetWidth;
+                                        targetEl.classList.add('ai-setting-highlight');
+                                    }
+                                    if (keyInput) {
+                                        keyInput.focus();
+                                    }
+                                    setTimeout(() => {
+                                        if (targetEl) targetEl.classList.remove('ai-setting-highlight');
+                                        if (openAiSettingBtn) openAiSettingBtn.classList.remove('ai-setting-highlight');
+                                    }, 4000);
+                                }, 220);
+                            }, 260);
+                        }
+                    }, 200);
+                }
+            });
+        }
+
+        if (modal) {
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    closeModal();
                 }
             });
         }
