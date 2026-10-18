@@ -2177,10 +2177,12 @@
             overflow-y: auto;
             flex: 1;
             min-height: 0;
-            padding: 1px;
+            padding: 1px 1px 16px 1px;
             scrollbar-width: none;
             -ms-overflow-style: none;
             touch-action: pan-y;
+            overscroll-behavior-y: contain;
+            -webkit-overflow-scrolling: touch;
             align-content: start;
         }
 
@@ -2258,10 +2260,12 @@
             overflow-y: auto;
             flex: 1;
             min-height: 0;
-            padding: 3px 2px;
+            padding: 3px 2px 28px 2px;
             scrollbar-width: none;
             -ms-overflow-style: none;
             touch-action: pan-y;
+            overscroll-behavior-y: contain;
+            -webkit-overflow-scrolling: touch;
             align-content: start;
         }
 
@@ -5617,7 +5621,9 @@
                 gap: 6px 6px !important;
                 align-content: start !important;
                 overflow-y: auto !important;
-                padding: 2px 4px !important;
+                padding: 2px 4px 24px 4px !important;
+                overscroll-behavior-y: contain !important;
+                -webkit-overflow-scrolling: touch !important;
             }
 
             .pool-key-item {
