@@ -193,7 +193,7 @@
             toastLocationSuccess: "LOCATION: ",
             toastOfflineData: "OFFLINE DATA",
             toastNoInternet: "NO INTERNET CONNECTION",
-            normalCalculator: "LOCAL MODE",
+            normalCalculator: "LOCAL",
             iosPromptTitle: "Install Premium Calc",
             iosPromptSubtitle: "Add to home screen for offline access",
             iosPromptBody1: "To install, tap the Share icon in Safari:",

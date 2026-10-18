@@ -564,14 +564,14 @@
 
         .same-currency-label {
             display: none;
-            font-size: 16px;
+            font-size: 15px;
             font-weight: 800;
             color: var(--accent-main);
-            padding: 0 8px;
+            padding: 0 4px;
             white-space: nowrap;
             pointer-events: none;
             align-items: center;
-            gap: 5px;
+            gap: 4px;
         }
 
         .header-area.collapsed.same-currency .custom-dropdown,
@@ -6766,7 +6766,7 @@
             }
 
             .same-currency-label {
-                font-size: 18px;
+                font-size: 15px;
             }
 
             .arrow-down {
