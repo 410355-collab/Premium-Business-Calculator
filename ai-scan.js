@@ -60,7 +60,7 @@
 
     function fetchGpsLocation() {
         const statusEl = document.getElementById('ai-gps-status-text');
-        const lang = localStorage.getItem('calc_lang') || 'en';
+        const lang = localStorage.getItem('bCalc_lang') || localStorage.getItem('calc_lang') || 'en';
         const locatingText = (window.I18N && window.I18N[lang] && window.I18N[lang].gpsLocating) 
             ? window.I18N[lang].gpsLocating 
             : (lang === 'zh' ? '定位中...' : 'Locating...');
@@ -113,7 +113,7 @@
         elements.previewImg = document.getElementById('ai-preview-img');
         elements.previewActions = document.getElementById('ai-preview-actions');
         elements.retakeBtn = document.getElementById('ai-retake-btn');
-        elements.recognizeBtn = document.getElementById('ai-recognize-btn');
+        elements.recognizeBtn = document.getElementById('scanAllBtn') || document.getElementById('ai-recognize-btn');
         elements.previewWrap = document.getElementById('ai-preview-wrap');
         elements.errorBox = document.getElementById('ai-error-box');
         elements.itemsSection = document.getElementById('ai-items-section');
@@ -410,10 +410,12 @@
         if (elements.uploadZone) elements.uploadZone.classList.add('has-image');
         if (elements.recognizeBtn) {
             elements.recognizeBtn.disabled = false;
-            const btnLabel = elements.recognizeBtn.querySelector('.ai-btn-label');
+            const btnLabel = elements.recognizeBtn.querySelector('.ai-btn-label') || elements.recognizeBtn.querySelector('.scan-label');
             if (btnLabel) {
-                btnLabel.textContent = uploadedImages.length > 1 ?
+                const idleText = uploadedImages.length > 1 ?
                     (dict.aiRecognizeAll || '掃描全部') : (dict.aiRecognize || 'AI 辨識');
+                btnLabel.textContent = idleText;
+                btnLabel.dataset.idle = idleText;
             }
         }
 
@@ -429,6 +431,7 @@
         }
 
         if (thumbsGrid && thumbsContainer) {
+            thumbsContainer.style.display = 'flex';
             thumbsContainer.classList.add('show');
             thumbsGrid.innerHTML = '';
 
@@ -1411,10 +1414,19 @@ ${locationContext}
             });
         }
 
+        let isReplacingSelection = false;
+
         const handleFileSelect = async (e) => {
             const files = Array.from(e.target.files || []);
-            if (files.length === 0) return;
+            if (files.length === 0) {
+                isReplacingSelection = false;
+                return;
+            }
             stopWebcam();
+            if (isReplacingSelection) {
+                resetUpload();
+                isReplacingSelection = false;
+            }
             try {
                 for (const file of files) {
                     const compressed = await compressImage(file);
@@ -1438,13 +1450,14 @@ ${locationContext}
 
         if (selectFileBtn && galleryInput) {
             selectFileBtn.addEventListener('click', () => {
+                isReplacingSelection = false;
                 galleryInput.click();
             });
         }
 
         if (elements.retakeBtn && galleryInput) {
             elements.retakeBtn.addEventListener('click', (e) => {
-                resetUpload();
+                isReplacingSelection = true;
                 galleryInput.click();
             });
         }
@@ -1513,135 +1526,155 @@ ${locationContext}
             }
         });
 
+        function setScanning(on) {
+            const btn = document.getElementById('scanAllBtn') || elements.recognizeBtn;
+            if (!btn) return;
+            const label = btn.querySelector('.scan-label') || btn.querySelector('.ai-btn-label');
+            btn.classList.toggle('scanning', on);
+            btn.disabled = on;
+            if (label) {
+                label.textContent = on ? (label.dataset.busy || '掃描中…') : (label.dataset.idle || '掃描全部');
+            }
+            document.getElementById('scanStage')?.classList.toggle('scanning', on);
+        }
+
         if (elements.recognizeBtn) {
             elements.recognizeBtn.addEventListener('click', async () => {
                 if (uploadedImages.length === 0) return;
-                elements.recognizeBtn.disabled = true;
-                elements.recognizeBtn.classList.add('loading');
-                if (elements.previewWrap) elements.previewWrap.classList.add('scanning');
-                elements.errorBox.classList.remove('show');
-
-                const btnLabel = elements.recognizeBtn.querySelector('.ai-btn-label');
-                const originalLabelText = btnLabel ? btnLabel.textContent : 'AI 辨識';
-                if (btnLabel) btnLabel.textContent = `AI 辨識中 (${uploadedImages.length} 張並行辨識)...`;
-
-                // 重置所有圖片的錯誤狀態
-                uploadedImages.forEach(img => img.error = false);
-
-                let combinedStores = [];
-                let combinedItems = [];
-                let failedIndices = [];
-                let errorMessages = [];
-
-                const scanStartTime = Date.now();
-
+                setScanning(true);
                 try {
-                    // 🔥 一次全數並行 (Parallel Promise.all) 掃描所有圖片！
-                    const results = await Promise.all(uploadedImages.map(async (imgObj, idx) => {
-                        try {
-                            const result = await runGeminiOCR(imgObj.dataUrl);
-                            if (!result || !Array.isArray(result.items) || result.items.length === 0) {
+                    elements.recognizeBtn.classList.add('loading');
+                    if (elements.previewWrap) elements.previewWrap.classList.add('scanning');
+                    elements.errorBox.classList.remove('show');
+
+                    const btnLabel = elements.recognizeBtn.querySelector('.ai-btn-label') || elements.recognizeBtn.querySelector('.scan-label');
+
+                    // 重置所有圖片的錯誤狀態
+                    uploadedImages.forEach(img => img.error = false);
+
+                    let combinedStores = [];
+                    let combinedItems = [];
+                    let failedIndices = [];
+                    let errorMessages = [];
+
+                    const scanStartTime = Date.now();
+
+                    try {
+                        // 🔥 一次全數並行 (Parallel Promise.all) 掃描所有圖片！
+                        const results = await Promise.all(uploadedImages.map(async (imgObj, idx) => {
+                            try {
+                                const result = await runGeminiOCR(imgObj.dataUrl);
+                                if (!result || !Array.isArray(result.items) || result.items.length === 0) {
+                                    imgObj.error = true;
+                                    return { idx, success: false, error: '未能在圖片中辨識出商品內容' };
+                                }
+                                imgObj.error = false;
+                                return { idx, success: true, result };
+                            } catch (imgErr) {
                                 imgObj.error = true;
-                                return { idx, success: false, error: '未能在圖片中辨識出商品內容' };
+                                return { idx, success: false, error: imgErr.message };
                             }
-                            imgObj.error = false;
-                            return { idx, success: true, result };
-                        } catch (imgErr) {
-                            imgObj.error = true;
-                            return { idx, success: false, error: imgErr.message };
+                        }));
+
+                        let invoiceDates = [];
+
+                        results.forEach(res => {
+                            if (res.success && res.result) {
+                                if (res.result.store_name && !combinedStores.includes(res.result.store_name)) {
+                                    combinedStores.push(res.result.store_name);
+                                }
+                                if (res.result.date && !invoiceDates.includes(res.result.date)) {
+                                    invoiceDates.push(res.result.date);
+                                }
+                                if (Array.isArray(res.result.items)) {
+                                    const itemsWithMeta = res.result.items.map(item => ({
+                                        ...item,
+                                        store_name: item.store_name || res.result.store_name || null,
+                                        date: item.date || res.result.date || null
+                                    }));
+                                    combinedItems.push(...itemsWithMeta);
+                                }
+                            } else {
+                                failedIndices.push(res.idx + 1);
+                                errorMessages.push(`第 ${res.idx + 1} 張: ${res.error}`);
+                            }
+                        });
+
+                        // 即時更新縮圖 UI（將辨識失敗的圖片醒目標示紅框 ⚠️）
+                        updateImageGalleryUI();
+
+                        if (combinedItems.length === 0 && failedIndices.length > 0) {
+                            const detailedMsg = (errorMessages.length === 1 && errorMessages[0]) 
+                                ? errorMessages[0].replace(/^第 \d+ 張:\s*/, '') 
+                                : `辨識失敗 (${failedIndices.length}/${uploadedImages.length} 張圖片無法讀取，已標示紅框)`;
+                            throw new Error(detailedMsg);
                         }
-                    }));
 
-                    let invoiceDates = [];
+                        const storeName = combinedStores.join(' / ');
+                        const primaryResult = results.find(r => r.success && r.result)?.result || {};
+                        renderScannedItems({
+                            store_name: storeName,
+                            dates: invoiceDates,
+                            items: combinedItems,
+                            original_currency: primaryResult.original_currency || 'TWD',
+                            currency_symbol: primaryResult.currency_symbol || 'NT$',
+                            rate_to_twd: primaryResult.rate_to_twd || 1,
+                            store_location: primaryResult.store_location || ''
+                        });
 
-                    results.forEach(res => {
-                        if (res.success && res.result) {
-                            if (res.result.store_name && !combinedStores.includes(res.result.store_name)) {
-                                combinedStores.push(res.result.store_name);
-                            }
-                            if (res.result.date && !invoiceDates.includes(res.result.date)) {
-                                invoiceDates.push(res.result.date);
-                            }
-                            if (Array.isArray(res.result.items)) {
-                                const itemsWithMeta = res.result.items.map(item => ({
-                                    ...item,
-                                    store_name: item.store_name || res.result.store_name || null,
-                                    date: item.date || res.result.date || null
-                                }));
-                                combinedItems.push(...itemsWithMeta);
+                        if (failedIndices.length > 0) {
+                            elements.errorBox.textContent = `⚠️ 提醒：第 ${failedIndices.join(', ')} 張圖片辨識失敗（已標示紅框），您可以點選 ✕ 移除該圖片或重新嘗試`;
+                            elements.errorBox.classList.add('show');
+                        }
+                    } catch (err) {
+                        if (err.message && err.message.includes('未設定 Gemini API Key')) {
+                            elements.errorBox.innerHTML = `
+                                <div style="display:flex;flex-direction:column;gap:10px;width:100%;text-align:left;box-sizing:border-box;">
+                                    <div>⚠️ <strong style="color:#ff5252">未設定 Gemini API Key</strong><br><span style="font-size:11.5px;opacity:0.9;line-height:1.4;display:block;margin-top:4px;">辨識照片文字需填寫免費 Gemini API Key（若拍攝台灣電子發票，請對準下方 QR Code 可免 Key 自動解析）。</span></div>
+                                    <div style="display:flex;flex-direction:column;gap:6px;width:100%;">
+                                        <input type="text" id="ai-quick-key-input" placeholder="貼上 Gemini API Key (AIzaSy...)" style="width:100%;box-sizing:border-box;padding:8px 12px;border-radius:8px;border:1px solid rgba(255,255,255,0.3);background:rgba(0,0,0,0.6);color:#fff;font-size:12px;outline:none;">
+                                        <button id="ai-quick-key-save-btn" style="width:100%;box-sizing:border-box;padding:8px;border-radius:8px;border:none;background:var(--accent-color, #29b6f6);color:#000;font-weight:bold;font-size:12.5px;cursor:pointer;transition:all 0.2s;">⚡ 儲存 Key 並立即辨識</button>
+                                    </div>
+                                    <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" style="font-size:11.5px;color:var(--accent-color, #29b6f6);text-decoration:underline;display:inline-block;" data-i18n="aiApiKeyTutorial">👉 免費取得 Google Gemini API Key</a>
+                                </div>
+                            `;
+                            elements.errorBox.classList.add('show');
+
+                            const qInput = document.getElementById('ai-quick-key-input');
+                            const qSave = document.getElementById('ai-quick-key-save-btn');
+                            if (qSave && qInput) {
+                                qSave.addEventListener('click', () => {
+                                    const val = qInput.value.trim();
+                                    if (!val) {
+                                        alert('請輸入有效的 API Key');
+                                        return;
+                                    }
+                                    localStorage.setItem('calc_gemini_api_key', val);
+                                    if (window.updateGeminiKeyUI) window.updateGeminiKeyUI();
+                                    if (window.showToastMsg) window.showToastMsg('✅ API Key 已儲存！正在重新辨識...');
+                                    elements.recognizeBtn.click();
+                                });
+                                qInput.addEventListener('keydown', (e) => {
+                                    if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        qSave.click();
+                                    }
+                                });
                             }
                         } else {
-                            failedIndices.push(res.idx + 1);
-                            errorMessages.push(`第 ${res.idx + 1} 張: ${res.error}`);
+                            elements.errorBox.textContent = err.message;
+                            elements.errorBox.classList.add('show');
                         }
-                    });
-
-                    // 即時更新縮圖 UI（將辨識失敗的圖片醒目標示紅框 ⚠️）
-                    updateImageGalleryUI();
-
-                    if (combinedItems.length === 0 && failedIndices.length > 0) {
-                        const detailedMsg = (errorMessages.length === 1 && errorMessages[0]) 
-                            ? errorMessages[0].replace(/^第 \d+ 張:\s*/, '') 
-                            : `辨識失敗 (${failedIndices.length}/${uploadedImages.length} 張圖片無法讀取，已標示紅框)`;
-                        throw new Error(detailedMsg);
-                    }
-
-                    const storeName = combinedStores.join(' / ');
-                    renderScannedItems({ store_name: storeName, dates: invoiceDates, items: combinedItems });
-
-                    if (failedIndices.length > 0) {
-                        elements.errorBox.textContent = `⚠️ 提醒：第 ${failedIndices.join(', ')} 張圖片辨識失敗（已標示紅框），您可以點選 ✕ 移除該圖片或重新嘗試`;
-                        elements.errorBox.classList.add('show');
-                    }
-                } catch (err) {
-                    if (err.message && err.message.includes('未設定 Gemini API Key')) {
-                        elements.errorBox.innerHTML = `
-                            <div style="display:flex;flex-direction:column;gap:10px;width:100%;text-align:left;box-sizing:border-box;">
-                                <div>⚠️ <strong style="color:#ff5252">未設定 Gemini API Key</strong><br><span style="font-size:11.5px;opacity:0.9;line-height:1.4;display:block;margin-top:4px;">辨識照片文字需填寫免費 Gemini API Key（若拍攝台灣電子發票，請對準下方 QR Code 可免 Key 自動解析）。</span></div>
-                                <div style="display:flex;flex-direction:column;gap:6px;width:100%;">
-                                    <input type="text" id="ai-quick-key-input" placeholder="貼上 Gemini API Key (AIzaSy...)" style="width:100%;box-sizing:border-box;padding:8px 12px;border-radius:8px;border:1px solid rgba(255,255,255,0.3);background:rgba(0,0,0,0.6);color:#fff;font-size:12px;outline:none;">
-                                    <button id="ai-quick-key-save-btn" style="width:100%;box-sizing:border-box;padding:8px;border-radius:8px;border:none;background:var(--accent-color, #29b6f6);color:#000;font-weight:bold;font-size:12.5px;cursor:pointer;transition:all 0.2s;">⚡ 儲存 Key 並立即辨識</button>
-                                </div>
-                                <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" style="font-size:11.5px;color:var(--accent-color, #29b6f6);text-decoration:underline;display:inline-block;" data-i18n="aiApiKeyTutorial">👉 免費取得 Google Gemini API Key</a>
-                            </div>
-                        `;
-                        elements.errorBox.classList.add('show');
-
-                        const qInput = document.getElementById('ai-quick-key-input');
-                        const qSave = document.getElementById('ai-quick-key-save-btn');
-                        if (qSave && qInput) {
-                            qSave.addEventListener('click', () => {
-                                const val = qInput.value.trim();
-                                if (!val) {
-                                    alert('請輸入有效的 API Key');
-                                    return;
-                                }
-                                localStorage.setItem('calc_gemini_api_key', val);
-                                if (window.updateGeminiKeyUI) window.updateGeminiKeyUI();
-                                if (window.showToastMsg) window.showToastMsg('✅ API Key 已儲存！正在重新辨識...');
-                                elements.recognizeBtn.click();
-                            });
-                            qInput.addEventListener('keydown', (e) => {
-                                if (e.key === 'Enter') {
-                                    e.preventDefault();
-                                    qSave.click();
-                                }
-                            });
+                    } finally {
+                        const scanElapsedTime = Date.now() - scanStartTime;
+                        const MIN_SCAN_ANIM_TIME = 1000; // 🔥 確保掃描雷射光束動畫播放至少 1 秒
+                        if (scanElapsedTime < MIN_SCAN_ANIM_TIME) {
+                            await new Promise(r => setTimeout(r, MIN_SCAN_ANIM_TIME - scanElapsedTime));
                         }
-                    } else {
-                        elements.errorBox.textContent = err.message;
-                        elements.errorBox.classList.add('show');
                     }
                 } finally {
-                    const scanElapsedTime = Date.now() - scanStartTime;
-                    const MIN_SCAN_ANIM_TIME = 1000; // 🔥 確保掃描雷射光束動畫播放至少 1 秒
-                    if (scanElapsedTime < MIN_SCAN_ANIM_TIME) {
-                        await new Promise(r => setTimeout(r, MIN_SCAN_ANIM_TIME - scanElapsedTime));
-                    }
-
-                    elements.recognizeBtn.disabled = false;
+                    setScanning(false);
                     elements.recognizeBtn.classList.remove('loading');
-                    if (btnLabel) btnLabel.textContent = originalLabelText;
                     if (elements.previewWrap) elements.previewWrap.classList.remove('scanning');
                 }
             });

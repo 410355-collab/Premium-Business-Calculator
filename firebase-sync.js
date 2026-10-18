@@ -16,6 +16,13 @@
     const SKIP_EMPTY_HISTORY = true;          // true：歷史為空時不覆蓋雲端
     const PUSH_DELAY_MS = 800;                // 合併短時間內的多次修改
 
+    // 純本地快取性質的鍵，排除在雲端同步之外（避免匯率定時抓取觸發多設備互相覆蓋與 reload）
+    const EXCLUDE_SYNC_KEYS = new Set([
+        'bCalc_rates',
+        'bCalc_rates_time',
+        'bCalc_rates_timestamp'
+    ]);
+
     // ===== 狀態 =====
     let currentUser = null;
     let isSyncing = false;
@@ -156,7 +163,7 @@
             window._isPullingCloud = true;
             try {
                 Object.keys(cloudData).forEach(key => {
-                    if (!key.startsWith('bCalc_') || typeof cloudData[key] !== 'string') return;
+                    if (!key.startsWith('bCalc_') || EXCLUDE_SYNC_KEYS.has(key) || typeof cloudData[key] !== 'string') return;
                     if (localStorage.getItem(key) !== cloudData[key]) {
                         localStorage.setItem(key, cloudData[key]);
                         changed = true;
@@ -184,7 +191,7 @@
         const data = {};
         for (let i = 0; i < localStorage.length; i++) {
             const key = localStorage.key(i);
-            if (key && key.startsWith('bCalc_')) {
+            if (key && key.startsWith('bCalc_') && !EXCLUDE_SYNC_KEYS.has(key)) {
                 const val = localStorage.getItem(key);
                 if (val !== null) data[key] = val;
             }
@@ -257,7 +264,7 @@
     // ===== 攔截 localStorage 寫入，自動排程上傳 =====
     Storage.prototype.setItem = function (key, value) {
         originalSetItem.apply(this, arguments);
-        if (this !== localStorage || typeof key !== 'string' || !key.startsWith('bCalc_')) return;
+        if (this !== localStorage || typeof key !== 'string' || !key.startsWith('bCalc_') || EXCLUDE_SYNC_KEYS.has(key)) return;
         if (window._isPullingCloud) return;
         if (!currentUser) return;
 

@@ -11,8 +11,8 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="BusinessCalc">
-    <link rel="icon" type="image/png" href="app_icon.png?v=20261004d">
-    <link rel="apple-touch-icon" href="app_icon.png?v=20261004d">
+    <link rel="icon" type="image/png" href="app_icon.png?v=20261018a">
+    <link rel="apple-touch-icon" href="app_icon.png?v=20261018a">
 
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#0f1015">
@@ -644,16 +644,11 @@
                         </div>
                     </div>
                     <div class="ai-preview-wrap" id="ai-preview-wrap">
-                        <img class="ai-preview-img" id="ai-preview-img" alt="Preview">
-                        <div class="ai-scanner-overlay" id="ai-scanner-overlay">
-                            <div class="ai-scan-laser"></div>
-                            <div class="ai-scan-grid"></div>
-                            <div class="ai-scan-corners">
-                                <span class="corner tl"></span>
-                                <span class="corner tr"></span>
-                                <span class="corner bl"></span>
-                                <span class="corner br"></span>
-                            </div>
+                        <div class="scan-stage" id="scanStage">
+                            <img class="ai-preview-img" id="ai-preview-img" alt="Preview" style="border-radius:14px;transition:filter .4s">
+                            <div class="scan-clip"><div class="scan-grid"></div><div class="scan-sweep"></div></div>
+                            <i class="scan-corner tl"></i><i class="scan-corner tr"></i><i class="scan-corner bl"></i><i class="scan-corner br"></i>
+                            <span class="scan-tag">AI 辨識中<i>.</i><i>.</i><i>.</i></span>
                         </div>
                     </div>
                 </div>
@@ -679,9 +674,10 @@
                     <div class="ai-preview-actions" id="ai-preview-actions">
                         <div class="ai-btn-secondary" id="ai-retake-btn" data-i18n="aiRetake">重新選擇</div>
                     </div>
-                    <button class="ai-recognize-btn" id="ai-recognize-btn" disabled>
-                        <span class="ai-spinner"></span>
-                        <span class="ai-btn-label" data-i18n="aiRecognize">AI 辨識</span>
+                    <button class="ai-recognize-btn scan-all-btn" id="scanAllBtn" disabled>
+                        <span class="scan-spinner"><i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i><i class="doc"></i><i class="line"></i></span>
+                        <span class="scan-label ai-btn-label" data-idle="掃描全部" data-busy="掃描中…" data-i18n="aiRecognize">AI 辨識</span>
+                        <span class="scan-beam"></span>
                     </button>
                     <div class="ai-error-box" id="ai-error-box"></div>
                 </div>
@@ -741,6 +737,7 @@
                 <div class="clear-btn" id="btn-history-clear" data-i18n="btnClear">CLEAR</div>
                 <div class="share-btn share-line-btn" id="btn-history-share" data-i18n="btnShareLine">COPY ALL</div>
                 <div class="share-btn excel-btn" id="btn-history-export-excel" data-i18n="btnExportExcel">EXCEL</div>
+                <div class="share-btn travel-report-btn" id="btn-history-travel-report" data-i18n="btnHistoryTravelReport">TRAVEL REPORT</div>
                 <div class="done-btn" id="btn-history-done" data-i18n="btnClose">CLOSE</div>
             </div>
         </div>
@@ -758,26 +755,26 @@
                 <div class="travel-sections-wrap">
                     <!-- 多幣別明細 -->
                     <div class="travel-block">
-                        <div class="travel-block-title">🔱 多幣別支出統計</div>
+                        <div class="travel-block-title" data-i18n="travelCurrencyBreakdown">🔱 多幣別支出明細</div>
                         <div class="travel-block-content" id="travel-curr-list"></div>
                     </div>
 
                     <!-- 類別明細 -->
                     <div class="travel-block">
-                        <div class="travel-block-title">🏷️ 消費類別統計</div>
+                        <div class="travel-block-title" data-i18n="travelCategoryBreakdown">🏷️ 消費類別統計</div>
                         <div class="travel-block-content" id="travel-cat-list"></div>
                     </div>
 
                     <!-- 熱門地點 -->
                     <div class="travel-block">
-                        <div class="travel-block-title">📍 熱門消費地點</div>
+                        <div class="travel-block-title" data-i18n="travelTopLocations">📍 熱門消費地點</div>
                         <div class="travel-block-content" id="travel-loc-list"></div>
                     </div>
                 </div>
 
                 <div class="travel-modal-actions">
                     <button class="ai-btn-secondary" id="btn-copy-travel-report" data-i18n="copyReportBtn">📋 複製報告</button>
-                    <button class="ai-btn-secondary highlight" id="btn-export-travel-excel">📊 匯出多幣別 EXCEL</button>
+                    <button class="ai-btn-secondary highlight" id="btn-export-travel-excel" data-i18n="btnExportTravelExcel">📊 匯出 EXCEL</button>
                     <button class="done-btn" id="btn-close-travel-modal" data-i18n="btnClose">CLOSE</button>
                 </div>
             </div>
@@ -859,11 +856,15 @@
         <!-- 🎙️ 語意辨識實時對話框 Modal -->
         <div class="modal-overlay alert-overlay" id="voice-modal">
             <div class="alert-card voice-card" id="voice-modal-card">
-                <div class="alert-icon-wrap">
+                <div class="alert-icon-wrap voice-icon-wrap">
                     <div class="alert-icon voice-wave-icon">🎙️</div>
                     <div class="alert-glow voice-glow"></div>
                 </div>
                 <div class="alert-title voice-modal-title" data-i18n="voiceModalTitle">語音辨識與手動校正</div>
+                <div class="voice-raw-sentence-box" id="voice-raw-sentence-box">
+                    <span class="voice-raw-label">🗣️ 原句：</span>
+                    <span class="voice-raw-text" id="voice-raw-text">正在聆聽中...</span>
+                </div>
                 <div class="voice-edit-group">
                     <div class="voice-input-row">
                         <span class="voice-input-label" data-i18n="voiceItemLabel">品名</span>
@@ -874,14 +875,70 @@
                         <input type="number" step="any" id="voice-input-amount" class="voice-edit-input" placeholder="0">
                         <span class="voice-currency-tag" id="voice-currency-tag">TWD</span>
                     </div>
+                    <div class="voice-input-row voice-date-row" id="voice-date-trigger">
+                        <span class="voice-input-label" data-i18n="voiceDateLabel">日期</span>
+                        <span class="voice-custom-dt-display" id="voice-date-display">2026/10/18</span>
+                        <span class="voice-dt-icon">📅</span>
+                        <span class="voice-time-tag" id="voice-time-tag">今天</span>
+                    </div>
+                    <div class="voice-input-row voice-time-row" id="voice-time-trigger">
+                        <span class="voice-input-label" data-i18n="voiceTimeLabel">時間</span>
+                        <span class="voice-custom-dt-display" id="voice-time-display">下午 09:16</span>
+                        <span class="voice-dt-icon">⏰</span>
+                    </div>
+                    <!-- 隱藏原生 input 保留兼容性與表單值存取 -->
+                    <input type="hidden" id="voice-input-date">
+                    <input type="hidden" id="voice-input-time">
                 </div>
-                <div class="modal-category-picker voice-cat-picker" id="voice-category-picker" style="margin: 8px 0 12px; gap: 6px;">
+
+                <!-- 🌟 自訂毛玻璃日曆彈窗 (Custom Liquid Glass Calendar Picker) -->
+                <div class="voice-picker-popover" id="voice-calendar-popover" style="display: none;">
+                    <div class="vpick-header">
+                        <button class="vpick-nav-btn" id="vpick-cal-prev">‹</button>
+                        <span class="vpick-title" id="vpick-cal-month-title">2026 年 10 月</span>
+                        <button class="vpick-nav-btn" id="vpick-cal-next">›</button>
+                    </div>
+                    <div class="vpick-weekdays">
+                        <span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span>
+                    </div>
+                    <div class="vpick-calendar-days" id="vpick-calendar-days"></div>
+                    <div class="vpick-quick-bar">
+                        <button class="vpick-quick-chip" data-offset="-2">前天</button>
+                        <button class="vpick-quick-chip" data-offset="-1">昨天</button>
+                        <button class="vpick-quick-chip active" data-offset="0">今天</button>
+                    </div>
+                </div>
+
+                <!-- 🌟 自訂毛玻璃時間彈窗 (Custom Liquid Glass Time Picker) -->
+                <div class="voice-picker-popover" id="voice-time-popover" style="display: none;">
+                    <div class="vpick-header">
+                        <span class="vpick-title">選擇記帳時間</span>
+                    </div>
+                    <div class="vpick-time-scroll-container">
+                        <div class="vpick-wheel-lens"></div>
+                        <div class="vpick-wheel-mask"></div>
+                        <!-- 上午 / 下午 -->
+                        <div class="vpick-time-col" id="vpick-time-ampm">
+                            <button class="vpick-time-item" data-val="AM">上午</button>
+                            <button class="vpick-time-item active" data-val="PM">下午</button>
+                        </div>
+                        <!-- 小時 (01-12) -->
+                        <div class="vpick-time-col" id="vpick-time-hours"></div>
+                        <!-- 分鐘 (00-59) -->
+                        <div class="vpick-time-col" id="vpick-time-minutes"></div>
+                    </div>
+                    <div class="vpick-quick-bar" style="margin-top: 8px;">
+                        <button class="vpick-quick-chip" id="vpick-time-now">現在時間</button>
+                        <button class="vpick-quick-chip" id="vpick-time-done" style="background:var(--accent-main);color:#fff;font-weight:800;">確定</button>
+                    </div>
+                </div>
+                <div class="modal-category-picker voice-cat-picker" id="voice-category-picker">
                     <button class="modal-cat-chip voice-cat-chip" data-cat="food">🍜 <span data-i18n="catFood">食</span></button>
                     <button class="modal-cat-chip voice-cat-chip" data-cat="shopping">🛍️ <span data-i18n="catShopping">購物</span></button>
                     <button class="modal-cat-chip voice-cat-chip" data-cat="transport">🚗 <span data-i18n="catTransport">行</span></button>
                     <button class="modal-cat-chip voice-cat-chip" data-cat="other">🏷️ <span data-i18n="catOther">其他</span></button>
                 </div>
-                <div class="alert-desc voice-parsed-hint" id="voice-parsed-hint" data-i18n="voiceListeningHint">🎙️ 正在聆聽中... (講完可直接點擊上方修改)</div>
+                <div class="alert-desc voice-parsed-hint" id="voice-parsed-hint" data-i18n="voiceListeningHint" style="padding-bottom: 8px;">🎙️ 正在聆聽中... (講完可直接點擊上方修改)</div>
                 <div class="alert-btn-row">
                     <div class="alert-btn alert-cancel" id="btn-voice-modal-cancel" data-i18n="btnCancel">取消</div>
                     <div class="alert-btn-divider"></div>
@@ -919,9 +976,10 @@
     </div>
 
     <script src="./math.min.js"></script>
+    <script src="./jsqr.min.js"></script>
     <script src="./i18n.js?v=20260925e"></script>
     <script src="./script.js?v=20261003a"></script>
-    <script src="./ai-scan.js?v=20260928g"></script>
+    <script src="./ai-scan.js?v=20261017a"></script>
 
     <!-- Firebase Web SDK Compat (CDN) for Google Auth & Cloud Firestore -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>

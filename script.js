@@ -950,9 +950,12 @@
                 targetEl.classList.remove(options.activeClass);
             }
 
-            if (!hasMoved && targetEl) {
+            if (!hasMoved && targetEl && !e.defaultPrevented && !targetEl._suppressSmartTap) {
                 if (options.preventDefault && e.cancelable) e.preventDefault();
                 callback(e, targetEl);
+            }
+            if (targetEl && targetEl._suppressSmartTap) {
+                delete targetEl._suppressSmartTap;
             }
 
             cleanup();
@@ -2586,24 +2589,31 @@
                     <div class="travel-progress-bar"><div class="travel-progress-fill" style="width:${pct}%"></div></div>
                 `;
             });
-            currListEl.innerHTML = html || '<div class="travel-item-sub">尚無多幣別資料</div>';
+            const tItemSubCount = currentLang === 'zh' ? '({count} 筆)' : '({count})';
+            currListEl.innerHTML = html || `<div class="travel-item-sub">${currentLang === 'zh' ? '尚無多幣別資料' : 'No currency data'}</div>`;
         }
 
         // 渲染分類明細
         const catListEl = document.getElementById('travel-cat-list');
         if (catListEl) {
             let html = '';
-            const catNames = { food: '食 🍜', shopping: '購物 🛍️', transport: '行 🚗', other: '其他 🏷️' };
+            const catNames = {
+                food: currentLang === 'zh' ? '食 🍜' : `Food 🍜`,
+                shopping: currentLang === 'zh' ? '購物 🛍️' : `Shopping 🛍️`,
+                transport: currentLang === 'zh' ? '行 🚗' : `Transport 🚗`,
+                other: currentLang === 'zh' ? '其他 🏷️' : `Other 🏷️`
+            };
             Object.keys(byCategory).forEach(catKey => {
                 const twdSum = byCategory[catKey];
                 const count = categoryCounts[catKey];
                 if (twdSum > 0 || count > 0) {
                     const pct = totalTwdAll > 0 ? ((twdSum / totalTwdAll) * 100).toFixed(1) : '0.0';
+                    const countStr = currentLang === 'zh' ? `(${count} 筆)` : `(${count})`;
                     html += `
                         <div class="travel-item-row">
                             <div class="travel-item-left">
                                 <span>${catNames[catKey]}</span>
-                                <span class="travel-item-sub">(${count} 筆)</span>
+                                <span class="travel-item-sub">${countStr}</span>
                             </div>
                             <div class="travel-item-right">
                                 <span class="travel-item-primary">NT$ ${Math.round(twdSum).toLocaleString()}</span>
@@ -2614,7 +2624,7 @@
                     `;
                 }
             });
-            catListEl.innerHTML = html || '<div class="travel-item-sub">尚無分類消費資料</div>';
+            catListEl.innerHTML = html || `<div class="travel-item-sub">${currentLang === 'zh' ? '尚無分類消費資料' : 'No category data'}</div>`;
         }
 
         // 渲染熱門地點
@@ -2623,6 +2633,7 @@
             let html = '';
             Object.keys(byLocation).forEach(locName => {
                 const info = byLocation[locName];
+                const countStr = currentLang === 'zh' ? `${info.count} 筆交易` : `${info.count} txns`;
                 html += `
                     <div class="travel-item-row">
                         <div class="travel-item-left">
@@ -2630,12 +2641,12 @@
                         </div>
                         <div class="travel-item-right">
                             <span class="travel-item-primary">NT$ ${Math.round(info.twdTotal).toLocaleString()}</span>
-                            <span class="travel-item-sub">${info.count} 筆交易</span>
+                            <span class="travel-item-sub">${countStr}</span>
                         </div>
                     </div>
                 `;
             });
-            locListEl.innerHTML = html || '<div class="travel-item-sub">尚無地點資料</div>';
+            locListEl.innerHTML = html || `<div class="travel-item-sub">${currentLang === 'zh' ? '尚無地點資料' : 'No location data'}</div>`;
         }
 
         return true;
@@ -3566,6 +3577,16 @@
         const isLight = (mode === 'light');
         applyLightMode(isLight);
         localStorage.setItem(KEY_LIGHT_MODE, isLight ? 'true' : 'false');
+    }
+
+    function setPercentageMode(mode) {
+        triggerVibration();
+        percentMode = mode || 'commercial';
+        localStorage.setItem(KEY_PERCENT_MODE, percentMode);
+        document.querySelectorAll('.percent-mode-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.percent === percentMode);
+        });
+        updateGliders();
     }
 
     function resetAllSettings() {
@@ -4580,6 +4601,8 @@
             if (keyBtn.dataset.action === 'applyTaxAdd' || keyBtn.dataset.action === 'applyTaxSub') {
                 // 長按 +TAX / -TAX 鍵快速設定稅率 (Casio SET Mode)
                 pressTimer = setTimeout(() => {
+                    keyBtn._taxLongPressed = true;
+                    keyBtn._suppressSmartTap = true;
                     openQuickTaxModal(currentFrom);
                 }, 450);
                 return;
@@ -4611,8 +4634,25 @@
                 cancelTimer();
             }
         });
-        keyboardEl.addEventListener('pointerup', cancelTimer);
-        keyboardEl.addEventListener('pointercancel', cancelTimer);
+        keyboardEl.addEventListener('pointerup', (e) => {
+            cancelTimer();
+            const keyBtn = e.target.closest('.key');
+            if (keyBtn && (keyBtn._taxLongPressed || keyBtn._suppressSmartTap)) {
+                delete keyBtn._taxLongPressed;
+                keyBtn._suppressSmartTap = true;
+                setTimeout(() => { delete keyBtn._suppressSmartTap; }, 100);
+                e.preventDefault();
+                e.stopPropagation();
+            }
+        }, true);
+        keyboardEl.addEventListener('pointercancel', (e) => {
+            cancelTimer();
+            const keyBtn = e.target.closest('.key');
+            if (keyBtn) {
+                delete keyBtn._taxLongPressed;
+                delete keyBtn._suppressSmartTap;
+            }
+        });
     }
 
     /* 🔥 修正後的定位檢測與幣別切換機制 */
@@ -4814,11 +4854,11 @@
         const PRESET_SNAPSHOT_CONFIGS = {
             'biz': {
                 grid: '4x5',
-                layout: ['clear', 'backspace', 'percent', 'divide', 'num_7', 'num_8', 'num_9', 'multiply', 'num_4', 'num_5', 'num_6', 'subtract', 'num_1', 'num_2', 'num_3', 'add', 'tax', 'num_0', 'dot', 'equal']
+                layout: ['clear', 'backspace', 'percent', 'divide', 'num_7', 'num_8', 'num_9', 'multiply', 'num_4', 'num_5', 'num_6', 'subtract', 'num_1', 'num_2', 'num_3', 'add', 'tax_plus', 'num_0', 'dot', 'equal']
             },
             'travel': {
                 grid: '4x5',
-                layout: ['clear', 'backspace', 'swapCurrencies', 'divide', 'num_7', 'num_8', 'num_9', 'multiply', 'num_4', 'num_5', 'num_6', 'subtract', 'num_1', 'num_2', 'num_3', 'add', 'num_00', 'num_0', 'dot', 'equal']
+                layout: ['clear', 'backspace', 'percent', 'divide', 'num_7', 'num_8', 'num_9', 'multiply', 'num_4', 'num_5', 'num_6', 'subtract', 'num_1', 'num_2', 'num_3', 'add', 'double_zero', 'num_0', 'dot', 'equal']
             },
             'math': {
                 grid: '4x6',
@@ -5737,21 +5777,25 @@
         window.toggleMenu = toggleMenu;
         window.updateGliders = updateGliders;
 
-        // 🎙️ 自然語音數字與算式解析輔助函數
+        // 🎙️ 自然語音數字與算式解析輔助函數（支援國語、台語閩南語及中英文混合數字）
         function parseZhNumber(str) {
             if (!str) return 0;
-            const zhNumMap = { '零':0, '一':1, '二':2, '兩':2, '三':3, '四':4, '五':5, '六':6, '七':7, '八':8, '九':9 };
+            // 包含國語與台語常用同音/異體數字映射 (如 兩/liang/nn̄g, 空/khòng=0, 箍=元)
+            const zhNumMap = {
+                '零':0, '空':0, '一':1, '二':2, '兩':2, '倆':2, '三':3, '四':4, '五':5, '六':6, '七':7, '八':8, '九':9,
+                '0':0, '1':1, '2':2, '3':3, '4':4, '5':5, '6':6, '7':7, '8':8, '9':9
+            };
             let total = 0, section = 0, current = 0;
             for (let char of str) {
                 if (zhNumMap[char] !== undefined) {
                     current = zhNumMap[char];
-                } else if (char === '十') {
+                } else if (char === '十' || char === '拾') {
                     section += (current || 1) * 10;
                     current = 0;
-                } else if (char === '百') {
+                } else if (char === '百' || char === '佰') {
                     section += (current || 1) * 100;
                     current = 0;
-                } else if (char === '千') {
+                } else if (char === '千' || char === '仟') {
                     section += (current || 1) * 1000;
                     current = 0;
                 } else if (char === '萬') {
@@ -5769,7 +5813,11 @@
 
         function normalizeChineseNumbers(text) {
             if (!text) return '';
-            return text.replace(/[零一二兩三四五六七八九十百千萬億]+/g, m => {
+            let s = text;
+            // 台語/英文常用貨幣與單位同義替換
+            s = s.replace(/(?:箍|個字|kho͘)/gi, '元');
+            // 中文數字轉換
+            return s.replace(/[零空一二兩倆三四五六七八九十拾百佰千仟萬億]+/g, m => {
                 const val = parseZhNumber(m);
                 return val > 0 ? val.toString() : m;
             });
@@ -5780,61 +5828,182 @@
             let s = rawText.trim();
             // 全形轉半形
             s = s.replace(/[\uff01-\uff5e]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xfee0));
-            // 中文數字
+            // 中文數字轉換
             s = normalizeChineseNumbers(s);
-            // 根號 / 跟號 / 開根號
-            s = s.replace(/(?:根號|跟號|開根號|開根|平方根)\s*([0-9.]+)/g, (m, p) => 'sqrt(' + p + ')');
-            // 平方 / 立方
-            s = s.replace(/([0-9.]+)\s*(?:的)?平方/g, (m, p) => '(' + p + '^2)');
-            s = s.replace(/([0-9.]+)\s*(?:的)?立方/g, (m, p) => '(' + p + '^3)');
-            // 運算符號
-            s = s.replace(/加/g, ' + ')
-                 .replace(/減/g, ' - ')
-                 .replace(/乘(?:以)?/g, ' * ')
-                 .replace(/除(?:以)?/g, ' / ')
-                 .replace(/次(?:方)?/g, ' ^ ');
 
-            // 模式 1：品名在前方，算式在後方（如：便當 50 + sqrt(10000) 元）
-            const firstMathIdx = s.search(/\d|sqrt/);
-            if (firstMathIdx !== -1) {
-                let item = s.slice(0, firstMathIdx).replace(/元|塊錢|塊/g, '').trim();
-                let expr = s.slice(firstMathIdx).replace(/元|塊錢|塊/g, '').trim();
-                try {
-                    if (window.math && typeof window.math.evaluate === 'function') {
-                        const val = window.math.evaluate(expr);
-                        if (typeof val === 'number' && !isNaN(val) && val > 0) {
-                            return { item: item || '語音速記', amount: Math.round(val * 100) / 100, expr: expr };
-                        }
-                    }
-                } catch(e) {}
+            // 輔助函式：僅對切出的算式字串進行數學運算符轉換，絕不干擾品名字串
+            function formatMathExpression(exprStr) {
+                if (!exprStr) return '';
+                let res = exprStr.replace(/元|塊錢|塊/g, '').trim();
+                // 根號 / 跟號 / 開根號
+                res = res.replace(/(?:根號|跟號|開根號|開根|平方根)\s*([0-9.]+)/g, (m, p) => 'sqrt(' + p + ')');
+                // 平方 / 立方
+                res = res.replace(/([0-9.]+)\s*(?:的)?平方/g, (m, p) => '(' + p + '^2)');
+                res = res.replace(/([0-9.]+)\s*(?:的)?立方/g, (m, p) => '(' + p + '^3)');
+                // 運算符號（加減乘除次方）
+                res = res.replace(/加/g, ' + ')
+                         .replace(/減/g, ' - ')
+                         .replace(/乘(?:以)?/g, ' * ')
+                         .replace(/除(?:以)?/g, ' / ')
+                         .replace(/次(?:方)?/g, ' ^ ');
+                return res.trim();
             }
 
-            // 模式 2：算式在前方，品名在後方（如：50 + sqrt(10000) 元 便當）
-            const matchSuffix = s.match(/^([\d\.\s\+\-\*\/\(\)\^\%]|sqrt)+/);
-            if (matchSuffix && matchSuffix[0].trim()) {
-                let expr = matchSuffix[0].trim();
-                let item = s.slice(matchSuffix[0].length).replace(/元|塊錢|塊/g, '').trim();
+            function tryEvaluate(expr) {
                 try {
                     if (window.math && typeof window.math.evaluate === 'function') {
                         const val = window.math.evaluate(expr);
                         if (typeof val === 'number' && !isNaN(val) && val > 0) {
-                            return { item: item || '語音速記', amount: Math.round(val * 100) / 100, expr: expr };
+                            return Math.round(val * 100) / 100;
                         }
                     }
                 } catch(e) {}
+                return null;
+            }
+
+            // 模式 1：品名在前方，算式/金額在後方（如：便當 50加跟號10000元、除臭劑 120元、加沙茶牛肉 150）
+            // 以第一個數字或根號運算詞作為切分點，品名保留原文字，僅對後續字串進行運算符替換
+            const firstMathIdx = s.search(/\d|根號|跟號|開根號|開根|平方根/);
+            if (firstMathIdx !== -1) {
+                let item = s.slice(0, firstMathIdx).replace(/元|塊錢|塊/g, '').trim();
+                let rawExpr = s.slice(firstMathIdx);
+                let expr = formatMathExpression(rawExpr);
+                const val = tryEvaluate(expr);
+                if (val !== null) {
+                    return { item: item || '語音速記', amount: val, expr: expr };
+                }
+            }
+
+            // 模式 2：算式在前方，品名在後方（如：50加根號10000元 便當、35乘以3 咖啡）
+            // 抓取開頭由數字、中文運算詞、數學符號組成的區段
+            const mathPrefixMatch = s.match(/^([\d\.\s\+\-\*\/\(\)\^\%]|sqrt|根號|跟號|開根號|開根|平方根|平方|立方|加|減|乘(?:以)?|除(?:以)?|次(?:方)?)+/);
+            if (mathPrefixMatch && mathPrefixMatch[0].trim()) {
+                const rawExpr = mathPrefixMatch[0];
+                let expr = formatMathExpression(rawExpr);
+                let item = s.slice(rawExpr.length).replace(/元|塊錢|塊/g, '').trim();
+                const val = tryEvaluate(expr);
+                if (val !== null) {
+                    return { item: item || '語音速記', amount: val, expr: expr };
+                }
             }
 
             return null;
         }
 
-        // 調用 Gemini API 解析複雜自然語音句子
+        // 🎙️ 語音相對日期與時間智慧解析函數 (支援昨天、前天、大前天、今天、特定時段/幾點)
+        function parseVoiceRelativeDateTime(rawText) {
+            if (!rawText) return { cleanText: '', timestamp: null, dateDisplay: null };
+            let text = rawText.trim();
+            const now = new Date();
+            let targetDate = new Date(now.getTime());
+            let hasDate = false;
+            let dateLabel = '';
+
+            // 1. 相對日期匹配（繁體中文與英文）
+            if (/(?:大前天|three days ago)/i.test(text)) {
+                targetDate.setDate(targetDate.getDate() - 3);
+                text = text.replace(/大前天|three days ago/gi, ' ');
+                hasDate = true;
+                dateLabel = '大前天';
+            } else if (/(?:前天|day before yesterday)/i.test(text)) {
+                targetDate.setDate(targetDate.getDate() - 2);
+                text = text.replace(/前天|day before yesterday/gi, ' ');
+                hasDate = true;
+                dateLabel = '前天';
+            } else if (/(?:昨天|昨日|yesterday)/i.test(text)) {
+                targetDate.setDate(targetDate.getDate() - 1);
+                text = text.replace(/昨天|昨日|yesterday/gi, ' ');
+                hasDate = true;
+                dateLabel = '昨天';
+            } else if (/(?:今天|今日|today)/i.test(text)) {
+                text = text.replace(/今天|今日|today/gi, ' ');
+                hasDate = true;
+                dateLabel = '今天';
+            } else {
+                // 檢查「X天前」如 3天前、3 days ago
+                const daysAgoMatch = text.match(/(\d+)\s*(?:天|日)?\s*(?:前|ago)/i);
+                if (daysAgoMatch) {
+                    const days = parseInt(daysAgoMatch[1], 10);
+                    if (!isNaN(days) && days > 0) {
+                        targetDate.setDate(targetDate.getDate() - days);
+                        text = text.replace(daysAgoMatch[0], ' ');
+                        hasDate = true;
+                        dateLabel = `${days}天前`;
+                    }
+                }
+            }
+
+            // 2. 具體時間/時段解析（如：早上/morning、中午/noon、下午/afternoon、晚上/night、宵夜、HH點MM分）
+            let hasTime = false;
+            const hourMinMatch = text.match(/(?:(?:早上|上午|下午|晚上|中午|凌晨)?\s*)?(\d{1,2})\s*(?:點|時|:)(?:\s*(\d{1,2})\s*(?:分)?)?/);
+            if (hourMinMatch) {
+                let h = parseInt(hourMinMatch[1], 10);
+                const m = hourMinMatch[2] ? parseInt(hourMinMatch[2], 10) : 0;
+                if (/(?:下午|晚上|pm|afternoon|night)/i.test(text) && h < 12) h += 12;
+                if (/凌晨/.test(text) && h === 12) h = 0;
+                if (h >= 0 && h < 24 && m >= 0 && m < 60) {
+                    targetDate.setHours(h, m, 0, 0);
+                    hasTime = true;
+                    text = text.replace(hourMinMatch[0], ' ');
+                }
+            } else if (/(?:早上|上午|早餐|morning|breakfast)/i.test(text)) {
+                targetDate.setHours(8, 30, 0, 0);
+                text = text.replace(/早上|上午|morning|breakfast/gi, ' ');
+                hasTime = true;
+            } else if (/(?:中午|午餐|中午時候|noon|lunch)/i.test(text)) {
+                targetDate.setHours(12, 30, 0, 0);
+                text = text.replace(/中午時候|中午|noon|lunch/gi, ' ');
+                hasTime = true;
+            } else if (/(?:下午|下午茶|afternoon)/i.test(text)) {
+                targetDate.setHours(15, 30, 0, 0);
+                text = text.replace(/下午茶|下午|afternoon/gi, ' ');
+                hasTime = true;
+            } else if (/(?:晚上|晚間|night|evening)/i.test(text)) {
+                targetDate.setHours(19, 0, 0, 0);
+                text = text.replace(/晚上|晚間|night|evening/gi, ' ');
+                hasTime = true;
+            } else if (/(?:宵夜|半夜|凌晨|midnight)/i.test(text)) {
+                targetDate.setHours(23, 30, 0, 0);
+                text = text.replace(/宵夜|半夜|凌晨|midnight/gi, ' ');
+                hasTime = true;
+            } else if (/(?:晚餐|dinner)/i.test(text)) {
+                targetDate.setHours(19, 0, 0, 0);
+                hasTime = true;
+            } else if (/(?:午餐)/i.test(text)) {
+                targetDate.setHours(12, 30, 0, 0);
+                hasTime = true;
+            } else if (/(?:早餐)/i.test(text)) {
+                targetDate.setHours(8, 30, 0, 0);
+                hasTime = true;
+            }
+
+            // 清理常見口語贅動詞與連接詞（例如：昨天「買」便當、晚餐「吃/買/花」500塊 -> 剔除「吃/買/花」等贅詞）
+            let clean = text.replace(/\s+/g, ' ').trim();
+            clean = clean.replace(/^(?:買了|買個|買|吃了|吃個|吃|喝了|喝|花了|花|叫了|叫|點了|點)\s*/, '');
+            clean = clean.replace(/\s*(?:買了|買個|買|吃了|吃個|吃|喝了|喝|花了|花|叫了|叫|點了|點)$/, '');
+            clean = clean.replace(/(?:買了|買個|買|吃了|吃個|吃|喝了|喝|花了|花|叫了|叫|點了|點|算|大概|約|總共|共)\s*(\d+)/, '$1');
+
+            return {
+                cleanText: clean.trim(),
+                timestamp: (hasDate || hasTime) ? targetDate.toISOString() : null,
+                dateDisplay: hasDate ? dateLabel : null
+            };
+        }
+
+        // 調用 Gemini API 解析自然語音句子（支援繁體中文與中英文混雜 Chinglish 理解）
         async function parseVoiceWithGeminiApi(text) {
             const apiKey = (typeof window.getGeminiKey === 'function') ? window.getGeminiKey() : (localStorage.getItem('calc_gemini_api_key') || '');
+            const todayStr = new Date().toISOString().slice(0, 10);
 
-            const prompt = `請解析以下這段語音記帳文字，辨識出：品名(item)、計算算式與最終計算金額數值(amount，必須是數字)，以及消費分類(category: food | shopping | transport | other)。
-如果句子中有數學運算（如「加」、「根號/跟號」、「乘以」等），請計算出最終數值結果填入 amount。
-請僅回傳 JSON 格式，不要有任何多餘文字：
-{"item":"品名","amount":150,"category":"food"}`;
+            const prompt = `你是一個精通繁體中文與中英文混雜（Chinglish / Code-Switching，例如「買 coffee 120 加 donut 50」、「晚餐吃 500 塊」）的記帳語意助理。
+請解析使用者說出的語音記帳內容，辨識出：
+1. 品名 (item: 清潔的商品純名詞，例如「晚餐」、「咖啡」或品牌名，嚴格剔除「吃」、「買」、「喝」等動詞贅字，並移除時間詞彙)
+2. 計算算式與最終計算金額數值 (amount: 必須是純數字，若有數學運算如「35乘3」、「加」請計算出最終結果)
+3. 消費分類 (category: food | shopping | transport | other)
+4. 發生日期時間 (date: 請以西元 YYYY-MM-DD HH:mm:ss 格式回傳，基準今天為 ${todayStr}。若有「昨天/yesterday」、「前天」、「今天/today」、「中午/noon」、「晚上」等詞彙請推算對應時間；若未特別提及時間，請填入 null)。
+
+請僅回傳 JSON 格式，嚴格禁止任何多餘文字或 markdown 標籤：
+{"item":"便當","amount":150,"category":"food","date":"2026-10-17 12:30:00"}`;
 
             const requestBody = {
                 contents: [{
@@ -5892,12 +6061,21 @@
                 // 支援多種常見金額參數名：amount / price / cost / val / num
                 const rawAmount = urlParams.get('amount') || urlParams.get('price') || urlParams.get('cost') || urlParams.get('val') || urlParams.get('num') || '';
                 const rawCat = urlParams.get('category') || urlParams.get('cat') || '';
+                const rawTime = urlParams.get('time') || urlParams.get('date') || '';
 
                 if (!rawItem && !rawAmount) return;
 
                 let itemName = rawItem.trim();
                 let amountVal = null;
                 let category = 'other';
+                let resolvedTimestamp = rawTime ? parseInvoiceDateToISO(rawTime) : null;
+
+                // 0. 本地先抽取「昨天/前天/今天/幾點」等時間資訊
+                const dateRes = parseVoiceRelativeDateTime(itemName);
+                if (dateRes && dateRes.timestamp) {
+                    resolvedTimestamp = dateRes.timestamp;
+                    itemName = dateRes.cleanText;
+                }
 
                 // 1. 先嘗試自然語言表達式解析（例如：便當50加跟號10000）
                 const exprRes = parseVoiceExpression(itemName);
@@ -5905,13 +6083,16 @@
                     itemName = exprRes.item;
                     amountVal = exprRes.amount;
                 } else if (!rawAmount && itemName) {
-                    // 若本地算式未能解析且有 API Key，嘗試 Gemini AI 深度解析
-                    if (itemName.length >= 3 && /加|減|乘|除|根|跟|百|千|萬|平方/.test(itemName)) {
-                        const aiRes = await parseVoiceWithGeminiApi(itemName);
+                    // 若本地算式未能解析且有 API Key，嘗試 Gemini AI 深度解析（支援中英文混雜與台語）
+                    if (itemName.length >= 2) {
+                        const aiRes = await parseVoiceWithGeminiApi(rawItem);
                         if (aiRes) {
                             itemName = aiRes.item || itemName;
                             amountVal = aiRes.amount;
                             if (aiRes.category) category = aiRes.category;
+                            if (aiRes.date) {
+                                resolvedTimestamp = parseInvoiceDateToISO(aiRes.date);
+                            }
                         }
                     }
 
@@ -5920,6 +6101,8 @@
                         if (matchNum) {
                             amountVal = parseFloat(matchNum[1]);
                             itemName = itemName.replace(matchNum[1], '').replace(/元|塊錢|塊/g, '').trim();
+                            itemName = itemName.replace(/^(?:買了|買個|買|吃了|吃個|吃|喝了|喝|花了|花|開了|開|叫了|叫|點了|點|搭了|搭|坐了|坐)\s*/, '');
+                            itemName = itemName.replace(/\s*(?:買了|買個|買|吃了|吃個|吃|喝了|喝|花了|花|開了|開|叫了|叫|點了|點|搭了|搭|坐了|坐)$/, '').trim();
                         }
                     }
                 } else if (rawAmount) {
@@ -5947,12 +6130,14 @@
                 }
 
                 // 3. 自動寫入歷史紀錄
+                const finalTimestamp = resolvedTimestamp || new Date().toISOString();
                 const formattedRes = amountVal.toString();
                 calcHistory.unshift({
                     formula: itemName,
                     result: formattedRes,
                     category: category,
-                    timestamp: new Date().toISOString(),
+                    timestamp: finalTimestamp,
+                    addedAt: new Date().toISOString(),
                     currencyFrom: currentFrom,
                     currencyTo: currentTo,
                     convertedResult: lastValidConvertedValue || amountVal,
@@ -5989,12 +6174,502 @@
         const voiceModal = document.getElementById('voice-modal');
         const voiceInputItem = document.getElementById('voice-input-item');
         const voiceInputAmount = document.getElementById('voice-input-amount');
+        const voiceInputDate = document.getElementById('voice-input-date');
+        const voiceInputTime = document.getElementById('voice-input-time');
+        const voiceTimeTag = document.getElementById('voice-time-tag');
+        const voiceRawText = document.getElementById('voice-raw-text');
         const voiceHint = document.getElementById('voice-parsed-hint');
         const voiceCancelBtn = document.getElementById('btn-voice-modal-cancel');
         const voiceConfirmBtn = document.getElementById('btn-voice-modal-confirm');
         const voiceCatChips = document.querySelectorAll('.voice-cat-chip');
 
         let selectedVoiceCategory = 'food';
+        let customVoiceTimestamp = null;
+        let customVoiceDateLabel = '';
+
+        const voiceDateDisplay = document.getElementById('voice-date-display');
+        const voiceTimeDisplay = document.getElementById('voice-time-display');
+        const voiceDateTrigger = document.getElementById('voice-date-trigger');
+        const voiceTimeTrigger = document.getElementById('voice-time-trigger');
+        const voiceCalendarPopover = document.getElementById('voice-calendar-popover');
+        const voiceTimePopover = document.getElementById('voice-time-popover');
+
+        // 當前選擇日期物件
+        let currentModalDate = new Date();
+        // 當前日曆檢視中的年/月
+        let calendarViewYear = currentModalDate.getFullYear();
+        let calendarViewMonth = currentModalDate.getMonth(); // 0-11
+
+        function formatDisplayDate(d) {
+            const pad = n => String(n).padStart(2, '0');
+            return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())}`;
+        }
+
+        function formatDisplayTime(d) {
+            let h = d.getHours();
+            const m = String(d.getMinutes()).padStart(2, '0');
+            const ampm = h >= 12 ? '下午' : '上午';
+            h = h % 12;
+            if (h === 0) h = 12;
+            return `${ampm} ${String(h).padStart(2, '0')}:${m}`;
+        }
+
+        function toDateString(dateObj) {
+            const d = dateObj || new Date();
+            const pad = n => String(n).padStart(2, '0');
+            return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+        }
+
+        function toTimeString(dateObj) {
+            const d = dateObj || new Date();
+            const pad = n => String(n).padStart(2, '0');
+            return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+        }
+
+        function setVoiceModalTime(isoString, label, shouldHighlightWheel = true) {
+            const d = isoString ? new Date(isoString) : new Date();
+            currentModalDate = new Date(d);
+            calendarViewYear = currentModalDate.getFullYear();
+            calendarViewMonth = currentModalDate.getMonth();
+
+            if (voiceInputDate) voiceInputDate.value = toDateString(d);
+            if (voiceInputTime) voiceInputTime.value = toTimeString(d);
+            if (voiceDateDisplay) voiceDateDisplay.textContent = formatDisplayDate(d);
+            if (voiceTimeDisplay) voiceTimeDisplay.textContent = formatDisplayTime(d);
+
+            if (voiceTimeTag) {
+                if (label) {
+                    voiceTimeTag.textContent = label;
+                    voiceTimeTag.style.display = 'inline-block';
+                } else {
+                    const todayStr = new Date().toDateString();
+                    if (d.toDateString() === todayStr) {
+                        voiceTimeTag.textContent = '今天';
+                    } else {
+                        const diffDays = Math.round((new Date().setHours(0,0,0,0) - new Date(d).setHours(0,0,0,0)) / (86400000));
+                        if (diffDays === 1) voiceTimeTag.textContent = '昨天';
+                        else if (diffDays === 2) voiceTimeTag.textContent = '前天';
+                        else if (diffDays > 2) voiceTimeTag.textContent = `${diffDays}天前`;
+                        else voiceTimeTag.textContent = `${d.getMonth()+1}/${d.getDate()}`;
+                    }
+                    voiceTimeTag.style.display = 'inline-block';
+                }
+            }
+            renderCustomCalendar();
+            if (shouldHighlightWheel) {
+                highlightTimePicker();
+            }
+        }
+
+        function closeAllPickers() {
+            if (voiceCalendarPopover) voiceCalendarPopover.style.display = 'none';
+            if (voiceTimePopover) voiceTimePopover.style.display = 'none';
+        }
+
+        // 🌟 渲染毛玻璃月曆
+        function renderCustomCalendar() {
+            const daysContainer = document.getElementById('vpick-calendar-days');
+            const monthTitle = document.getElementById('vpick-cal-month-title');
+            if (!daysContainer || !monthTitle) return;
+
+            monthTitle.textContent = `${calendarViewYear} 年 ${calendarViewMonth + 1} 月`;
+            daysContainer.innerHTML = '';
+
+            const firstDayIndex = new Date(calendarViewYear, calendarViewMonth, 1).getDay();
+            const lastDate = new Date(calendarViewYear, calendarViewMonth + 1, 0).getDate();
+            const prevLastDate = new Date(calendarViewYear, calendarViewMonth, 0).getDate();
+
+            // 上個月多出的幾天
+            for (let i = firstDayIndex; i > 0; i--) {
+                const dayDiv = document.createElement('div');
+                dayDiv.className = 'vpick-day other-month';
+                dayDiv.textContent = prevLastDate - i + 1;
+                daysContainer.appendChild(dayDiv);
+            }
+
+            const today = new Date();
+            for (let day = 1; day <= lastDate; day++) {
+                const dayDiv = document.createElement('div');
+                dayDiv.className = 'vpick-day';
+                dayDiv.textContent = day;
+
+                const isToday = today.getFullYear() === calendarViewYear &&
+                                today.getMonth() === calendarViewMonth &&
+                                today.getDate() === day;
+                if (isToday) dayDiv.classList.add('today');
+
+                const isSelected = currentModalDate.getFullYear() === calendarViewYear &&
+                                  currentModalDate.getMonth() === calendarViewMonth &&
+                                  currentModalDate.getDate() === day;
+                if (isSelected) dayDiv.classList.add('active');
+
+                dayDiv.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    triggerVibration(false);
+                    currentModalDate.setFullYear(calendarViewYear, calendarViewMonth, day);
+                    customVoiceTimestamp = currentModalDate.toISOString();
+                    setVoiceModalTime(customVoiceTimestamp);
+                    closeAllPickers();
+                });
+
+                daysContainer.appendChild(dayDiv);
+            }
+
+            // 更新快捷前天/昨天/今天晶片 active 狀態
+            const chips = document.querySelectorAll('.vpick-quick-chip[data-offset]');
+            const diffDays = Math.round((new Date().setHours(0,0,0,0) - new Date(currentModalDate).setHours(0,0,0,0)) / 86400000);
+            chips.forEach(chip => {
+                const offset = parseInt(chip.dataset.offset, 10);
+                if (-offset === diffDays) chip.classList.add('active');
+                else chip.classList.remove('active');
+            });
+        }
+
+        // 月曆導覽
+        const calPrevBtn = document.getElementById('vpick-cal-prev');
+        const calNextBtn = document.getElementById('vpick-cal-next');
+        if (calPrevBtn) {
+            calPrevBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                triggerVibration(false);
+                calendarViewMonth--;
+                if (calendarViewMonth < 0) {
+                    calendarViewMonth = 11;
+                    calendarViewYear--;
+                }
+                renderCustomCalendar();
+            });
+        }
+        if (calNextBtn) {
+            calNextBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                triggerVibration(false);
+                calendarViewMonth++;
+                if (calendarViewMonth > 11) {
+                    calendarViewMonth = 0;
+                    calendarViewYear++;
+                }
+                renderCustomCalendar();
+            });
+        }
+
+        // 月曆快捷標籤 (前天 / 昨天 / 今天)
+        document.querySelectorAll('.vpick-quick-chip[data-offset]').forEach(chip => {
+            chip.addEventListener('click', (e) => {
+                e.stopPropagation();
+                triggerVibration(false);
+                const offset = parseInt(chip.dataset.offset, 10);
+                const targetD = new Date();
+                targetD.setDate(targetD.getDate() + offset);
+                currentModalDate.setFullYear(targetD.getFullYear(), targetD.getMonth(), targetD.getDate());
+                calendarViewYear = currentModalDate.getFullYear();
+                calendarViewMonth = currentModalDate.getMonth();
+                customVoiceTimestamp = currentModalDate.toISOString();
+                setVoiceModalTime(customVoiceTimestamp);
+                closeAllPickers();
+            });
+        });
+
+        // 🌟 初始化時間選擇面板與滾輪滾動拖曳觸覺監聽
+        let isProgrammaticScroll = false;
+        let lastScrolledHour = null;
+        let lastScrolledMin = null;
+        let lastScrolledAmpm = null;
+
+        function initTimePickerDOM() {
+            const hoursCol = document.getElementById('vpick-time-hours');
+            const minsCol = document.getElementById('vpick-time-minutes');
+            const ampmCol = document.getElementById('vpick-time-ampm');
+            if (!hoursCol || !minsCol || hoursCol.children.length > 0) return;
+
+            // 1-12 小時
+            for (let h = 1; h <= 12; h++) {
+                const item = document.createElement('div');
+                item.className = 'vpick-time-item';
+                item.dataset.val = h;
+                item.textContent = String(h).padStart(2, '0') + ' 點';
+                item.addEventListener('click', () => {
+                    scrollWheelToItem(hoursCol, item, true);
+                });
+                hoursCol.appendChild(item);
+            }
+
+            // 00-59 分鐘
+            for (let m = 0; m < 60; m++) {
+                const item = document.createElement('div');
+                item.className = 'vpick-time-item';
+                item.dataset.val = m;
+                item.textContent = String(m).padStart(2, '0') + ' 分';
+                item.addEventListener('click', () => {
+                    scrollWheelToItem(minsCol, item, true);
+                });
+                minsCol.appendChild(item);
+            }
+
+            // 點擊 AM/PM 項目
+            if (ampmCol) {
+                ampmCol.querySelectorAll('.vpick-time-item').forEach(item => {
+                    item.addEventListener('click', () => {
+                        scrollWheelToItem(ampmCol, item, true);
+                    });
+                });
+            }
+
+            // 綁定各輪盤滑動 / 拖曳監聽器 (支援手機觸控 drag、滾輪與 inertia momentum)
+            setupWheelScrollListener(ampmCol, (activeItem) => {
+                const val = activeItem.dataset.val;
+                if (val !== lastScrolledAmpm) {
+                    lastScrolledAmpm = val;
+                    triggerVibration(false); // 觸覺齒輪感回饋
+                }
+                let curH = currentModalDate.getHours();
+                if (val === 'PM' && curH < 12) curH += 12;
+                else if (val === 'AM' && curH >= 12) curH -= 12;
+                currentModalDate.setHours(curH);
+                customVoiceTimestamp = currentModalDate.toISOString();
+                setVoiceModalTime(customVoiceTimestamp, '', false); // 不重新觸發 scroll
+            });
+
+            setupWheelScrollListener(hoursCol, (activeItem) => {
+                const h = parseInt(activeItem.dataset.val, 10);
+                if (h !== lastScrolledHour) {
+                    lastScrolledHour = h;
+                    triggerVibration(false); // 觸覺齒輪感回饋
+                }
+                const isPM = document.querySelector('#vpick-time-ampm .active')?.dataset.val === 'PM';
+                let hour24 = h;
+                if (isPM && h < 12) hour24 += 12;
+                if (!isPM && h === 12) hour24 = 0;
+                currentModalDate.setHours(hour24);
+                customVoiceTimestamp = currentModalDate.toISOString();
+                setVoiceModalTime(customVoiceTimestamp, '', false);
+            });
+
+            setupWheelScrollListener(minsCol, (activeItem) => {
+                const m = parseInt(activeItem.dataset.val, 10);
+                if (m !== lastScrolledMin) {
+                    lastScrolledMin = m;
+                    triggerVibration(false); // 觸覺齒輪感回饋
+                }
+                currentModalDate.setMinutes(m);
+                customVoiceTimestamp = currentModalDate.toISOString();
+                setVoiceModalTime(customVoiceTimestamp, '', false);
+            });
+
+            // 現在時間按鈕
+            const timeNowBtn = document.getElementById('vpick-time-now');
+            if (timeNowBtn) {
+                timeNowBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    triggerVibration(false);
+                    const now = new Date();
+                    currentModalDate.setHours(now.getHours(), now.getMinutes());
+                    customVoiceTimestamp = currentModalDate.toISOString();
+                    setVoiceModalTime(customVoiceTimestamp);
+                });
+            }
+
+            // 確定按鈕
+            const timeDoneBtn = document.getElementById('vpick-time-done');
+            if (timeDoneBtn) {
+                timeDoneBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    triggerVibration(false);
+                    closeAllPickers();
+                });
+            }
+        }
+
+        // 計算滾輪中央最接近的 item 並高亮，觸發回調，並支援【電腦滑鼠按住拖曳】與【滑鼠滾輪滾動】
+        function setupWheelScrollListener(colEl, onSelectCallback) {
+            if (!colEl) return;
+            let scrollTimer = null;
+
+            // 1. 原生 scroll 監聽（監控中央 item 與觸發齒輪回饋）
+            colEl.addEventListener('scroll', () => {
+                if (isProgrammaticScroll) return;
+
+                const colRect = colEl.getBoundingClientRect();
+                const centerY = colRect.top + colRect.height / 2;
+                const items = colEl.querySelectorAll('.vpick-time-item');
+
+                let closestItem = null;
+                let minDiff = Infinity;
+
+                items.forEach(item => {
+                    const itemRect = item.getBoundingClientRect();
+                    const itemCenterY = itemRect.top + itemRect.height / 2;
+                    const diff = Math.abs(centerY - itemCenterY);
+                    if (diff < minDiff) {
+                        minDiff = diff;
+                        closestItem = item;
+                    }
+                });
+
+                if (closestItem && !closestItem.classList.contains('active')) {
+                    items.forEach(it => it.classList.remove('active'));
+                    closestItem.classList.add('active');
+                    if (typeof onSelectCallback === 'function') {
+                        onSelectCallback(closestItem);
+                    }
+                }
+
+                // 拖曳結束時防抖吸附對齊
+                clearTimeout(scrollTimer);
+                scrollTimer = setTimeout(() => {
+                    if (closestItem && minDiff > 2) {
+                        scrollWheelToItem(colEl, closestItem, false);
+                    }
+                }, 120);
+            }, { passive: true });
+
+            // 2. 🖱️ 電腦滑鼠按住拖曳 (Mouse Drag to Scroll)
+            let isMouseDown = false;
+            let startY = 0;
+            let scrollTopStart = 0;
+            let hasMoved = false;
+
+            colEl.addEventListener('mousedown', (e) => {
+                // 僅響應滑鼠左鍵
+                if (e.button !== 0) return;
+                isMouseDown = true;
+                hasMoved = false;
+                startY = e.pageY - colEl.offsetTop;
+                scrollTopStart = colEl.scrollTop;
+                colEl.classList.add('is-dragging');
+            });
+
+            window.addEventListener('mousemove', (e) => {
+                if (!isMouseDown) return;
+                e.preventDefault();
+                const y = e.pageY - colEl.offsetTop;
+                const walk = (y - startY) * 1.2; // 拖曳靈敏度倍率
+                if (Math.abs(walk) > 3) {
+                    hasMoved = true;
+                }
+                colEl.scrollTop = scrollTopStart - walk;
+            });
+
+            window.addEventListener('mouseup', () => {
+                if (!isMouseDown) return;
+                isMouseDown = false;
+                colEl.classList.remove('is-dragging');
+                // 結束拖曳後，自動吸附至最近的中央刻度
+                if (hasMoved) {
+                    setTimeout(() => {
+                        snapWheelToCenter(colEl);
+                    }, 20);
+                }
+            });
+
+            // 3. 🖱️ 支援電腦滑鼠直覺滾輪滾動
+            colEl.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                colEl.scrollTop += e.deltaY;
+            }, { passive: false });
+        }
+
+        function snapWheelToCenter(colEl) {
+            if (!colEl) return;
+            const colRect = colEl.getBoundingClientRect();
+            const centerY = colRect.top + colRect.height / 2;
+            const items = colEl.querySelectorAll('.vpick-time-item');
+            let closestItem = null;
+            let minDiff = Infinity;
+            items.forEach(item => {
+                const itemRect = item.getBoundingClientRect();
+                const diff = Math.abs(centerY - (itemRect.top + itemRect.height / 2));
+                if (diff < minDiff) {
+                    minDiff = diff;
+                    closestItem = item;
+                }
+            });
+            if (closestItem) {
+                scrollWheelToItem(colEl, closestItem, true);
+            }
+        }
+
+        function scrollWheelToItem(colEl, itemEl, smooth = true) {
+            if (!colEl || !itemEl) return;
+            isProgrammaticScroll = true;
+            const targetTop = itemEl.offsetTop - (colEl.clientHeight / 2) + (itemEl.clientHeight / 2);
+            colEl.scrollTo({
+                top: Math.max(0, targetTop),
+                behavior: smooth ? 'smooth' : 'auto'
+            });
+            colEl.querySelectorAll('.vpick-time-item').forEach(it => it.classList.remove('active'));
+            itemEl.classList.add('active');
+            setTimeout(() => { isProgrammaticScroll = false; }, smooth ? 260 : 30);
+        }
+
+        function highlightTimePicker() {
+            initTimePickerDOM();
+            const h = currentModalDate.getHours();
+            const m = currentModalDate.getMinutes();
+            const isPM = h >= 12;
+            let displayH = h % 12;
+            if (displayH === 0) displayH = 12;
+
+            // AM/PM
+            const ampmCol = document.getElementById('vpick-time-ampm');
+            if (ampmCol) {
+                const targetVal = isPM ? 'PM' : 'AM';
+                const activeAmpm = ampmCol.querySelector(`.vpick-time-item[data-val="${targetVal}"]`);
+                if (activeAmpm) scrollWheelToItem(ampmCol, activeAmpm, false);
+            }
+
+            // 小時
+            const hoursCol = document.getElementById('vpick-time-hours');
+            if (hoursCol) {
+                const activeH = hoursCol.querySelector(`.vpick-time-item[data-val="${displayH}"]`);
+                if (activeH) scrollWheelToItem(hoursCol, activeH, false);
+            }
+
+            // 分鐘
+            const minsCol = document.getElementById('vpick-time-minutes');
+            if (minsCol) {
+                const activeM = minsCol.querySelector(`.vpick-time-item[data-val="${m}"]`);
+                if (activeM) scrollWheelToItem(minsCol, activeM, false);
+            }
+        }
+
+        // 綁定點擊欄位開啟自訂彈窗
+        if (voiceDateTrigger) {
+            voiceDateTrigger.addEventListener('click', (e) => {
+                e.stopPropagation();
+                triggerVibration(false);
+                const isOpen = voiceCalendarPopover.style.display === 'block';
+                closeAllPickers();
+                if (!isOpen) {
+                    renderCustomCalendar();
+                    voiceCalendarPopover.style.display = 'block';
+                }
+            });
+        }
+
+        if (voiceTimeTrigger) {
+            voiceTimeTrigger.addEventListener('click', (e) => {
+                e.stopPropagation();
+                triggerVibration(false);
+                const isOpen = voiceTimePopover.style.display === 'block';
+                closeAllPickers();
+                if (!isOpen) {
+                    highlightTimePicker();
+                    voiceTimePopover.style.display = 'block';
+                }
+            });
+        }
+
+        // 點擊 Modal 任意非 Popover 區域關閉彈窗
+        if (voiceModal) {
+            voiceModal.addEventListener('click', (e) => {
+                if (!e.target.closest('.voice-picker-popover') &&
+                    !e.target.closest('#voice-date-trigger') &&
+                    !e.target.closest('#voice-time-trigger')) {
+                    closeAllPickers();
+                }
+            });
+        }
 
         if (voiceCatChips) {
             voiceCatChips.forEach(chip => {
@@ -6015,6 +6690,10 @@
 
             function closeVoiceModal() {
                 isRecognizing = false;
+                customVoiceTimestamp = null;
+                customVoiceDateLabel = '';
+                closeAllPickers();
+                if (voiceRawText) voiceRawText.textContent = "正在聆聽中...";
                 if (voiceModal) voiceModal.classList.remove('show');
                 if (voiceBtn) voiceBtn.classList.remove('is-listening');
                 if (activeAudioStream) {
@@ -6046,13 +6725,24 @@
 
                     const finalItem = itemVal || '語音速記';
                     const finalAmt = isNaN(amtVal) ? 0 : amtVal;
+                    let finalTimestamp = customVoiceTimestamp;
+                    const dateVal = voiceInputDate ? voiceInputDate.value : '';
+                    const timeVal = voiceInputTime ? voiceInputTime.value : '';
+                    if (dateVal) {
+                        const parsedManual = new Date(`${dateVal}T${timeVal || '12:00'}`);
+                        if (!isNaN(parsedManual.getTime())) {
+                            finalTimestamp = parsedManual.toISOString();
+                        }
+                    }
+                    if (!finalTimestamp) finalTimestamp = new Date().toISOString();
 
                     // 直接寫入歷史紀錄
                     calcHistory.unshift({
                         formula: finalItem,
                         result: finalAmt.toString(),
                         category: selectedVoiceCategory,
-                        timestamp: new Date().toISOString(),
+                        timestamp: finalTimestamp,
+                        addedAt: new Date().toISOString(),
                         currencyFrom: currentFrom,
                         currencyTo: currentTo,
                         convertedResult: lastValidConvertedValue || finalAmt,
@@ -6065,7 +6755,8 @@
                     if (typeof renderHistory === 'function') renderHistory();
 
                     const catEmoji = selectedVoiceCategory === 'food' ? '🍜' : (selectedVoiceCategory === 'shopping' ? '🛍️' : (selectedVoiceCategory === 'transport' ? '🚗' : '🏷️'));
-                    showToastMsg(`🎙️ 已記帳：${finalItem} ${catEmoji} $${finalAmt}`);
+                    const timeHint = customVoiceDateLabel ? ` (${customVoiceDateLabel})` : '';
+                    showToastMsg(`🎙️ 已記帳：${finalItem} ${catEmoji} $${finalAmt}${timeHint}`);
                     closeVoiceModal();
                 });
             }
@@ -6092,6 +6783,8 @@
                         voiceBtn.classList.add('is-listening');
                         if (voiceInputItem) voiceInputItem.value = '';
                         if (voiceInputAmount) voiceInputAmount.value = '';
+                        if (voiceRawText) voiceRawText.textContent = "🎙️ 聆聽中...";
+                        setVoiceModalTime(new Date().toISOString(), '今天');
                         if (voiceHint) voiceHint.textContent = I18N[currentLang].voiceListeningHint || "🎙️ 正在即時收音辨識中...";
                         
                         // 自動以 IP 定位為主、GPS 定位為輔動態更新金額後方之幣別標籤
@@ -6124,9 +6817,21 @@
                         const currentText = (finalTranscript + ' ' + interimTranscript).trim();
                         if (currentText) {
                             lastRecognizedText = currentText;
+                            if (voiceRawText) voiceRawText.textContent = currentText;
+
+                            // 0. 本地先抽取「昨天/前天/大前天/今天/幾點」等時間資訊
+                            const dateExtract = parseVoiceRelativeDateTime(currentText);
+                            if (dateExtract && dateExtract.timestamp) {
+                                customVoiceTimestamp = dateExtract.timestamp;
+                                customVoiceDateLabel = dateExtract.dateDisplay || '';
+                                setVoiceModalTime(customVoiceTimestamp, customVoiceDateLabel);
+                            }
+
+                            const parseSubjectText = dateExtract ? dateExtract.cleanText : currentText;
+                            const isFinalEvent = event.results[event.results.length - 1].isFinal;
 
                             // 1. 先嘗試自然語言表達式解析（例如：便當50加跟號10000、35乘3咖啡）
-                            const exprRes = parseVoiceExpression(currentText);
+                            const exprRes = parseVoiceExpression(parseSubjectText);
                             if (exprRes) {
                                 if (voiceInputItem) voiceInputItem.value = exprRes.item;
                                 if (voiceInputAmount) voiceInputAmount.value = exprRes.amount;
@@ -6143,15 +6848,21 @@
                                         c.classList.toggle('active', c.dataset.cat === selectedVoiceCategory);
                                     });
                                 }
-                                if (voiceHint) voiceHint.textContent = `✨ 智慧算式解析：${exprRes.item} $${exprRes.amount} (${exprRes.expr})`;
+                                const timeStr = customVoiceDateLabel ? ` [${customVoiceDateLabel}]` : '';
+                                if (voiceHint) voiceHint.textContent = `✨ 智慧算式解析${timeStr}：${exprRes.item} $${exprRes.amount} (${exprRes.expr})`;
                                 return;
                             }
 
-                            // 2. 基礎數字提取
-                            const matchNum = currentText.match(/(\d+(?:\.\d+)?)/);
+                            // 3. 基礎數字提取
+                            const matchNum = parseSubjectText.match(/(\d+(?:\.\d+)?)/);
                             if (matchNum) {
                                 const amt = parseFloat(matchNum[1]);
-                                const itemName = currentText.replace(matchNum[1], '').replace(/元|塊錢|塊/g, '').trim() || '語音速記';
+                                let itemName = parseSubjectText.replace(matchNum[1], '').replace(/元|塊錢|塊/g, '').trim();
+                                // 清理品名末端或前端常黏連的贅動詞（例如：晚餐「吃」、咖啡「喝」、高鐵「坐/搭」）
+                                itemName = itemName.replace(/^(?:買了|買個|買|吃了|吃個|吃|喝了|喝|花了|花|開了|開|叫了|叫|點了|點|搭了|搭|坐了|坐)\s*/, '');
+                                itemName = itemName.replace(/\s*(?:買了|買個|買|吃了|吃個|吃|喝了|喝|花了|花|開了|開|叫了|叫|點了|點|搭了|搭|坐了|坐)$/, '');
+                                itemName = itemName.trim() || '語音速記';
+
                                 if (voiceInputItem) voiceInputItem.value = itemName;
                                 if (voiceInputAmount) voiceInputAmount.value = amt;
 
@@ -6169,16 +6880,18 @@
                                     });
                                 }
 
-                                if (voiceHint) voiceHint.textContent = `✨ 已自動辨識帶入，可點擊上方輸入框修改`;
+                                const timeStr = customVoiceDateLabel ? ` [${customVoiceDateLabel}]` : '';
+                                if (voiceHint) voiceHint.textContent = `✨ 已自動辨識帶入${timeStr}，可點擊上方輸入框修改`;
                             } else {
-                                if (voiceInputItem) voiceInputItem.value = currentText;
+                                if (voiceInputItem) voiceInputItem.value = parseSubjectText;
                                 if (voiceHint) voiceHint.textContent = `🗣️ 語音辨識中：${currentText}`;
 
-                                // 若包含運算字眼但本地表達式未捕捉，且是 finalTranscript，調用 Gemini API
-                                if (event.results[event.results.length - 1].isFinal && /加|減|乘|除|根|跟|百|千|萬|平方/.test(currentText)) {
+                                // 若本地未成功提取數字，且為最終識別 (isFinal)，調用 Gemini API 智能中英台語解析
+                                if (isFinalEvent && (currentText.length >= 2)) {
+                                    if (voiceHint) voiceHint.textContent = `🤖 AI 正在智能解析中英/台語語意...`;
                                     parseVoiceWithGeminiApi(currentText).then(aiRes => {
                                         if (aiRes && aiRes.amount) {
-                                            if (voiceInputItem) voiceInputItem.value = aiRes.item || currentText;
+                                            if (voiceInputItem) voiceInputItem.value = aiRes.item || parseSubjectText;
                                             if (voiceInputAmount) voiceInputAmount.value = aiRes.amount;
                                             if (aiRes.category) {
                                                 selectedVoiceCategory = aiRes.category;
@@ -6188,7 +6901,13 @@
                                                     });
                                                 }
                                             }
-                                            if (voiceHint) voiceHint.textContent = `✨ AI 智能解析完成：${aiRes.item} $${aiRes.amount}`;
+                                            if (aiRes.date) {
+                                                customVoiceTimestamp = parseInvoiceDateToISO(aiRes.date);
+                                                customVoiceDateLabel = aiRes.date.slice(0, 10);
+                                                setVoiceModalTime(customVoiceTimestamp, customVoiceDateLabel);
+                                            }
+                                            const timeStr = customVoiceDateLabel ? ` [${customVoiceDateLabel}]` : '';
+                                            if (voiceHint) voiceHint.textContent = `✨ AI 智能解析完成${timeStr}：${aiRes.item} $${aiRes.amount}`;
                                         }
                                     }).catch(e => console.warn(e));
                                 }
@@ -6211,11 +6930,36 @@
 
                     recognition.onend = () => {
                         if (isRecognizing && lastRecognizedText && voiceModal && voiceModal.classList.contains('show')) {
+                            const currentValAmt = voiceInputAmount ? parseFloat(voiceInputAmount.value) : NaN;
+                            // 若結束時金額尚未解析出，且有字串，主動觸發 Gemini API 解析
+                            if (isNaN(currentValAmt) || currentValAmt <= 0) {
+                                parseVoiceWithGeminiApi(lastRecognizedText).then(aiRes => {
+                                    if (aiRes && aiRes.amount) {
+                                        if (voiceInputItem) voiceInputItem.value = aiRes.item || lastRecognizedText;
+                                        if (voiceInputAmount) voiceInputAmount.value = aiRes.amount;
+                                        if (aiRes.category) {
+                                            selectedVoiceCategory = aiRes.category;
+                                            if (voiceCatChips) {
+                                                voiceCatChips.forEach(c => {
+                                                    c.classList.toggle('active', c.dataset.cat === selectedVoiceCategory);
+                                                });
+                                            }
+                                        }
+                                        if (aiRes.date) {
+                                            customVoiceTimestamp = parseInvoiceDateToISO(aiRes.date);
+                                            customVoiceDateLabel = aiRes.date.slice(0, 10);
+                                            setVoiceModalTime(customVoiceTimestamp, customVoiceDateLabel);
+                                        }
+                                        const timeStr = customVoiceDateLabel ? ` [${customVoiceDateLabel}]` : '';
+                                        if (voiceHint) voiceHint.textContent = `✨ AI 智能解析完成${timeStr}：${aiRes.item} $${aiRes.amount}`;
+                                    }
+                                });
+                            }
                             const urlParams = new URLSearchParams();
                             urlParams.set('item', lastRecognizedText);
                             window.history.replaceState({}, '', window.location.pathname + '?' + urlParams.toString());
                             handleVoiceUrlParams();
-                            setTimeout(closeVoiceModal, 1200);
+                            setTimeout(closeVoiceModal, 1500);
                         } else {
                             voiceBtn.classList.remove('is-listening');
                         }
