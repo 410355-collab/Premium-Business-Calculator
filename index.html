@@ -384,6 +384,11 @@
                     <div class="setting-arrow-link">❯</div>
                 </div>
 
+                <div class="setting-row clickable" id="btn-open-excel-settings">
+                    <span class="setting-label" data-i18n="labelExcelSettings">EXCEL EXPORT</span>
+                    <div class="setting-arrow-link">❯</div>
+                </div>
+
                 <div class="setting-row clickable" id="btn-open-tax">
                     <span class="setting-label" data-i18n="labelTaxRates">TAX RATES</span>
                     <div class="setting-arrow-link">❯</div>
@@ -614,6 +619,114 @@
             </div>
         </div>
 
+        <!-- 獨立 Excel 匯出設定頁面 -->
+        <div class="overlay-menu" id="excel-settings-menu">
+            <div class="overlay-title" data-i18n="excelSettingsTitle">EXCEL EXPORT SETTINGS</div>
+            <div class="setting-box">
+                <!-- 匯出時間範圍 -->
+                <div class="setting-row" style="flex-direction:column;align-items:flex-start;gap:6px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;width:100%;">
+                        <span class="setting-label" data-i18n="excelDateRangeLabel">EXPORT RANGE</span>
+                        <div class="option-selector" id="excel-range-selector">
+                            <button class="selector-btn excel-range-btn active" data-range="all" data-i18n="excelRangeAll">全部</button>
+                            <button class="selector-btn excel-range-btn" data-range="today" data-i18n="excelRangeToday">今天</button>
+                            <button class="selector-btn excel-range-btn" data-range="7days" data-i18n="excelRange7Days">近7天</button>
+                            <button class="selector-btn excel-range-btn" data-range="30days" data-i18n="excelRange30Days">近30天</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 包含分類項目多選 -->
+                <div class="setting-row" style="flex-direction:column;align-items:flex-start;gap:6px;">
+                    <span class="setting-label" data-i18n="excelCategoriesLabel">INCLUDE CATEGORIES</span>
+                    <div class="excel-category-chips" id="excel-cat-chips">
+                        <div class="excel-chip active" data-cat="food"><span class="chip-check">✓</span> 🍜 <span data-i18n="catFood">食</span></div>
+                        <div class="excel-chip active" data-cat="shopping"><span class="chip-check">✓</span> 🛍️ <span data-i18n="catShopping">購物</span></div>
+                        <div class="excel-chip active" data-cat="transport"><span class="chip-check">✓</span> 🚗 <span data-i18n="catTransport">行</span></div>
+                        <div class="excel-chip active" data-cat="other"><span class="chip-check">✓</span> 🏷️ <span data-i18n="catOther">其他</span></div>
+                    </div>
+                </div>
+
+                <!-- 欄位自訂顯示開關組 -->
+                <div class="excel-settings-group-title" data-i18n="excelGroupColumns">COLUMNS TO EXPORT</div>
+
+                <div class="setting-row">
+                    <span class="setting-label" data-i18n="excelColTaxLabel">TAX STATUS COLUMN</span>
+                    <label class="switch"><input type="checkbox" id="excel-opt-tax" checked><span class="slider"></span></label>
+                </div>
+
+                <div class="setting-row">
+                    <span class="setting-label" data-i18n="excelColForeignLabel">FOREIGN & TRANSLATION</span>
+                    <label class="switch"><input type="checkbox" id="excel-opt-foreign" checked><span class="slider"></span></label>
+                </div>
+
+                <div class="setting-row">
+                    <span class="setting-label" data-i18n="excelColConvertedLabel">CONVERTED RESULT & TARGET</span>
+                    <label class="switch"><input type="checkbox" id="excel-opt-converted" checked><span class="slider"></span></label>
+                </div>
+
+                <!-- 統計與分析區塊 -->
+                <div class="excel-settings-group-title" data-i18n="excelGroupAnalysis">STATISTICS & FORMULAS</div>
+
+                <div class="setting-row">
+                    <span class="setting-label" data-i18n="excelOptSummaryBlock">CATEGORY SUMIF STATS</span>
+                    <label class="switch"><input type="checkbox" id="excel-opt-summary-block" checked><span class="slider"></span></label>
+                </div>
+
+                <div class="setting-row">
+                    <span class="setting-label" data-i18n="excelOptFlattenSubItems">EXPAND RECEIPT ITEMS</span>
+                    <label class="switch"><input type="checkbox" id="excel-opt-flatten" checked><span class="slider"></span></label>
+                </div>
+
+                <div class="setting-row">
+                    <span class="setting-label" data-i18n="excelOptSplitByDate">SPLIT FILES BY DATE</span>
+                    <label class="switch"><input type="checkbox" id="excel-opt-split-by-date"><span class="slider"></span></label>
+                </div>
+
+                <!-- 檔名與工作表名稱自訂 -->
+                <div class="excel-settings-group-title" data-i18n="excelGroupNames">FILENAME & SHEET NAME</div>
+
+                <div class="setting-row" style="flex-direction:column;align-items:flex-start;gap:6px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;width:100%;">
+                        <span class="setting-label" data-i18n="excelFileNamePrefixLabel">FILE PREFIX</span>
+                        <input type="text" class="excel-name-input" id="excel-file-prefix" placeholder="BusinessCalc" value="BusinessCalc">
+                    </div>
+                </div>
+
+                <div class="setting-row" style="flex-direction:column;align-items:flex-start;gap:6px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;width:100%;">
+                        <span class="setting-label" data-i18n="excelSheetNameLabel">SHEET NAME</span>
+                        <input type="text" class="excel-name-input" id="excel-sheet-name" placeholder="記帳明細" data-i18n-placeholder="excelDetailSheet" value="記帳明細">
+                    </div>
+                </div>
+
+                <div class="setting-row" style="flex-direction:column;align-items:flex-start;gap:8px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;width:100%;">
+                        <span class="setting-label" data-i18n="excelSaveLocationLabel">SAVE LOCATION</span>
+                        <div class="option-selector" id="excel-location-selector">
+                            <button class="selector-btn excel-location-btn active" data-location="downloads" data-i18n="excelLocDownloads">下載資料夾</button>
+                            <button class="selector-btn excel-location-btn" data-location="custom" data-i18n="excelLocCustom">指定資料夾</button>
+                        </div>
+                    </div>
+                    <!-- 當選擇「指定資料夾」時顯示目前選取的資料夾路徑與變更按鈕 -->
+                    <div id="excel-custom-folder-row" class="excel-custom-folder-box" style="display:none;width:100%;">
+                        <div class="excel-folder-display">
+                            <span class="excel-folder-icon">📁</span>
+                            <span class="excel-folder-name" id="excel-custom-folder-name" data-i18n="excelNoFolderSelected">未指定資料夾 (點擊指定)</span>
+                        </div>
+                        <button type="button" class="excel-choose-folder-btn" id="btn-excel-pick-folder" data-i18n="excelBtnPickFolder">選擇資料夾</button>
+                    </div>
+                    <div class="setting-hint-text" id="excel-loc-hint-text" data-i18n="excelLocHint" style="font-size:10.5px;color:var(--text-muted);opacity:0.8;line-height:1.4;margin-top:2px;">
+                        * 選擇「指定資料夾」後，點擊可挑選電腦中的任意目錄，以後匯出將直接儲存於該資料夾。
+                    </div>
+                </div>
+            </div>
+            <div class="btn-group">
+                <div class="clear-btn" id="btn-excel-settings-reset" data-i18n="btnReset">RESET</div>
+                <div class="done-btn" id="btn-excel-settings-back" data-i18n="btnBack">BACK</div>
+            </div>
+        </div>
+
         <!-- 掃描記帳操作頁 -->
         <div class="overlay-menu" id="ai-scan-menu">
             <div class="overlay-title" data-i18n="aiScanTitle">掃描記帳</div>
@@ -737,46 +850,7 @@
                 <div class="clear-btn" id="btn-history-clear" data-i18n="btnClear">CLEAR</div>
                 <div class="share-btn share-line-btn" id="btn-history-share" data-i18n="btnShareLine">COPY ALL</div>
                 <div class="share-btn excel-btn" id="btn-history-export-excel" data-i18n="btnExportExcel">EXCEL</div>
-                <div class="share-btn travel-report-btn" id="btn-history-travel-report" data-i18n="btnHistoryTravelReport">TRAVEL REPORT</div>
                 <div class="done-btn" id="btn-history-done" data-i18n="btnClose">CLOSE</div>
-            </div>
-        </div>
-
-        <!-- 旅行總支出報告 Modal -->
-        <div class="modal-overlay" id="travel-summary-modal" style="display:none">
-            <div class="modal-card travel-summary-card">
-                <div class="modal-section-label" data-i18n="travelReportTitle">✈️ 旅行總支出報告</div>
-                
-                <div class="travel-total-hero">
-                    <div class="travel-hero-label" data-i18n="travelTotalExpense">旅行總支出 (已換算 TWD)</div>
-                    <div class="travel-hero-val" id="travel-hero-amount">NT$ 0</div>
-                </div>
-
-                <div class="travel-sections-wrap">
-                    <!-- 多幣別明細 -->
-                    <div class="travel-block">
-                        <div class="travel-block-title" data-i18n="travelCurrencyBreakdown">🔱 多幣別支出明細</div>
-                        <div class="travel-block-content" id="travel-curr-list"></div>
-                    </div>
-
-                    <!-- 類別明細 -->
-                    <div class="travel-block">
-                        <div class="travel-block-title" data-i18n="travelCategoryBreakdown">🏷️ 消費類別統計</div>
-                        <div class="travel-block-content" id="travel-cat-list"></div>
-                    </div>
-
-                    <!-- 熱門地點 -->
-                    <div class="travel-block">
-                        <div class="travel-block-title" data-i18n="travelTopLocations">📍 熱門消費地點</div>
-                        <div class="travel-block-content" id="travel-loc-list"></div>
-                    </div>
-                </div>
-
-                <div class="travel-modal-actions">
-                    <button class="ai-btn-secondary" id="btn-copy-travel-report" data-i18n="copyReportBtn">📋 複製報告</button>
-                    <button class="ai-btn-secondary highlight" id="btn-export-travel-excel" data-i18n="btnExportTravelExcel">📊 匯出 EXCEL</button>
-                    <button class="done-btn" id="btn-close-travel-modal" data-i18n="btnClose">CLOSE</button>
-                </div>
             </div>
         </div>
 

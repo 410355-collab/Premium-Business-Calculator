@@ -45,7 +45,7 @@
 
     function checkSmallScreenThreshold() {
         const isTooSmall = isScreenTooSmall();
-        ['btn-open-keyboard', 'btn-open-style', 'btn-open-tax', 'btn-open-rates'].forEach(id => {
+        ['btn-open-keyboard', 'btn-open-style', 'btn-open-excel-settings', 'btn-open-tax', 'btn-open-rates'].forEach(id => {
             const el = document.getElementById(id);
             if (el) {
                 if (isTooSmall) {
@@ -133,6 +133,32 @@
     const KEY_KEYBOARD_LAYOUT = 'bCalc_keyboard_layout';
     const KEY_CATEGORY_BUBBLE = 'bCalc_category_bubble';
     const KEY_LARGE_NUMBER_FORMAT = 'bCalc_large_number_format';
+    const KEY_EXCEL_SETTINGS = 'bCalc_excel_settings';
+
+    const DEFAULT_EXCEL_CONFIG = {
+        dateRange: 'all',          // 'all' | 'today' | '7days' | '30days'
+        categories: ['food', 'shopping', 'transport', 'other'],
+        includeTax: true,
+        includeForeign: true,
+        includeConverted: true,
+        summaryBlock: true,
+        flattenSubItems: true,
+        splitByDate: false,        // 是否按照日期每天分檔案
+        saveLocation: 'downloads', // 'downloads' | 'custom'
+        customDirName: '',         // 使用者自選資料夾的名稱
+        filePrefix: 'BusinessCalc',
+        sheetName: '記帳明細'
+    };
+
+    let excelExportConfig = { ...DEFAULT_EXCEL_CONFIG };
+    try {
+        const savedExcelConf = localStorage.getItem(KEY_EXCEL_SETTINGS);
+        if (savedExcelConf) {
+            excelExportConfig = { ...DEFAULT_EXCEL_CONFIG, ...JSON.parse(savedExcelConf) };
+        }
+    } catch (e) {
+        excelExportConfig = { ...DEFAULT_EXCEL_CONFIG };
+    }
 
     let isCategoryBubbleEnabled = localStorage.getItem(KEY_CATEGORY_BUBBLE) !== 'false';
     let largeNumberFormat = localStorage.getItem(KEY_LARGE_NUMBER_FORMAT) || 'full';
@@ -2258,7 +2284,7 @@
         });
     }
 
-    /* 📊 輸出為正規 Excel (.xlsx) 檔案 (支援樞紐分析) */
+    /* 📊 輸出為正規 Excel (.xlsx) 檔案 (支援樞紐分析與進階設定) */
     async function exportHistoryExcel() {
         triggerVibration(false);
         if (!calcHistory || calcHistory.length === 0) {
@@ -2275,29 +2301,60 @@
             }
         }
 
-        // 篩選：分類「商務 (business)」不需要匯出成 Excel
-        const exportItems = calcHistory.filter(item => (item.category || 'business') !== 'business');
+        // 1. 基礎篩選：排除商務計算 (business)
+        let exportItems = calcHistory.filter(item => (item.category || 'business') !== 'business');
+
+        // 2. 依據 excelExportConfig.categories 進行分類篩選
+        const allowedCats = Array.isArray(excelExportConfig.categories) && excelExportConfig.categories.length > 0
+            ? excelExportConfig.categories
+            : ['food', 'shopping', 'transport', 'other'];
+        exportItems = exportItems.filter(item => allowedCats.includes(item.category || 'other'));
+
+        // 3. 依據 excelExportConfig.dateRange 進行時間範圍篩選
+        const range = excelExportConfig.dateRange || 'all';
+        if (range !== 'all') {
+            const now = new Date();
+            let startLimit = 0;
+            if (range === 'today') {
+                const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+                startLimit = todayStart;
+            } else if (range === '7days') {
+                startLimit = now.getTime() - (7 * 24 * 60 * 60 * 1000);
+            } else if (range === '30days') {
+                startLimit = now.getTime() - (30 * 24 * 60 * 60 * 1000);
+            }
+            if (startLimit > 0) {
+                exportItems = exportItems.filter(item => (item.timestamp || 0) >= startLimit);
+            }
+        }
+
         if (exportItems.length === 0) {
             showToastMsg(I18N[currentLang].toastNoExcelItems || "NO EXPENSE RECORDS (BUSINESS EXCLUDED)");
             return;
         }
 
         try {
-            const summarySheetName = I18N[currentLang].excelSummarySheet || "分類統計圖表";
-            const detailSheetName = I18N[currentLang].excelDetailSheet || "記帳明細";
+            const detailSheetName = (excelExportConfig.sheetName && excelExportConfig.sheetName.trim()) 
+                || (I18N[currentLang].excelDetailSheet || "記帳明細");
 
-            // 📋 1. 展平處理發票與明細（若為整張收據，將內含商品個別拆分為明細列）
+            // 📋 1. 展平或合併發票明細（依據 excelExportConfig.flattenSubItems）
             const flatDetailItems = [];
             let detailIndex = 1;
+            const shouldFlatten = excelExportConfig.flattenSubItems !== false;
+
             exportItems.forEach(item => {
-                if (Array.isArray(item.items) && item.items.length > 0) {
+                if (shouldFlatten && Array.isArray(item.items) && item.items.length > 0) {
                     item.items.forEach(sub => {
+                        const subCat = sub.category || item.category || 'shopping';
+                        // 若子項分類被排除則略過
+                        if (!allowedCats.includes(subCat)) return;
+
                         const subOrigPrice = Number(sub.origPrice || sub.price) || 0;
                         const subTwdAmount = sub.twdAmount !== undefined ? sub.twdAmount : Math.round(subOrigPrice * (sub.rateToTWD || item.rateToTWD || 1) * 100) / 100;
                         flatDetailItems.push({
                             idx: detailIndex++,
                             timestamp: item.timestamp,
-                            category: sub.category || item.category || 'shopping',
+                            category: subCat,
                             formula: sub.name || '商品細項',
                             nameForeign: sub.nameForeign || sub.name || '',
                             result: subOrigPrice,
@@ -2325,13 +2382,21 @@
                 }
             });
 
-            // 判斷匯出清單中是否有外語/外幣發票
-            const hasForeignItems = flatDetailItems.some(item => {
+            if (flatDetailItems.length === 0) {
+                showToastMsg(I18N[currentLang].toastNoExcelItems || "NO EXPENSE RECORDS (BUSINESS EXCLUDED)");
+                return;
+            }
+
+            // 判斷匯出清單中是否有外語/外幣發票（且使用者開啟了外文欄位開關）
+            const hasForeignItems = (excelExportConfig.includeForeign !== false) && flatDetailItems.some(item => {
                 const curr = item.currencyFrom;
                 return (curr && curr !== 'TWD') || (item.nameForeign && item.nameForeign !== item.formula);
             });
 
-            // 📋 建立原始標準工作表
+            const showConverted = excelExportConfig.includeConverted !== false;
+            const showTax = excelExportConfig.includeTax !== false;
+
+            // 📋 建立自訂欄位標題
             const headers = [
                 I18N[currentLang].excelColNo || "編號",
                 I18N[currentLang].excelColDateTime || "日期時間",
@@ -2346,11 +2411,19 @@
 
             headers.push(
                 I18N[currentLang].excelColResult || "計算結果",
-                I18N[currentLang].excelColCurrency || "原始幣別",
-                I18N[currentLang].excelColConverted || "換算金額",
-                I18N[currentLang].excelColTargetCurr || "目標幣別",
-                I18N[currentLang].excelColTax || "稅率狀態"
+                I18N[currentLang].excelColCurrency || "原始幣別"
             );
+
+            if (showConverted) {
+                headers.push(
+                    I18N[currentLang].excelColConverted || "換算金額",
+                    I18N[currentLang].excelColTargetCurr || "目標幣別"
+                );
+            }
+
+            if (showTax) {
+                headers.push(I18N[currentLang].excelColTax || "稅率狀態");
+            }
 
             const rows = flatDetailItems.map((item) => {
                 const dt = item.timestamp ? new Date(item.timestamp).toLocaleString() : new Date().toLocaleString();
@@ -2379,101 +2452,178 @@
 
                 rowData.push(
                     numResult,
-                    item.currencyFrom || currentFrom,
-                    convResult,
-                    item.currencyTo || currentTo,
-                    taxMode
+                    item.currencyFrom || currentFrom
                 );
+
+                if (showConverted) {
+                    rowData.push(
+                        convResult,
+                        item.currencyTo || currentTo
+                    );
+                }
+
+                if (showTax) {
+                    rowData.push(taxMode);
+                }
 
                 return rowData;
             });
 
-            // 📊 2. 建立包含明細與右側分類統計的完整工作表
-            // 明細欄位：
-            // A:編號, B:日期時間, C:分類, D:項目/品名
-            // 若無外語欄位：E:計算結果, F:原始幣別, G:換算金額, H:目標幣別, I:稅率狀態 -> 換算金額在 G 欄！
-            // 若有外語欄位：E:外文品名, F:中文翻譯, G:計算結果, H:原始幣別, I:換算金額, J:目標幣別, K:稅率狀態 -> 換算金額在 I 欄！
-            const convertedColLetter = hasForeignItems ? 'I' : 'G';
-            const defaultCats = ['food', 'shopping', 'transport', 'other'];
-            const allCatKeys = Array.from(new Set([
-                ...defaultCats,
-                ...flatDetailItems.map(item => item.category || 'other')
-            ])).filter(c => c !== 'business');
-
-            const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
-
-            // 寫入右側分類統計標題與動態公式
-            // 若無外語欄位，資料用到 I 欄，留白 J 欄，統計表放在 K 欄與 L 欄
-            // 若有外語欄位，資料用到 K 欄，留白 L 欄，統計表放在 M 欄與 N 欄
-            const catColKey = hasForeignItems ? 'M' : 'K';
-            const amtColKey = hasForeignItems ? 'N' : 'L';
-
-            ws[`${catColKey}1`] = { v: "分類項目", t: 's' };
-            ws[`${amtColKey}1`] = { v: "加總金額", t: 's' };
-
-            allCatKeys.forEach((catKey, idx) => {
-                const rowNum = idx + 2;
-                const catLabel = `${getCategoryEmoji(catKey)} ${getCategoryName(catKey)}`;
-                const formula = `SUMIF(C:C, ${catColKey}${rowNum}, ${convertedColLetter}:${convertedColLetter})`;
-
-                ws[`${catColKey}${rowNum}`] = { v: catLabel, t: 's' };
-                ws[`${amtColKey}${rowNum}`] = { f: formula, t: 'n' };
-            });
-
-            // 正確更新工作表範圍宣告
-            const maxRow = Math.max(rows.length + 1, allCatKeys.length + 1, 10);
-            const endColKey = hasForeignItems ? 'N' : 'L';
-            ws['!ref'] = `A1:${endColKey}${maxRow}`;
-
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, detailSheetName);
-
-            ws['!cols'] = [
-                { wch: 6 },
-                { wch: 20 },
-                { wch: 14 },
-                { wch: 26 },
-                ...(hasForeignItems ? [{ wch: 26 }, { wch: 26 }] : []),
-                { wch: 14 },
-                { wch: 10 },
-                { wch: 14 },
-                { wch: 10 },
-                { wch: 12 },
-                { wch: 4 },  // L 欄（留白隔開）
-                { wch: 16 }, // M 欄（分類項目）
-                { wch: 16 }  // N 欄（加總金額）
-            ];
-
-            const dateStr = new Date().toISOString().slice(0, 10);
-            const fileName = `BusinessCalc_${dateStr}.xlsx`;
-
-            const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-            const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-
-            let shared = false;
-            if (navigator.canShare && typeof File !== 'undefined') {
-                try {
-                    const testFile = new File([blob], fileName, { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-                    if (navigator.canShare({ files: [testFile] })) {
-                        navigator.share({
-                            files: [testFile],
-                            title: fileName
-                        }).then(() => {
-                            showToastMsg(I18N[currentLang].toastExcelExported || "EXCEL EXPORTED");
-                        }).catch(err => {
-                            if (err.name !== 'AbortError') {
-                                downloadExcelBlob(blob, fileName);
-                            }
-                        });
-                        shared = true;
-                    }
-                } catch (e) {
-                    shared = false;
+            // 欄位英文字母轉換輔助工具 (0 -> 'A', 1 -> 'B', etc.)
+            const toColLetter = (colIdx) => {
+                let letter = '';
+                let temp = colIdx + 1;
+                while (temp > 0) {
+                    let m = (temp - 1) % 26;
+                    letter = String.fromCharCode(65 + m) + letter;
+                    temp = Math.floor((temp - m) / 26);
                 }
-            }
+                return letter;
+            };
 
-            if (!shared) {
+            // 輔助函式：針對一組明細資料建構 Workbook 並匯出
+            const generateAndExportWorkbook = async (itemsToExport, dateSuffix) => {
+                const rows = itemsToExport.map((item, rowIdx) => {
+                    const dt = item.timestamp ? new Date(item.timestamp).toLocaleString() : new Date().toLocaleString();
+                    const catName = `${getCategoryEmoji(item.category || 'other')} ${getCategoryName(item.category || 'other')}`;
+                    const numResult = item.result;
+                    const convResult = item.convertedResult !== undefined ? item.convertedResult : '';
+                    const taxMode = item.isTaxExcluded ? (I18N[currentLang].taxBadgeEx || "未稅") : (I18N[currentLang].taxBadgeIn || "含稅");
+                    const isForeign = (item.currencyFrom && item.currencyFrom !== 'TWD') && (item.nameForeign && item.nameForeign !== item.formula);
+
+                    const rowData = [
+                        rowIdx + 1,
+                        dt,
+                        catName,
+                        item.formula
+                    ];
+
+                    if (hasForeignItems) {
+                        if (isForeign) {
+                            rowData.push(item.nameForeign || item.formula);
+                            rowData.push(item.formula);
+                        } else {
+                            rowData.push("");
+                            rowData.push("");
+                        }
+                    }
+
+                    rowData.push(
+                        numResult,
+                        item.currencyFrom || currentFrom
+                    );
+
+                    if (showConverted) {
+                        rowData.push(
+                            convResult,
+                            item.currencyTo || currentTo
+                        );
+                    }
+
+                    if (showTax) {
+                        rowData.push(taxMode);
+                    }
+
+                    return rowData;
+                });
+
+                const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+
+                let endColIdx = headers.length - 1;
+                if (excelExportConfig.summaryBlock !== false) {
+                    let amtColHeader = showConverted ? (I18N[currentLang].excelColConverted || "換算金額") : (I18N[currentLang].excelColResult || "計算結果");
+                    let amtColIdx = headers.indexOf(amtColHeader);
+                    if (amtColIdx === -1) amtColIdx = 4;
+                    const amtColLetter = toColLetter(amtColIdx);
+
+                    const allCatKeys = Array.from(new Set([
+                        ...allowedCats,
+                        ...itemsToExport.map(item => item.category || 'other')
+                    ])).filter(c => c !== 'business');
+
+                    const catStatColIdx = headers.length + 1;
+                    const amtStatColIdx = headers.length + 2;
+                    endColIdx = amtStatColIdx;
+
+                    const catColKey = toColLetter(catStatColIdx);
+                    const statAmtColKey = toColLetter(amtStatColIdx);
+
+                    ws[`${catColKey}1`] = { v: "分類項目", t: 's' };
+                    ws[`${statAmtColKey}1`] = { v: "加總金額", t: 's' };
+
+                    allCatKeys.forEach((catKey, idx) => {
+                        const rowNum = idx + 2;
+                        const catLabel = `${getCategoryEmoji(catKey)} ${getCategoryName(catKey)}`;
+                        const formula = `SUMIF(C:C, ${catColKey}${rowNum}, ${amtColLetter}:${amtColLetter})`;
+
+                        ws[`${catColKey}${rowNum}`] = { v: catLabel, t: 's' };
+                        ws[`${statAmtColKey}${rowNum}`] = { f: formula, t: 'n' };
+                    });
+                }
+
+                const maxRow = Math.max(rows.length + 1, allowedCats.length + 2, 10);
+                const endColKey = toColLetter(endColIdx);
+                ws['!ref'] = `A1:${endColKey}${maxRow}`;
+
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, detailSheetName);
+
+                const colsWidth = [
+                    { wch: 6 },
+                    { wch: 20 },
+                    { wch: 14 },
+                    { wch: 26 }
+                ];
+                if (hasForeignItems) {
+                    colsWidth.push({ wch: 26 }, { wch: 26 });
+                }
+                colsWidth.push({ wch: 14 }, { wch: 10 });
+                if (showConverted) {
+                    colsWidth.push({ wch: 14 }, { wch: 10 });
+                }
+                if (showTax) {
+                    colsWidth.push({ wch: 12 });
+                }
+                if (excelExportConfig.summaryBlock !== false) {
+                    colsWidth.push({ wch: 4 }, { wch: 16 }, { wch: 16 });
+                }
+                ws['!cols'] = colsWidth;
+
+                const prefix = (excelExportConfig.filePrefix && excelExportConfig.filePrefix.trim()) || "BusinessCalc";
+                const fileName = `${prefix}_${dateSuffix}.xlsx`;
+
+                const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+                const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+
                 downloadExcelBlob(blob, fileName);
+            };
+
+            // 判斷是否開啟「依日期每天分檔案」
+            if (excelExportConfig.splitByDate === true) {
+                // 將 flatDetailItems 依本地 YYYY-MM-DD 進行分組
+                const groupsByDay = {};
+                flatDetailItems.forEach(item => {
+                    const d = item.timestamp ? new Date(item.timestamp) : new Date();
+                    const year = d.getFullYear();
+                    const month = String(d.getMonth() + 1).padStart(2, '0');
+                    const day = String(d.getDate()).padStart(2, '0');
+                    const dayKey = `${year}-${month}-${day}`;
+                    if (!groupsByDay[dayKey]) groupsByDay[dayKey] = [];
+                    groupsByDay[dayKey].push(item);
+                });
+
+                const dayKeys = Object.keys(groupsByDay).sort();
+                for (let i = 0; i < dayKeys.length; i++) {
+                    const dayKey = dayKeys[i];
+                    await generateAndExportWorkbook(groupsByDay[dayKey], dayKey);
+                    // 若有多個檔案，稍微延遲避免瀏覽器阻擋多檔案同時下載
+                    if (dayKeys.length > 1 && i < dayKeys.length - 1) {
+                        await new Promise(res => setTimeout(res, 350));
+                    }
+                }
+            } else {
+                const todayStr = new Date().toISOString().slice(0, 10);
+                await generateAndExportWorkbook(flatDetailItems, todayStr);
             }
         } catch(err) {
             console.error("Excel export error:", err);
@@ -2481,8 +2631,147 @@
         }
     }
 
-    /* 💾 通用二進位 Blob 下載輔助函數 */
-    function downloadExcelBlob(blob, fileName) {
+    /* 🔄 同步 Excel 匯出設定選單 UI 狀態 */
+    function syncExcelSettingsUI() {
+        if (!excelExportConfig) excelExportConfig = { ...DEFAULT_EXCEL_CONFIG };
+
+        // 1. 範圍按鈕
+        document.querySelectorAll('.excel-range-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.range === (excelExportConfig.dateRange || 'all'));
+        });
+
+        // 2. 分類按鈕
+        const allowedCats = Array.isArray(excelExportConfig.categories) ? excelExportConfig.categories : ['food', 'shopping', 'transport', 'other'];
+        document.querySelectorAll('.excel-chip').forEach(chip => {
+            chip.classList.toggle('active', allowedCats.includes(chip.dataset.cat));
+        });
+
+        // 3. 欄位開關
+        const optTax = document.getElementById('excel-opt-tax');
+        if (optTax) optTax.checked = excelExportConfig.includeTax !== false;
+
+        const optForeign = document.getElementById('excel-opt-foreign');
+        if (optForeign) optForeign.checked = excelExportConfig.includeForeign !== false;
+
+        const optConverted = document.getElementById('excel-opt-converted');
+        if (optConverted) optConverted.checked = excelExportConfig.includeConverted !== false;
+
+        // 4. 統計與展平開關
+        const optSummary = document.getElementById('excel-opt-summary-block');
+        if (optSummary) optSummary.checked = excelExportConfig.summaryBlock !== false;
+
+        const optFlatten = document.getElementById('excel-opt-flatten');
+        if (optFlatten) optFlatten.checked = excelExportConfig.flattenSubItems !== false;
+
+        const optSplitByDate = document.getElementById('excel-opt-split-by-date');
+        if (optSplitByDate) optSplitByDate.checked = excelExportConfig.splitByDate === true;
+
+        // 5. 文字輸入框
+        const prefixInput = document.getElementById('excel-file-prefix');
+        if (prefixInput) prefixInput.value = excelExportConfig.filePrefix || 'BusinessCalc';
+
+        const sheetInput = document.getElementById('excel-sheet-name');
+        if (sheetInput) sheetInput.value = excelExportConfig.sheetName || (I18N[currentLang].excelDetailSheet || '記帳明細');
+
+        // 6. 儲存位置按鈕與指定資料夾區塊
+        const loc = excelExportConfig.saveLocation || 'downloads';
+        document.querySelectorAll('.excel-location-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.location === loc);
+        });
+
+        const customFolderRow = document.getElementById('excel-custom-folder-row');
+        const customFolderName = document.getElementById('excel-custom-folder-name');
+        if (customFolderRow) {
+            if (loc === 'custom') {
+                customFolderRow.style.display = 'flex';
+                if (customFolderName) {
+                    if (excelExportConfig.customDirName) {
+                        customFolderName.textContent = excelExportConfig.customDirName;
+                    } else {
+                        customFolderName.textContent = I18N[currentLang].excelNoFolderSelected || '未指定資料夾 (點擊指定)';
+                    }
+                }
+            } else {
+                customFolderRow.style.display = 'none';
+            }
+        }
+    }
+
+    /* 📁 IndexedDB 專屬 DirectoryHandle 持久化鍵 */
+    const IDB_KEY_EXCEL_DIR_HANDLE = 'excel_custom_dir_handle';
+
+    /* 檢查並請求 DirectoryHandle 的讀寫權限 */
+    async function verifyDirectoryPermission(dirHandle) {
+        if (!dirHandle || typeof dirHandle.queryPermission !== 'function') return false;
+        const opts = { mode: 'readwrite' };
+        if ((await dirHandle.queryPermission(opts)) === 'granted') return true;
+        if ((await dirHandle.requestPermission(opts)) === 'granted') return true;
+        return false;
+    }
+
+    /* 喚起系統資料夾選擇器並儲存至 IndexedDB */
+    async function pickExcelCustomFolder() {
+        if (typeof window.showDirectoryPicker !== 'function') {
+            showToastMsg(I18N[currentLang].excelFolderNotSupported || "當前瀏覽器不支援直接指定資料夾，已自動改用預設下載。");
+            excelExportConfig.saveLocation = 'downloads';
+            localStorage.setItem(KEY_EXCEL_SETTINGS, JSON.stringify(excelExportConfig));
+            syncExcelSettingsUI();
+            updateGliders();
+            return false;
+        }
+
+        try {
+            const dirHandle = await window.showDirectoryPicker({
+                mode: 'readwrite'
+            });
+            if (dirHandle) {
+                await saveToIDB(IDB_KEY_EXCEL_DIR_HANDLE, dirHandle);
+                excelExportConfig.customDirName = dirHandle.name;
+                excelExportConfig.saveLocation = 'custom';
+                localStorage.setItem(KEY_EXCEL_SETTINGS, JSON.stringify(excelExportConfig));
+                syncExcelSettingsUI();
+                showToastMsg(`${I18N[currentLang].excelFolderSaved || "已設定儲存資料夾："} ${dirHandle.name}`);
+                return true;
+            }
+        } catch (err) {
+            if (err.name === 'AbortError') return false;
+            console.warn('pickExcelCustomFolder error:', err);
+            showToastMsg(I18N[currentLang].excelFolderPermissionDenied || "未取得資料夾存取權限");
+        }
+        return false;
+    }
+
+    /* 💾 通用二進位 Blob 下載輔助函數 (支援已指定資料夾、直接寫入與傳統下載) */
+    async function downloadExcelBlob(blob, fileName) {
+        // 若使用者設定為「指定資料夾」
+        if (excelExportConfig.saveLocation === 'custom') {
+            try {
+                let dirHandle = await loadFromIDB(IDB_KEY_EXCEL_DIR_HANDLE);
+                // 若尚未選取過資料夾，先喚起選擇器
+                if (!dirHandle) {
+                    const picked = await pickExcelCustomFolder();
+                    if (picked) dirHandle = await loadFromIDB(IDB_KEY_EXCEL_DIR_HANDLE);
+                }
+
+                if (dirHandle) {
+                    const hasPerm = await verifyDirectoryPermission(dirHandle);
+                    if (hasPerm) {
+                        const fileHandle = await dirHandle.getFileHandle(fileName, { create: true });
+                        const writable = await fileHandle.createWritable();
+                        await writable.write(blob);
+                        await writable.close();
+                        showToastMsg(`${I18N[currentLang].toastExcelExported || "EXCEL EXPORTED"} (${dirHandle.name})`);
+                        return;
+                    } else {
+                        showToastMsg(I18N[currentLang].excelFolderPermissionDenied || "未取得資料夾存取權限，改用預設下載");
+                    }
+                }
+            } catch (err) {
+                console.warn('Custom directory write error, fallback to normal download:', err);
+            }
+        }
+
+        // 常規瀏覽器預設下載
         if (window.navigator && window.navigator.msSaveOrOpenBlob) {
             window.navigator.msSaveOrOpenBlob(blob, fileName);
         } else {
@@ -2500,210 +2789,7 @@
         showToastMsg(I18N[currentLang].toastExcelExported || "EXCEL EXPORTED");
     }
 
-    /* ✈️ 多幣別旅行總支出報告 (Multi-Currency Travel Expense Report) 引擎 */
-    function renderTravelSummaryReport() {
-        if (!calcHistory || calcHistory.length === 0) {
-            showToastMsg(I18N[currentLang].noHistory || "無歷史紀錄");
-            return false;
-        }
 
-        let totalTwdAll = 0;
-        const byCurrency = {}; // { JPY: { origTotal: 15000, twdTotal: 3150, count: 2 } }
-        const byCategory = { food: 0, shopping: 0, transport: 0, other: 0 };
-        const categoryCounts = { food: 0, shopping: 0, transport: 0, other: 0 };
-        const byLocation = {}; // { "東京, 日本": twdTotal }
-
-        const flagIcons = { TWD: "🇹🇼", USD: "🇺🇸", JPY: "🇯🇵", KRW: "🇰🇷", EUR: "🇪🇺", CNY: "🇨🇳", MYR: "🇲🇾", SGD: "🇸🇬", AUD: "🇦🇺", VND: "🇻🇳", THB: "🇹🇭" };
-        const currSymbols = { TWD: "NT$", USD: "$", JPY: "¥", KRW: "₩", EUR: "€", CNY: "¥", MYR: "RM", SGD: "S$", AUD: "A$", VND: "₫", THB: "฿" };
-
-        calcHistory.forEach(item => {
-            if (item.category === 'business') return; // 商務計算不算個人旅費
-
-            const origCurr = item.origCurrency || item.currencyFrom || 'TWD';
-            const numOrigPrice = typeof item.origPrice === 'number' ? item.origPrice : (typeof item.result === 'number' ? item.result : parseFloat(String(item.result).replace(/,/g, '')) || 0);
-
-            // 計算 TWD 換算金額
-            let twdVal = 0;
-            if (item.twdAmount !== undefined && !isNaN(Number(item.twdAmount))) {
-                twdVal = Number(item.twdAmount);
-            } else if (origCurr === 'TWD') {
-                twdVal = numOrigPrice;
-            } else {
-                const twdRate = rates['TWD'] || 32.5;
-                const currRate = rates[origCurr] || 1;
-                twdVal = Math.round((numOrigPrice * (twdRate / currRate)) * 100) / 100;
-            }
-
-            totalTwdAll += twdVal;
-
-            // 依幣別累計
-            if (!byCurrency[origCurr]) {
-                byCurrency[origCurr] = { origTotal: 0, twdTotal: 0, count: 0 };
-            }
-            byCurrency[origCurr].origTotal += numOrigPrice;
-            byCurrency[origCurr].twdTotal += twdVal;
-            byCurrency[origCurr].count += 1;
-
-            // 依分類累計
-            const cat = item.category || 'other';
-            if (byCategory[cat] !== undefined) {
-                byCategory[cat] += twdVal;
-                categoryCounts[cat] += 1;
-            } else {
-                byCategory.other += twdVal;
-                categoryCounts.other += 1;
-            }
-
-            // 依地點累計
-            const loc = item.gpsLocation || item.location || '一般消費';
-            if (!byLocation[loc]) byLocation[loc] = { twdTotal: 0, count: 0 };
-            byLocation[loc].twdTotal += twdVal;
-            byLocation[loc].count += 1;
-        });
-
-        // 渲染總額 Hero
-        const heroEl = document.getElementById('travel-hero-amount');
-        if (heroEl) heroEl.textContent = `NT$ ${Math.round(totalTwdAll).toLocaleString()} TWD`;
-
-        // 渲染多幣別明細
-        const currListEl = document.getElementById('travel-curr-list');
-        if (currListEl) {
-            let html = '';
-            Object.keys(byCurrency).forEach(code => {
-                const info = byCurrency[code];
-                const pct = totalTwdAll > 0 ? ((info.twdTotal / totalTwdAll) * 100).toFixed(1) : '0.0';
-                const flag = flagIcons[code] || '🌐';
-                const sym = currSymbols[code] || '';
-                html += `
-                    <div class="travel-item-row">
-                        <div class="travel-item-left">
-                            <span>${flag}</span>
-                            <span>${code}</span>
-                            <span class="travel-item-sub">(${info.count} 筆)</span>
-                        </div>
-                        <div class="travel-item-right">
-                            <span class="travel-item-primary">${sym} ${info.origTotal.toLocaleString()} ${code}</span>
-                            <span class="travel-item-sub">約 NT$ ${Math.round(info.twdTotal).toLocaleString()} TWD (${pct}%)</span>
-                        </div>
-                    </div>
-                    <div class="travel-progress-bar"><div class="travel-progress-fill" style="width:${pct}%"></div></div>
-                `;
-            });
-            const tItemSubCount = currentLang === 'zh' ? '({count} 筆)' : '({count})';
-            currListEl.innerHTML = html || `<div class="travel-item-sub">${currentLang === 'zh' ? '尚無多幣別資料' : 'No currency data'}</div>`;
-        }
-
-        // 渲染分類明細
-        const catListEl = document.getElementById('travel-cat-list');
-        if (catListEl) {
-            let html = '';
-            const catNames = {
-                food: currentLang === 'zh' ? '食 🍜' : `Food 🍜`,
-                shopping: currentLang === 'zh' ? '購物 🛍️' : `Shopping 🛍️`,
-                transport: currentLang === 'zh' ? '行 🚗' : `Transport 🚗`,
-                other: currentLang === 'zh' ? '其他 🏷️' : `Other 🏷️`
-            };
-            Object.keys(byCategory).forEach(catKey => {
-                const twdSum = byCategory[catKey];
-                const count = categoryCounts[catKey];
-                if (twdSum > 0 || count > 0) {
-                    const pct = totalTwdAll > 0 ? ((twdSum / totalTwdAll) * 100).toFixed(1) : '0.0';
-                    const countStr = currentLang === 'zh' ? `(${count} 筆)` : `(${count})`;
-                    html += `
-                        <div class="travel-item-row">
-                            <div class="travel-item-left">
-                                <span>${catNames[catKey]}</span>
-                                <span class="travel-item-sub">${countStr}</span>
-                            </div>
-                            <div class="travel-item-right">
-                                <span class="travel-item-primary">NT$ ${Math.round(twdSum).toLocaleString()}</span>
-                                <span class="travel-item-sub">${pct}%</span>
-                            </div>
-                        </div>
-                        <div class="travel-progress-bar"><div class="travel-progress-fill" style="width:${pct}%"></div></div>
-                    `;
-                }
-            });
-            catListEl.innerHTML = html || `<div class="travel-item-sub">${currentLang === 'zh' ? '尚無分類消費資料' : 'No category data'}</div>`;
-        }
-
-        // 渲染熱門地點
-        const locListEl = document.getElementById('travel-loc-list');
-        if (locListEl) {
-            let html = '';
-            Object.keys(byLocation).forEach(locName => {
-                const info = byLocation[locName];
-                const countStr = currentLang === 'zh' ? `${info.count} 筆交易` : `${info.count} txns`;
-                html += `
-                    <div class="travel-item-row">
-                        <div class="travel-item-left">
-                            <span>📍 ${locName}</span>
-                        </div>
-                        <div class="travel-item-right">
-                            <span class="travel-item-primary">NT$ ${Math.round(info.twdTotal).toLocaleString()}</span>
-                            <span class="travel-item-sub">${countStr}</span>
-                        </div>
-                    </div>
-                `;
-            });
-            locListEl.innerHTML = html || `<div class="travel-item-sub">${currentLang === 'zh' ? '尚無地點資料' : 'No location data'}</div>`;
-        }
-
-        return true;
-    }
-
-    function copyTravelReportText() {
-        triggerVibration(false);
-        if (!calcHistory || calcHistory.length === 0) return;
-
-        let totalTwdAll = 0;
-        const byCurrency = {};
-        const currSymbols = { TWD: "NT$", USD: "$", JPY: "¥", KRW: "₩", EUR: "€", CNY: "¥", MYR: "RM", SGD: "S$", AUD: "A$", VND: "₫", THB: "฿" };
-
-        calcHistory.forEach(item => {
-            if (item.category === 'business') return;
-            const origCurr = item.origCurrency || item.currencyFrom || 'TWD';
-            const numOrigPrice = typeof item.origPrice === 'number' ? item.origPrice : (typeof item.result === 'number' ? item.result : parseFloat(String(item.result).replace(/,/g, '')) || 0);
-
-            let twdVal = 0;
-            if (item.twdAmount !== undefined && !isNaN(Number(item.twdAmount))) {
-                twdVal = Number(item.twdAmount);
-            } else if (origCurr === 'TWD') {
-                twdVal = numOrigPrice;
-            } else {
-                const twdRate = rates['TWD'] || 32.5;
-                const currRate = rates[origCurr] || 1;
-                twdVal = Math.round((numOrigPrice * (twdRate / currRate)) * 100) / 100;
-            }
-            totalTwdAll += twdVal;
-
-            if (!byCurrency[origCurr]) byCurrency[origCurr] = { origTotal: 0, twdTotal: 0, count: 0 };
-            byCurrency[origCurr].origTotal += numOrigPrice;
-            byCurrency[origCurr].twdTotal += twdVal;
-            byCurrency[origCurr].count += 1;
-        });
-
-        const lines = [
-            `✈️ 【旅行總支出報告 (已換算 TWD)】`,
-            `📅 產生時間：${new Date().toLocaleString()}`,
-            `💰 旅費總開銷：NT$ ${Math.round(totalTwdAll).toLocaleString()} TWD`,
-            `────────────────────`,
-            `🔱 多幣別消費統計：`
-        ];
-
-        Object.keys(byCurrency).forEach(code => {
-            const info = byCurrency[code];
-            const sym = currSymbols[code] || '';
-            const pct = totalTwdAll > 0 ? ((info.twdTotal / totalTwdAll) * 100).toFixed(1) : '0.0';
-            lines.push(`• ${code}: ${sym} ${info.origTotal.toLocaleString()} → 約 NT$ ${Math.round(info.twdTotal).toLocaleString()} TWD (${pct}%)`);
-        });
-
-        lines.push(`────────────────────`);
-        lines.push(`📱 感謝使用 Premium 計算機 - 多幣別自動歸檔系統`);
-
-        copyTextToClipboard(lines.join('\n'));
-        showToastMsg(I18N[currentLang].toastReportCopied || "已複製旅行總支出報告！");
-    }
 
     /* 💬 格式化純文字分享至 LINE / 原生系統分享 */
     function shareHistoryText() {
@@ -3204,7 +3290,7 @@
                 glider.className = 'selector-glider';
                 selector.prepend(glider);
             }
-            const activeBtn = selector.querySelector('.selector-btn.active, .lang-btn.active, .font-btn.active, .grid-preset-btn.active, .pool-tab-btn.active, .mode-btn.active, .theme-mode-btn.active');
+            const activeBtn = selector.querySelector('.selector-btn.active, .lang-btn.active, .font-btn.active, .grid-preset-btn.active, .pool-tab-btn.active, .mode-btn.active, .theme-mode-btn.active, .excel-range-btn.active, .excel-location-btn.active');
             if (activeBtn && activeBtn.offsetWidth > 0) {
                 const sRect = selector.getBoundingClientRect();
                 const bRect = activeBtn.getBoundingClientRect();
@@ -3614,6 +3700,10 @@
         if (typeof window.updateGeminiKeyUI === 'function') window.updateGeminiKeyUI();
         isCategoryBubbleEnabled = true;
         updateCategorySummaryVisibility();
+
+        localStorage.removeItem(KEY_EXCEL_SETTINGS);
+        excelExportConfig = { ...DEFAULT_EXCEL_CONFIG };
+        syncExcelSettingsUI();
 
         localStorage.removeItem(KEY_LARGE_NUMBER_FORMAT);
         largeNumberFormat = 'full';
@@ -5038,6 +5128,166 @@
             setTimeout(updateGliders, 60);
         });
 
+        attachSmartTap(document.getElementById('btn-open-excel-settings'), guardSubMenuOpen(() => {
+            syncExcelSettingsUI();
+            navigateSubMenu('settings-menu', 'excel-settings-menu', 'forward');
+            requestAnimationFrame(() => updateGliders());
+            setTimeout(updateGliders, 60);
+        }));
+        attachSmartTap(document.getElementById('btn-excel-settings-back'), () => {
+            navigateSubMenu('excel-settings-menu', 'settings-menu', 'backward');
+            requestAnimationFrame(() => updateGliders());
+            setTimeout(updateGliders, 60);
+        });
+
+        // Excel 匯出設定按鈕群組事件
+        document.querySelectorAll('.excel-range-btn').forEach(btn => {
+            attachSmartTap(btn, () => {
+                triggerVibration();
+                excelExportConfig.dateRange = btn.dataset.range || 'all';
+                localStorage.setItem(KEY_EXCEL_SETTINGS, JSON.stringify(excelExportConfig));
+                document.querySelectorAll('.excel-range-btn').forEach(b => {
+                    b.classList.toggle('active', b.dataset.range === excelExportConfig.dateRange);
+                });
+                updateGliders();
+            });
+        });
+
+        document.querySelectorAll('.excel-chip').forEach(chip => {
+            attachSmartTap(chip, () => {
+                triggerVibration();
+                const cat = chip.dataset.cat;
+                if (!excelExportConfig.categories) excelExportConfig.categories = ['food', 'shopping', 'transport', 'other'];
+                const idx = excelExportConfig.categories.indexOf(cat);
+                if (idx > -1) {
+                    if (excelExportConfig.categories.length > 1) {
+                        excelExportConfig.categories.splice(idx, 1);
+                    } else {
+                        showToastMsg(I18N[currentLang].errCategoryRequired || "至少保留一個分類");
+                        return;
+                    }
+                } else {
+                    excelExportConfig.categories.push(cat);
+                }
+                localStorage.setItem(KEY_EXCEL_SETTINGS, JSON.stringify(excelExportConfig));
+                chip.classList.toggle('active', excelExportConfig.categories.includes(cat));
+            });
+        });
+
+        const optTaxEl = document.getElementById('excel-opt-tax');
+        if (optTaxEl) {
+            optTaxEl.addEventListener('change', (e) => {
+                triggerVibration();
+                excelExportConfig.includeTax = e.target.checked;
+                localStorage.setItem(KEY_EXCEL_SETTINGS, JSON.stringify(excelExportConfig));
+            });
+        }
+
+        const optForeignEl = document.getElementById('excel-opt-foreign');
+        if (optForeignEl) {
+            optForeignEl.addEventListener('change', (e) => {
+                triggerVibration();
+                excelExportConfig.includeForeign = e.target.checked;
+                localStorage.setItem(KEY_EXCEL_SETTINGS, JSON.stringify(excelExportConfig));
+            });
+        }
+
+        const optConvertedEl = document.getElementById('excel-opt-converted');
+        if (optConvertedEl) {
+            optConvertedEl.addEventListener('change', (e) => {
+                triggerVibration();
+                excelExportConfig.includeConverted = e.target.checked;
+                localStorage.setItem(KEY_EXCEL_SETTINGS, JSON.stringify(excelExportConfig));
+            });
+        }
+
+        const optSummaryEl = document.getElementById('excel-opt-summary-block');
+        if (optSummaryEl) {
+            optSummaryEl.addEventListener('change', (e) => {
+                triggerVibration();
+                excelExportConfig.summaryBlock = e.target.checked;
+                localStorage.setItem(KEY_EXCEL_SETTINGS, JSON.stringify(excelExportConfig));
+            });
+        }
+
+        const optFlattenEl = document.getElementById('excel-opt-flatten');
+        if (optFlattenEl) {
+            optFlattenEl.addEventListener('change', (e) => {
+                triggerVibration();
+                excelExportConfig.flattenSubItems = e.target.checked;
+                localStorage.setItem(KEY_EXCEL_SETTINGS, JSON.stringify(excelExportConfig));
+            });
+        }
+
+        const optSplitByDateEl = document.getElementById('excel-opt-split-by-date');
+        if (optSplitByDateEl) {
+            optSplitByDateEl.addEventListener('change', (e) => {
+                triggerVibration();
+                excelExportConfig.splitByDate = e.target.checked;
+                localStorage.setItem(KEY_EXCEL_SETTINGS, JSON.stringify(excelExportConfig));
+            });
+        }
+
+        const prefixInputEl = document.getElementById('excel-file-prefix');
+        if (prefixInputEl) {
+            prefixInputEl.addEventListener('input', (e) => {
+                excelExportConfig.filePrefix = e.target.value;
+                localStorage.setItem(KEY_EXCEL_SETTINGS, JSON.stringify(excelExportConfig));
+            });
+        }
+
+        const sheetNameInputEl = document.getElementById('excel-sheet-name');
+        if (sheetNameInputEl) {
+            sheetNameInputEl.addEventListener('input', (e) => {
+                excelExportConfig.sheetName = e.target.value;
+                localStorage.setItem(KEY_EXCEL_SETTINGS, JSON.stringify(excelExportConfig));
+            });
+        }
+
+        // 儲存位置按鈕綁定
+        document.querySelectorAll('.excel-location-btn').forEach(btn => {
+            attachSmartTap(btn, async () => {
+                triggerVibration();
+                const newLoc = btn.dataset.location || 'downloads';
+                excelExportConfig.saveLocation = newLoc;
+                localStorage.setItem(KEY_EXCEL_SETTINGS, JSON.stringify(excelExportConfig));
+                syncExcelSettingsUI();
+                updateGliders();
+
+                // 若切換到「指定資料夾」且尚未選擇過資料夾，直接貼心喚起資料夾挑選對話框
+                if (newLoc === 'custom' && !excelExportConfig.customDirName) {
+                    await pickExcelCustomFolder();
+                }
+            });
+        });
+
+        // 點擊「選擇資料夾」或資料夾名稱卡片均可重新挑選目錄
+        const btnPickFolder = document.getElementById('btn-excel-pick-folder');
+        if (btnPickFolder) {
+            attachSmartTap(btnPickFolder, () => {
+                triggerVibration();
+                pickExcelCustomFolder();
+            });
+        }
+        const customFolderBox = document.getElementById('excel-custom-folder-row');
+        if (customFolderBox) {
+            attachSmartTap(customFolderBox, (e) => {
+                if (e.target.id === 'btn-excel-pick-folder') return;
+                triggerVibration();
+                pickExcelCustomFolder();
+            });
+        }
+
+        attachSmartTap(document.getElementById('btn-excel-settings-reset'), async () => {
+            triggerVibration();
+            localStorage.removeItem(KEY_EXCEL_SETTINGS);
+            await deleteFromIDB(IDB_KEY_EXCEL_DIR_HANDLE);
+            excelExportConfig = { ...DEFAULT_EXCEL_CONFIG };
+            syncExcelSettingsUI();
+            updateGliders();
+            showToastMsg(I18N[currentLang].excelSettingsReset || "Excel 設定已恢復預設值");
+        });
+
         attachSmartTap(document.getElementById('btn-open-tax'), guardSubMenuOpen(() => navigateSubMenu('settings-menu', 'tax-settings-menu', 'forward')));
         attachSmartTap(document.getElementById('btn-tax-back'), () => navigateSubMenu('tax-settings-menu', 'settings-menu', 'backward'));
 
@@ -5251,31 +5501,7 @@
         const btnExportExcel = document.getElementById('btn-history-export-excel');
         if (btnExportExcel) attachSmartTap(btnExportExcel, exportHistoryExcel);
 
-        const btnTravelReport = document.getElementById('btn-history-travel-report');
-        if (btnTravelReport) {
-            attachSmartTap(btnTravelReport, () => {
-                triggerVibration();
-                if (renderTravelSummaryReport()) {
-                    const modal = document.getElementById('travel-summary-modal');
-                    if (modal) modal.style.display = 'flex';
-                }
-            });
-        }
 
-        const btnCloseTravel = document.getElementById('btn-close-travel-modal');
-        if (btnCloseTravel) {
-            attachSmartTap(btnCloseTravel, () => {
-                triggerVibration();
-                const modal = document.getElementById('travel-summary-modal');
-                if (modal) modal.style.display = 'none';
-            });
-        }
-
-        const btnCopyTravel = document.getElementById('btn-copy-travel-report');
-        if (btnCopyTravel) attachSmartTap(btnCopyTravel, copyTravelReportText);
-
-        const btnExportTravelExcel = document.getElementById('btn-export-travel-excel');
-        if (btnExportTravelExcel) attachSmartTap(btnExportTravelExcel, exportHistoryExcel);
 
         // 綁定即時分類氣泡按鈕
         document.querySelectorAll('#category-bubble .cat-chip').forEach(chip => {
@@ -5594,6 +5820,7 @@
         });
 
         initEvents();
+        syncExcelSettingsUI();
         updateMemoryIndicator();
         updateCategorySummaryVisibility();
         renderThemePalette();
