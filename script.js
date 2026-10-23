@@ -162,7 +162,6 @@
 
     let isCategoryBubbleEnabled = localStorage.getItem(KEY_CATEGORY_BUBBLE) !== 'false';
     let largeNumberFormat = localStorage.getItem(KEY_LARGE_NUMBER_FORMAT) || 'full';
-    let memoryValue = 0;
     let percentMode = localStorage.getItem(KEY_PERCENT_MODE) || 'commercial';
     let cursorPos = null; // null represents insertion point at end of expression
 
@@ -645,7 +644,70 @@
     }
     window.fetchUnifiedLocationAndCurrency = fetchUnifiedLocationAndCurrency;
 
+    /* ─── 輕量狀態管理中心 (Pub/Sub Store: 解耦狀態與 UI 渲染、支援跨模組精確同步) ─── */
+    class CalculatorStore {
+        constructor() {
+            this._state = {
+                currentInput: "0",
+                isEvaluated: false,
+                memoryValue: 0
+            };
+            this._listeners = new Map();
+        }
+
+        get(key) {
+            return this._state[key];
+        }
+
+        set(key, val, options = {}) {
+            const oldVal = this._state[key];
+            if (oldVal === val && !options.force) return;
+            this._state[key] = val;
+            const keyListeners = this._listeners.get(key) || [];
+            for (let i = 0; i < keyListeners.length; i++) {
+                try { keyListeners[i](val, oldVal, options); } catch (e) { console.error('Store listener error:', e); }
+            }
+            const allListeners = this._listeners.get('*') || [];
+            for (let i = 0; i < allListeners.length; i++) {
+                try { allListeners[i](key, val, oldVal, options); } catch (e) { console.error('Store * listener error:', e); }
+            }
+        }
+
+        subscribe(key, fn) {
+            if (!this._listeners.has(key)) {
+                this._listeners.set(key, []);
+            }
+            this._listeners.get(key).push(fn);
+            return () => {
+                const list = this._listeners.get(key) || [];
+                this._listeners.set(key, list.filter(cb => cb !== fn));
+            };
+        }
+    }
+
+    const CalcStore = new CalculatorStore();
+    window.CalcStore = CalcStore;
+
+    // 將內部狀態綁定至 CalcStore 監聽器，保持向下相容性
     let currentInput = "0", isEvaluated = false;
+    let memoryValue = 0;
+
+    CalcStore.subscribe('currentInput', (val, oldVal, opts) => {
+        currentInput = val;
+        if (!opts || !opts.silent) {
+            updateDisplay(opts && opts.animType ? opts.animType : 'none');
+        }
+    });
+
+    CalcStore.subscribe('isEvaluated', (val) => {
+        isEvaluated = val;
+    });
+
+    CalcStore.subscribe('memoryValue', (val) => {
+        memoryValue = val;
+        updateMemoryIndicator();
+    });
+
     let activeHistoryItem = null;
     let activeHistoryIndex = -1;
     let historyMenuEvent = null;
@@ -1023,7 +1085,7 @@
         showToastMsg(specificMsg || I18N[currentLang].toastInvalidExpr);
     }
 
-    /* ─── 動態文字自動縮放與水平滾動引擎（iOS 級漸進縮放與橫向滾動排程） ─── */
+    /* ─── 動態文字自動縮放與水平滾動引擎（iOS 級漸進縮放與橫向滾動排程，具備超短字串零 Reflow 快速通道） ─── */
     const MIN_SCALE_RATIO = 0.48;
     let batchDisplayRaf = null;
     function requestBatchDisplayUpdate() {
@@ -1038,12 +1100,19 @@
                 { s: DOM.convertedScaler, w: DOM.convertedWrapper, screen: DOM.convertedScreen, key: 'convertedWrapper' }
             ];
 
-            // 1. [Read Phase: 集中批次讀取寬度，避免交錯 Reflow]
+            // 1. [Read Phase: 集中批次讀取寬度，避免交錯 Reflow；短字串略過量測直接歸位]
             const measurements = [];
             for (let i = 0; i < items.length; i++) {
                 const { s, w, screen, key } = items[i];
                 if (!s || !w) continue;
-                const containerWidth = cachedWidths[key] || w.clientWidth;
+                const textLen = (screen ? (screen.textContent || '').length : 0);
+                const containerWidth = cachedWidths[key] || (cachedWidths[key] = w.clientWidth);
+
+                // 🔥 快速通道：小於 8 字元時必定在單行寬度內，免讀取 scrollWidth 引發 Reflow
+                if (textLen <= 7 && containerWidth > 200 && s.dataset.currentRatio === '1') {
+                    continue;
+                }
+
                 // s 為 width: max-content，其 scrollWidth 是字串真實未受限之排版寬度
                 const contentWidth = s.scrollWidth;
                 const ratio = (contentWidth > containerWidth && containerWidth > 0) ? Math.max(containerWidth / contentWidth, MIN_SCALE_RATIO) : 1;
@@ -1053,13 +1122,14 @@
             // 2. [Write Phase: 集中批次寫入樣式與滾動位置]
             for (let i = 0; i < measurements.length; i++) {
                 const { s, w, ratio, contentWidth, containerWidth } = measurements[i];
+                const prevRatio = parseFloat(s.dataset.currentRatio || '1');
                 s.dataset.currentRatio = ratio;
                 if (ratio < 1) {
                     // 當寬度大於容器時，LTR 排版下 margin-left: auto 會折疊為 0 (靠左對齊 x=0)
                     // 因此 transformOrigin 必須為 left center，縮放後右邊界正好延伸至 containerWidth，100% 貼滿整行且絕不吃字
                     s.style.transformOrigin = 'left center';
                     s.style.transform = `scale(${ratio}) translate3d(0, 0, 0)`;
-                } else {
+                } else if (prevRatio !== 1) {
                     s.style.transformOrigin = 'right center';
                     s.style.transform = 'scale(1) translate3d(0, 0, 0)';
                 }
@@ -1069,7 +1139,7 @@
                 if (visualContentWidth > containerWidth + 1 && ratio <= MIN_SCALE_RATIO + 0.001) {
                     const maxScroll = Math.max(0, visualContentWidth - containerWidth);
                     w.scrollLeft = maxScroll;
-                } else {
+                } else if (w.scrollLeft !== 0) {
                     // 動態縮放階段 (ratio = containerWidth / contentWidth)，視覺寬度正好 100% 填滿整行，滾動位置強制設為 0
                     w.scrollLeft = 0;
                 }
@@ -6004,6 +6074,15 @@
         window.toggleMenu = toggleMenu;
         window.updateGliders = updateGliders;
 
+        // 🔗 提供給 AI 辨識、歷史紀錄或第三方模組的乾淨解耦狀態寫入 API
+        window.setCalculatorValue = function(val, isEval = true) {
+            CalcStore.set('isEvaluated', isEval);
+            CalcStore.set('currentInput', String(val));
+        };
+        window.loadRecordToCalculator = function(val) {
+            window.setCalculatorValue(val, true);
+        };
+
         // 🎙️ 自然語音數字與算式解析輔助函數（支援國語、台語閩南語及中英文混合數字）
         function parseZhNumber(str) {
             if (!str) return 0;
@@ -6243,8 +6322,9 @@
                 }
             };
 
-            const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.protocol === 'file:';
-            const proxyBaseUrl = isLocalDev ? 'https://premium-business-calculator.vercel.app' : '';
+            const proxyBaseUrl = (window.location.hostname === 'premium-business-calculator.vercel.app')
+                ? ''
+                : 'https://premium-business-calculator.vercel.app';
 
             const models = ['gemini-flash-lite-latest', 'gemini-flash-latest'];
             for (const model of models) {
@@ -7262,31 +7342,6 @@
 
             if (splashContent) {
                 setupSplashDismiss(splashContent);
-            } else {
-                fetch('./splash.html?v=20261004a')
-                    .then(res => {
-                        if (!res.ok) throw new Error('splash.html not found');
-                        return res.text();
-                    })
-                    .then(htmlText => {
-                        const parser = new DOMParser();
-                        const doc = parser.parseFromString(htmlText, 'text/html');
-                        const loadedSplashContent = doc.getElementById('splash-screen');
-
-                        if (loadedSplashContent) {
-                            const styleTags = doc.querySelectorAll('style');
-                            styleTags.forEach(style => {
-                                document.head.appendChild(style.cloneNode(true));
-                            });
-
-                            splashContainer.appendChild(loadedSplashContent);
-                            setupSplashDismiss(loadedSplashContent);
-                        }
-                    })
-                    .catch(err => {
-                        console.warn('Splash animation load bypassed:', err);
-                        if (splashContainer) splashContainer.remove();
-                    });
             }
         }
 

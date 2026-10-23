@@ -792,6 +792,15 @@
                         <span class="scan-label ai-btn-label" data-idle="掃描全部" data-busy="掃描中…" data-i18n="aiRecognize">AI 辨識</span>
                         <span class="scan-beam"></span>
                     </button>
+                    <!-- 💡 AI 即時思考與解析思路卡片 -->
+                    <div class="ai-thought-box" id="ai-thought-box">
+                        <div class="ai-thought-header">
+                            <span class="ai-thought-icon">⚡</span>
+                            <span class="ai-thought-title">AI 即時思路與分析</span>
+                            <span class="ai-thought-pulse"></span>
+                        </div>
+                        <div class="ai-thought-content" id="ai-thought-content">正在等待辨識...</div>
+                    </div>
                     <div class="ai-error-box" id="ai-error-box"></div>
                 </div>
 
@@ -1051,15 +1060,15 @@
 
     <script src="./math.min.js"></script>
     <script src="./jsqr.min.js"></script>
-    <script src="./i18n.js?v=20260925e"></script>
-    <script src="./script.js?v=20261003a"></script>
-    <script src="./ai-scan.js?v=20261017a"></script>
+    <script src="./i18n.js?v=20261023a"></script>
+    <script src="./script.js?v=20261023a"></script>
+    <script src="./ai-scan.js?v=20261023a"></script>
 
     <!-- Firebase Web SDK Compat (CDN) for Google Auth & Cloud Firestore -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
-    <script src="./firebase-sync.js?v=20261015c"></script>
+    <script src="./firebase-sync.js?v=20261023a"></script>
 </body>
 
 </html>

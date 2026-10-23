@@ -184,7 +184,6 @@
             toastInvalidExpr: "INVALID EXPRESSION",
             toastSettingsReset: "SETTINGS RESET",
             toastHistoryCleared: "HISTORY CLEARED",
-            toastScreenTooSmall: "目前視窗太小 請切換成全螢幕",
             toastExcelExported: "EXCEL EXPORTED",
             toastExcelFailed: "EXPORT FAILED",
             toastNoExcelItems: "NO EXPENSE RECORDS (BUSINESS EXCLUDED)",
@@ -407,6 +406,7 @@
             keyNameEqual: "等於鍵(=)",
             toastMemStored: "已儲存至記憶體",
             toastMemCleared: "已清除記憶體",
+            toastScreenTooSmall: "目前視窗太小 請切換成全螢幕",
             toastNoMem: "無記憶體數值",
             keyLabels: {
                 clear: "清除",
@@ -565,3 +565,5 @@
             tabHistoryBusiness: "💼 商務紀錄"
         }
     };
+
+    window.I18N = I18N;

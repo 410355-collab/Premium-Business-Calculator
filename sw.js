@@ -1,4 +1,4 @@
-const CACHE_NAME = 'business-calc-v47';
+const CACHE_NAME = 'business-calc-v48';
 // 預快取核心靜態資源（確保初次離線使用不白屏）
 const ASSETS_TO_CACHE = [
   './',

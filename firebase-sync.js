@@ -13,7 +13,7 @@
     // ===== 常數 =====
     const META_APPLIED = '_cloud_appliedAt';  // 本機已套用的雲端版本時間戳
     const META_DIRTY = '_cloud_dirty';        // 本機有尚未上傳的修改
-    const SKIP_EMPTY_HISTORY = true;          // true：歷史為空時不覆蓋雲端
+    const SKIP_EMPTY_HISTORY = false;         // 允許使用者清空歷史紀錄時正常同步至雲端，避免舊資料被還原
     const PUSH_DELAY_MS = 800;                // 合併短時間內的多次修改
 
     // 純本地快取性質的鍵，排除在雲端同步之外（避免匯率定時抓取觸發多設備互相覆蓋與 reload）
@@ -245,7 +245,7 @@
     function handleFirestoreError(err) {
         const msg = err ? (err.message || String(err)) : '';
         if (err && err.code === 'permission-denied') {
-            alert('⚠️ 雲端同步失敗（權限不足）：\n請至 Firebase 控制台的 Firestore Database -> 規則 (Rules) 開啟讀寫權限！');
+            alert('⚠️ 雲端同步失敗（權限不足）：\n請至 Firebase 控制台的 Firestore Database -> 規則 (Rules) 設定使用者的個人讀寫權限！');
         } else if (err && (err.code === 'not-found' || (msg.includes('database') && msg.includes('not exist')))) {
             alert('⚠️ 尚未建立 Firestore 資料庫：\n請至 Firebase 控制台點選「Firestore Database」並點擊「建立資料庫」。');
         }

@@ -1034,6 +1034,7 @@
             -webkit-user-select: none;
             touch-action: pan-x pan-y;
             padding: 0;
+            container-type: inline-size;
         }
 
         .text-wrapper::-webkit-scrollbar {
