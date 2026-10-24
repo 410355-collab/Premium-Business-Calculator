@@ -134,6 +134,7 @@
     const KEY_CATEGORY_BUBBLE = 'bCalc_category_bubble';
     const KEY_LARGE_NUMBER_FORMAT = 'bCalc_large_number_format';
     const KEY_EXCEL_SETTINGS = 'bCalc_excel_settings';
+    const KEY_TRIG_MODE = 'bCalc_trig_mode';
 
     const DEFAULT_EXCEL_CONFIG = {
         dateRange: 'all',          // 'all' | 'today' | '7days' | '30days'
@@ -500,6 +501,7 @@
     let isTaxExcluded = localStorage.getItem(KEY_TAX_EXCLUDED) === 'true';
     let fontStyle = localStorage.getItem(KEY_FONT_STYLE) || 'tech';
     let currentLang = localStorage.getItem(KEY_LANG) || 'en';
+    let trigMode = localStorage.getItem(KEY_TRIG_MODE) || 'deg'; // 'deg' | 'rad'
     
     let currentFrom = localStorage.getItem(KEY_CURRENCY_FROM) || "TWD";
     let currentTo = localStorage.getItem(KEY_CURRENCY_TO) || "TWD";
@@ -748,7 +750,11 @@
     }
 
     // 使用 BigNumber 避免 0.1+0.2 等二進位浮點誤差
-    math.config({ number: 'BigNumber', precision: 64 });
+    if (typeof math !== 'undefined' && math.config) {
+        math.config({ number: 'BigNumber', precision: 64 });
+    } else {
+        console.warn('[BusinessCalc] math.js 尚未就緒，請檢查 math.min.js 載入路徑');
+    }
 
     function autoCloseParentheses(expr) {
         const openCount = (expr.match(/\(/g) || []).length;
@@ -775,10 +781,55 @@
     function safeEvaluate(expr) {
         let prepared = expr.replace(/×/g, '*').replace(/÷/g, '/').replace(/π/g, 'pi');
         prepared = prepared.replace(/\bln\(/g, 'log(').replace(/\blog\(/g, 'log10(');
-        const sanitized = prepared.replace(/[^0-9\+\-\*\/\(\)\.%\^!a-zA-Z]/g, '');
+        // 角度模式：將 sin/cos/tan 的參數從角度轉成弧度
+        if (trigMode === 'deg') {
+            prepared = prepared.replace(/\b(sin|cos|tan)\(/g, '__trigDeg_$1(');
+        }
+        const sanitized = prepared.replace(/[^0-9\+\-\*\/\(\)\.%\^!a-zA-Z_]/g, '');
         if (!sanitized) return math.bignumber(NaN);
         const preprocessed = preprocessPercent(sanitized);
-        return math.evaluate(preprocessed);
+        const scope = {
+            __trigDeg_sin: (x) => Math.sin(x * Math.PI / 180),
+            __trigDeg_cos: (x) => Math.cos(x * Math.PI / 180),
+            __trigDeg_tan: (x) => Math.tan(x * Math.PI / 180)
+        };
+        return trigMode === 'deg'
+            ? math.evaluate(preprocessed, scope)
+            : math.evaluate(preprocessed);
+    }
+
+    const TRIG_KEY_IDS = ['sin', 'cos', 'tan'];
+
+    function updateTrigModeIndicatorVisibility(layout) {
+        const el = document.getElementById('trig-mode-indicator');
+        if (!el) return;
+        const hasTrig = layout && layout.some(k => TRIG_KEY_IDS.includes(k));
+        el.classList.toggle('trig-visible', !!hasTrig);
+    }
+
+    function updateTrigModeIndicator() {
+        const el = document.getElementById('trig-mode-indicator');
+        if (!el) return;
+        el.textContent = trigMode === 'deg' ? 'DEG' : 'RAD';
+        el.classList.toggle('active', true);
+        el.classList.toggle('rad', trigMode === 'rad');
+        // 初始化時根據當前佈局決定是否顯示
+        if (typeof currentKeyboardLayout !== 'undefined') {
+            updateTrigModeIndicatorVisibility(currentKeyboardLayout);
+        }
+    }
+
+    function toggleTrigMode() {
+        trigMode = trigMode === 'deg' ? 'rad' : 'deg';
+        localStorage.setItem(KEY_TRIG_MODE, trigMode);
+        updateTrigModeIndicator();
+        // 若已有計算結果，重新計算
+        if (isEvaluated && currentInput !== '0') {
+            try {
+                const val = safeEvaluate(currentInput);
+                CalcStore.set('currentInput', resultToInputString(val), { animType: 'result' });
+            } catch(e) {}
+        }
     }
 
     /* 🧼 浮點數尾數噪點過濾 (徹底消除 0.1 + 0.2 = 0.30000000000000004 等 IEEE 754 誤差) */
@@ -4071,6 +4122,9 @@
                 attachSmartTap(btn, (e) => instantInput(e, btn.dataset.action, btn.dataset.param), { activeClass: 'active' });
             }
         });
+
+        // 根據鍵盤中是否有 sin/cos/tan 決定 DEG/RAD 指示器是否顯示
+        updateTrigModeIndicatorVisibility(activeLayout);
     }
 
     /* ⌫ 長按 Backspace 連續高速刪除引擎 */
@@ -5849,14 +5903,25 @@
 
             const updateBtn = document.getElementById('pwa-update-btn');
             if (updateBtn) {
-                attachSmartTap(updateBtn, () => {
+                const handleUpdate = () => {
                     triggerVibration(false);
                     if (waitingServiceWorker) {
-                        waitingServiceWorker.postMessage({ type: 'SKIP_WAITING' });
+                        try {
+                            waitingServiceWorker.postMessage({ type: 'SKIP_WAITING' });
+                        } catch (e) {
+                            console.warn('[PWA] postMessage failed:', e);
+                        }
+                        // 防呆 fallback：若 controllerchange 未能及時觸發，500ms 後強制重整
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 500);
                     } else {
                         window.location.reload();
                     }
-                });
+                };
+
+                attachSmartTap(updateBtn, handleUpdate);
+                updateBtn.addEventListener('click', handleUpdate);
             }
         }
 
@@ -5892,6 +5957,14 @@
         initEvents();
         syncExcelSettingsUI();
         updateMemoryIndicator();
+        updateTrigModeIndicator();
+        const trigModeEl = document.getElementById('trig-mode-indicator');
+        if (trigModeEl) {
+            trigModeEl.addEventListener('click', () => {
+                triggerVibration(false);
+                toggleTrigMode();
+            });
+        }
         updateCategorySummaryVisibility();
         renderThemePalette();
         fetchRates();

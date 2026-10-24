@@ -156,14 +156,14 @@
     function getQualityParams() {
         const q = getQualitySetting();
         if (q === 'low') {
-            // 低：長邊 800px，品質 0.65 (極速傳輸，體積約 80~150KB，適合網路不佳或一般簡單收據)
-            return { maxDim: 800, quality: 0.65 };
+            // 低：長邊 1200px，品質 0.80 (節省流量，體積約 150~250KB)
+            return { maxDim: 1200, quality: 0.80 };
         } else if (q === 'high') {
-            // 高：長邊 1600px，品質 0.80 (大圖高清壓縮，體積約 400~600KB，適合長條複雜明細發票)
-            return { maxDim: 1600, quality: 0.80 };
+            // 高：長邊 2000px，品質 0.88 (大圖高清壓縮，體積約 500~800KB，適合長條複雜明細發票)
+            return { maxDim: 2000, quality: 0.88 };
         }
-        // 中 (預設)：長邊 1200px，品質 0.72 (兼顧文字清晰度與毫秒級上傳，體積約 200~300KB)
-        return { maxDim: 1200, quality: 0.72 };
+        // 中 (預設)：長邊 1600px，品質 0.82 (兼顧文字辨識解析度與上傳速度，體積約 300~450KB)
+        return { maxDim: 1600, quality: 0.82 };
     }
 
     // 取得 Gemini API Key (優先讀取使用者自訂 Key，若未設定則自動啟用預設內建 Key)
@@ -681,7 +681,7 @@
 
         if (elements.recognizeBtn) elements.recognizeBtn.disabled = true;
         if (elements.thoughtBox) {
-            elements.thoughtBox.classList.remove('show', 'streaming');
+            elements.thoughtBox.classList.remove('show', 'streaming', 'collapsed');
             if (elements.thoughtContent) elements.thoughtContent.innerHTML = '';
         }
         elements.itemsSection.classList.remove('show');
@@ -729,229 +729,18 @@
         return 'other';
     }
 
-    // 解析台灣電子發票 QR Code 明細 (發票號碼10字元 + 履約日期7字元(YYYMMDD))
-    function parseTaiwanEInvoiceQR(qrText) {
-        if (!qrText || typeof qrText !== 'string') return null;
-        const text = qrText.trim();
-        console.log('[QR Code 掃描到內容]:', text);
-
-        try {
-            let dateStr = null;
-            let invNum = null;
-            let totalAmount = 0;
-            let items = [];
-            const starPos = text.indexOf('**');
-
-            // 格式 A：標準電子發票 QR Code（字首為發票字軌 2 碼大寫英文字母 + 8 碼數字，共 10 碼）
-            // 例如：AB123456781130928...
-            const invMatch = text.match(/^([A-Z]{2}\d{8})(\d{7})?/);
-            if (invMatch) {
-                invNum = invMatch[1];
-                if (invMatch[2]) {
-                    const rocYear = parseInt(invMatch[2].substring(0, 3), 10);
-                    const month = invMatch[2].substring(3, 5);
-                    const day = invMatch[2].substring(5, 7);
-                    if (rocYear > 0 && month && day) {
-                        dateStr = `${rocYear + 1911}-${month}-${day}`;
-                    }
-                }
-            }
-
-            // 格式 A：標準電子發票左 QR Code（長度 >= 77 碼，開頭為 10 碼發票號碼 + 7 碼日期）
-            // 結構：發票字號(10) + 開立日期(7) + 開立時間(4) + 隨機碼(4) + 銷售額(8 HEX) + 總額(8 HEX) + 買方統編(8) + 賣方統編(8) + 檢驗碼(24) + **品名:數量:單價...
-            if (invMatch && text.length >= 70) {
-                // 發票總金額：位於 offset 29 開始的 8 碼十六進位 (即第 30~37 碼)
-                const hexTotal = text.substring(29, 37);
-                const parsedTotal = parseInt(hexTotal, 16);
-                if (!isNaN(parsedTotal) && parsedTotal > 0 && parsedTotal < 20000000) {
-                    totalAmount = parsedTotal;
-                }
-
-                // 檢查是否有明細區段 (位於 ** 之後)
-                if (starPos !== -1) {
-                    const itemsStr = text.substring(starPos + 2);
-                    const parts = itemsStr.split(':');
-                    for (let i = 0; i + 2 < parts.length; i += 3) {
-                        const name = parts[i].trim();
-                        const count = parseInt(parts[i + 1], 10) || 1;
-                        const price = parseFloat(parts[i + 2]) || 0;
-                        // 避免解析到非商品之二進位亂碼或 Base64
-                        if (name && name.length >= 1 && !/^[0-9a-fA-F]{16,}$/.test(name)) {
-                            items.push({
-                                name: name,
-                                count: count,
-                                price: price,
-                                category: inferCategoryFromName(name)
-                            });
-                        }
-                    }
-                }
-
-                // 若 QR Code 中沒有品項文字（很多商家左 QR 不放品名），但已精準讀出總額
-                if (items.length === 0 && totalAmount > 0) {
-                    items.push({
-                        name: invNum ? `電子發票 (${invNum})` : "電子發票金額",
-                        count: 1,
-                        price: totalAmount,
-                        category: "shopping"
-                    });
-                }
-            }
-
-            // 格式 B：純右側 QR Code（通常以 **:品名:數量:單價... 開頭）
-            if (items.length === 0 && text.startsWith('**:')) {
-                const itemsStr = text.substring(3);
-                const parts = itemsStr.split(':');
-                for (let i = 0; i + 2 < parts.length; i += 3) {
-                    const name = parts[i].trim();
-                    const count = parseInt(parts[i + 1], 10) || 1;
-                    const price = parseFloat(parts[i + 2]) || 0;
-                    if (name && !/^[0-9a-fA-F]{16,}$/.test(name)) {
-                        items.push({
-                            name: name,
-                            count: count,
-                            price: price,
-                            category: inferCategoryFromName(name)
-                        });
-                    }
-                }
-            }
-
-            if (items.length > 0) {
-                return {
-                    store_name: invNum ? `電子發票 (${invNum})` : "電子發票 (QR Code 解析)",
-                    date: dateStr,
-                    items: items,
-                    original_currency: 'TWD',
-                    currency_symbol: 'NT$',
-                    rate_to_twd: 1,
-                    store_location: '台灣'
-                };
-            }
-        } catch (e) {
-            console.warn('[AI掃描] QR Code 發票解析失敗:', e);
-        }
-        return null;
-    }
-
-    // 高能力多重路徑 QR Code 檢測器 (地端 0 秒精準解析：支援全圖、發票左右半部、高對比灰階二值化增強)
-    async function detectQRCodeMultiPass(base64DataUrl) {
-        // 若無 jsQR 函式庫則跳過，直接交由 Gemini API 處理
-        if (typeof jsQR !== 'function') return null;
-
-        return new Promise((resolve) => {
-            const img = new Image();
-            img.onload = () => {
-                try {
-                    const w = img.naturalWidth || img.width;
-                    const h = img.naturalHeight || img.height;
-                    if (!w || !h) return resolve(null);
-
-                    // 輔助函式：掃描指定 canvas 區域，支援 normal 與反轉嘗試
-                    const scanCanvas = (c) => {
-                        const ctx = c.getContext('2d', { willReadFrequently: true });
-                        const imgData = ctx.getImageData(0, 0, c.width, c.height);
-                        
-                        // 1. 一般掃描 (包含 dontInvert 與 attemptBoth)
-                        let res = jsQR(imgData.data, c.width, c.height, { inversionAttempts: 'attemptBoth' });
-                        if (res && res.data) return res.data;
-
-                        // 2. 灰階與高對比增強 (針對發票光線不足、陰影或熱感應紙泛黃情況)
-                        const d = imgData.data;
-                        for (let i = 0; i < d.length; i += 4) {
-                            // 加權灰階值
-                            const gray = (d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114);
-                            // 高對比拉伸 (Threshold 128)
-                            const v = gray > 130 ? 255 : 0;
-                            d[i] = v;
-                            d[i + 1] = v;
-                            d[i + 2] = v;
-                        }
-                        res = jsQR(imgData.data, c.width, c.height, { inversionAttempts: 'attemptBoth' });
-                        if (res && res.data) return res.data;
-
-                        return null;
-                    };
-
-                    // 路徑 1：全圖掃描
-                    const canvas1 = document.createElement('canvas');
-                    canvas1.width = w;
-                    canvas1.height = h;
-                    const ctx1 = canvas1.getContext('2d');
-                    ctx1.drawImage(img, 0, 0, w, h);
-                    const qrData1 = scanCanvas(canvas1);
-                    if (qrData1) {
-                        const parsed = parseTaiwanEInvoiceQR(qrData1);
-                        if (parsed) return resolve(parsed);
-                    }
-
-                    // 路徑 2：下半部 60% 區域 (台灣電子發票 QR Code 多位於發票中間偏下)
-                    const subH = Math.floor(h * 0.6);
-                    const canvas2 = document.createElement('canvas');
-                    canvas2.width = w;
-                    canvas2.height = subH;
-                    const ctx2 = canvas2.getContext('2d');
-                    ctx2.drawImage(img, 0, h - subH, w, subH, 0, 0, w, subH);
-                    const qrData2 = scanCanvas(canvas2);
-                    if (qrData2) {
-                        const parsed = parseTaiwanEInvoiceQR(qrData2);
-                        if (parsed) return resolve(parsed);
-                    }
-
-                    // 路徑 3：左下 50% 區塊 (專門針對發票左側 QR Code，內含主要商品明細與總金額)
-                    const cropW = Math.floor(w * 0.55);
-                    const cropH = Math.floor(h * 0.55);
-                    const canvas3 = document.createElement('canvas');
-                    canvas3.width = cropW;
-                    canvas3.height = cropH;
-                    const ctx3 = canvas3.getContext('2d');
-                    ctx3.drawImage(img, 0, h - cropH, cropW, cropH, 0, 0, cropW, cropH);
-                    const qrData3 = scanCanvas(canvas3);
-                    if (qrData3) {
-                        const parsed = parseTaiwanEInvoiceQR(qrData3);
-                        if (parsed) return resolve(parsed);
-                    }
-
-                    // 路徑 4：右下 50% 區塊 (發票右側 QR Code)
-                    const canvas4 = document.createElement('canvas');
-                    canvas4.width = cropW;
-                    canvas4.height = cropH;
-                    const ctx4 = canvas4.getContext('2d');
-                    ctx4.drawImage(img, w - cropW, h - cropH, cropW, cropH, 0, 0, cropW, cropH);
-                    const qrData4 = scanCanvas(canvas4);
-                    if (qrData4) {
-                        const parsed = parseTaiwanEInvoiceQR(qrData4);
-                        if (parsed) return resolve(parsed);
-                    }
-
-                    resolve(null);
-                } catch (e) {
-                    console.warn('[AI掃描] QR 本地多路徑掃描失敗:', e);
-                    resolve(null);
-                }
-            };
-            img.onerror = () => resolve(null);
-            img.src = base64DataUrl;
-        });
-    }
-
     // 呼叫 Gemini 視覺 API 進行 OCR 辨識 (支援即時思路回報 onThought)
     async function runGeminiOCR(base64DataUrl, preferredIndex = 0, onThought = null) {
+        const _lang = localStorage.getItem('bCalc_lang') || localStorage.getItem('calc_lang') || 'en';
+        const t = (zh, en) => _lang === 'zh' ? zh : en;
+
         const report = (msg, icon = '🔍') => {
             if (typeof onThought === 'function') {
                 try { onThought(msg, icon); } catch (e) {}
             }
         };
 
-        // 1. 優先嘗試本地 QR Code 解析（0 秒完成）
-        report('掃描票據特徵，優先檢查是否有電子發票 QR Code...', '⚡');
-        const localQR = await detectQRCodeMultiPass(base64DataUrl);
-        if (localQR) {
-            report('偵測到台灣電子發票 QR 條碼！完成地端 0 秒精準解碼。', '✅');
-            return localQR;
-        }
-
-        report('未偵測到條碼，正在啟動多模態視覺 AI 進行影像票面文字解析...', '🧠');
+        report(t('正在啟動多模態視覺 AI 進行影像票面文字解析...', 'Starting AI vision analysis on receipt image...'), '🧠');
         const apiKey = getGeminiKey();
         // 若無自訂 Key，將無縫切換為 Vercel 後端代理 /api/gemini 處理，無需報錯阻擋
 
@@ -979,7 +768,7 @@ ${locationContext}
      • 若為【泰文】、泰國地址 -> 原始貨幣為 THB (泰銖)，符號為 ฿，rate_to_twd 約為 0.95。
      • 若為【越南文】、越南地址 -> 原始貨幣為 VND (越南盾)，符號為 ₫，rate_to_twd 約為 0.0013。
    - 提取原始貨幣代碼 (original_currency)、貨幣符號 (currency_symbol) 及發票實際開立地點或店家所屬國家/城市 (store_location)。
-2. 如果是電子發票/條碼收據，可嘗試從 QR Code 區域讀取更多細節。
+2. 請完整精準辨識票面上的所有印刷文字、抬頭、發票號碼、購買品項與金額明細。
 3. 若圖片明顯不是發票或收據，則將 "is_valid_item" 設為 false，並在 "detected_description" 描述內容。
 規則補充說明：
 - 所有商品名稱請用中文，並在 items 的 price 欄位填入原幣金額。
@@ -1063,14 +852,21 @@ ${locationContext}
                     : `${proxyBaseUrl}/api/gemini?model=${encodeURIComponent(model)}`;
                 
                 if (isRetry) {
-                    report(`第 ${attempt} 次努力連線中：正在透過 ${model} 深入分析發票... (堅持為您辨識)`, '🔄');
+                    report(t(`第 ${attempt} 次努力連線中：正在透過 ${model} 深入分析發票... (堅持為您辨識)`, `Attempt ${attempt}: Retrying via ${model}... (Persisting for you)`), '🔄');
                 } else {
-                    report(`正在連線 ${model} 分析票面排版、品項清單與金額結構...`, '📡');
+                    report(t(`正在連線 ${model} 分析票面排版、品項清單與金額結構...`, `Connecting to ${model} — analysing layout, items & amounts...`), '📡');
                 }
 
                 // 給予充足的 25 秒單次網路等待上限，不再 10 秒草率中斷
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), 25000);
+
+                // 若超過 2 秒仍未回應，顯示「伺服器繁忙，等待中...」提示
+                let busyWarned = false;
+                const busyTimerId = setTimeout(() => {
+                    busyWarned = true;
+                    report(t('伺服器繁忙，等待中...', 'Server busy, please wait...'), '⏳');
+                }, 2000);
 
                 let res;
                 try {
@@ -1082,10 +878,11 @@ ${locationContext}
                     });
                 } finally {
                     clearTimeout(timeoutId);
+                    clearTimeout(busyTimerId);
                 }
 
                 if (res.ok) {
-                    report(`模型 ${model} 回傳成功，正在解析文字標籤與幣別匯率...`, '🔍');
+                    report(t(`模型 ${model} 回傳成功，正在解析文字標籤與幣別匯率...`, `${model} responded — parsing labels & currency rates...`), '🔍');
                     const data = await res.json();
                     const parts = data.candidates?.[0]?.content?.parts || [];
                     const textPart = parts.find(p => p.text && !p.thought) || parts.find(p => p.text) || parts[0];
@@ -1093,8 +890,8 @@ ${locationContext}
                     if (!textResult) throw new Error('API 回傳內容為空');
 
                     let cleanText = textResult.trim()
-                        .replace(/^`(?:json)?\s*/i, '')
-                        .replace(/\s*`$/i, '')
+                        .replace(/^```(?:json)?\s*/i, '')
+                        .replace(/\s*```$/i, '')
                         .trim();
 
                     const firstBrace = cleanText.indexOf('{');
@@ -1107,7 +904,7 @@ ${locationContext}
                     const store = parsed.store_name || '商店';
                     const itemsCount = Array.isArray(parsed.items) ? parsed.items.length : 0;
                     const curr = parsed.original_currency || 'TWD';
-                    report(`辨識完成！成功解析「${store}」共 ${itemsCount} 項商品 (幣別: ${curr})。`, '🎉');
+                    report(t(`辨識完成！成功解析「${store}」共 ${itemsCount} 項商品 (幣別: ${curr})。`, `Done! Parsed "${store}" — ${itemsCount} item(s) (${curr}).`), '🎉');
                     return parsed;
                 }
 
@@ -1119,7 +916,7 @@ ${locationContext}
                 // 遇 503 / 429 尖峰流量過載，持續等待後自動重試
                 if (res.status === 503 || res.status === 429 || rawMsg.includes('overloaded') || rawMsg.includes('quota')) {
                     const waitSec = Math.min(2 + Math.floor(attempt * 0.8), 6);
-                    report(`官方伺服器目前流量繁忙 (503/429)，AI 正在持續排隊等待重試 (${waitSec}秒後自動重連)...`, '⏳');
+                    report(t(`官方伺服器目前流量繁忙 (503/429)，AI 正在持續排隊等待重試 (${waitSec}秒後自動重連)...`, `Server busy (503/429) — auto-retrying in ${waitSec}s...`), '⏳');
                     await new Promise(r => setTimeout(r, waitSec * 1000));
                     continue;
                 }
@@ -1133,11 +930,11 @@ ${locationContext}
                 await new Promise(r => setTimeout(r, 1500));
             } catch (e) {
                 if (e.name === 'AbortError') {
-                    lastErr = `連線等候逾時，正在自動為您持續連線重試...`;
-                    report(`${lastErr}`, '⏱️');
+                    lastErr = t('連線等候逾時，正在自動為您持續連線重試...', 'Request timed out — auto-retrying...');
+                    report(lastErr, '⏱️');
                 } else {
                     lastErr = e.message;
-                    report(`連線暫時中斷，正在持續重連中... (${e.message})`, '🔄');
+                    report(t(`連線暫時中斷，正在持續重連中... (${e.message})`, `Connection interrupted — retrying... (${e.message})`), '🔄');
                 }
                 console.warn(`[AI掃描] 異常: ${e.message}，持續等待重試...`);
                 await new Promise(r => setTimeout(r, 1500));
@@ -1605,10 +1402,10 @@ ${locationContext}
         const galleryInput = document.getElementById('ai-gallery-input');
         const selectFileBtn = document.getElementById('ai-select-file-btn');
 
-        if (selectFileBtn && galleryInput) {
+        if (selectFileBtn) {
             selectFileBtn.addEventListener('click', () => {
                 isReplacingSelection = false;
-                galleryInput.click();
+                // 不再調用 galleryInput.click()，交由 <label for="ai-gallery-input"> 原生觸發，避免 iOS/Android 雙重觸發閃退
             });
         }
 
@@ -1671,7 +1468,8 @@ ${locationContext}
         // 拖曳結束與其它事件綁定完成
 
         document.addEventListener('paste', async (e) => {
-            if (!elements.scanMenu.classList.contains('active')) return;
+            // 🔥 相容 show 與 active，確保 Ctrl+V 貼上截圖順利觸發
+            if (!elements.scanMenu.classList.contains('show') && !elements.scanMenu.classList.contains('active')) return;
             const items = (e.clipboardData || e.originalEvent.clipboardData).items;
             for (const item of items) {
                 if (item.type.indexOf('image') === 0) {
@@ -1705,13 +1503,26 @@ ${locationContext}
                     elements.errorBox.classList.remove('show');
 
                     // 💡 開啟掃描全部按鈕下方的即時思考思路卡片
+                    const _uiLang = localStorage.getItem('bCalc_lang') || localStorage.getItem('calc_lang') || 'en';
+                    const _t = (zh, en) => _uiLang === 'zh' ? zh : en;
+
                     if (elements.thoughtBox) {
+                        elements.thoughtBox.classList.remove('collapsed');
                         elements.thoughtBox.classList.add('show', 'streaming');
+                        // 還原標題圖示與文字
+                        const titleEl = elements.thoughtBox.querySelector('.ai-thought-title');
+                        const iconEl = elements.thoughtBox.querySelector('.ai-thought-icon');
+                        if (titleEl) titleEl.textContent = _t('AI 即時思路與分析', 'AI Live Analysis');
+                        if (iconEl) iconEl.textContent = '⚡';
                         if (elements.thoughtContent) {
+                            const initMsg = _t(
+                                `初始化辨識流程，共 ${uploadedImages.length} 張圖片準備分析...`,
+                                `Initialising — ${uploadedImages.length} image(s) queued for analysis...`
+                            );
                             elements.thoughtContent.innerHTML = `
                                 <div class="ai-thought-step current">
                                     <span class="ai-thought-step-icon">⚡</span>
-                                    <span class="ai-thought-step-text">初始化辨識流程，共 ${uploadedImages.length} 張圖片準備分析...</span>
+                                    <span class="ai-thought-step-text">${initMsg}</span>
                                 </div>
                             `;
                         }
@@ -1749,21 +1560,23 @@ ${locationContext}
                     try {
                         // 🔥 一次全數並行 (Parallel Promise.all) 掃描所有圖片！
                         const results = await Promise.all(uploadedImages.map(async (imgObj, idx) => {
-                            const prefix = uploadedImages.length > 1 ? `[第 ${idx + 1} 張] ` : '';
+                            const prefix = uploadedImages.length > 1
+                                ? _t(`[第 ${idx + 1} 張] `, `[Image ${idx + 1}] `)
+                                : '';
                             try {
-                                const result = await runGeminiOCR(imgObj.dataUrl, 0, (thoughtText, thoughtIcon) => {
+                                const result = await runGeminiOCR(imgObj.dataUrl, idx, (thoughtText, thoughtIcon) => {
                                     appendThought(`${prefix}${thoughtText}`, thoughtIcon);
                                 });
                                 if (!result || !Array.isArray(result.items) || result.items.length === 0) {
                                     imgObj.error = true;
-                                    appendThought(`${prefix}未在圖片中辨識到可記帳品項`, '⚠️', true);
-                                    return { idx, success: false, error: '未能在圖片中辨識出商品內容' };
+                                    appendThought(_t(`${prefix}未在圖片中辨識到可記帳品項`, `${prefix}No bookkeeping items found in image`), '⚠️', true);
+                                    return { idx, success: false, error: _t('未能在圖片中辨識出商品內容', 'No items could be recognised in this image') };
                                 }
                                 imgObj.error = false;
                                 return { idx, success: true, result };
                             } catch (imgErr) {
                                 imgObj.error = true;
-                                appendThought(`${prefix}解析中斷: ${imgErr.message}`, '❌', true);
+                                appendThought(_t(`${prefix}解析中斷: ${imgErr.message}`, `${prefix}Parse failed: ${imgErr.message}`), '❌', true);
                                 return { idx, success: false, error: imgErr.message };
                             }
                         }));
@@ -1788,7 +1601,7 @@ ${locationContext}
                                 }
                             } else {
                                 failedIndices.push(res.idx + 1);
-                                errorMessages.push(`第 ${res.idx + 1} 張: ${res.error}`);
+                                errorMessages.push(_t(`第 ${res.idx + 1} 張: ${res.error}`, `Image ${res.idx + 1}: ${res.error}`));
                             }
                         });
 
@@ -1796,9 +1609,12 @@ ${locationContext}
                         updateImageGalleryUI();
 
                         if (combinedItems.length === 0 && failedIndices.length > 0) {
-                            const detailedMsg = (errorMessages.length === 1 && errorMessages[0]) 
-                                ? errorMessages[0].replace(/^第 \d+ 張:\s*/, '') 
-                                : `辨識失敗 (${failedIndices.length}/${uploadedImages.length} 張圖片無法讀取，已標示紅框)`;
+                            const detailedMsg = (errorMessages.length === 1 && errorMessages[0])
+                                ? errorMessages[0].replace(/^(第 \d+ 張|Image \d+):\s*/, '')
+                                : _t(
+                                    `辨識失敗 (${failedIndices.length}/${uploadedImages.length} 張圖片無法讀取，已標示紅框)`,
+                                    `Recognition failed (${failedIndices.length}/${uploadedImages.length} image(s) unreadable, marked in red)`
+                                  );
                             throw new Error(detailedMsg);
                         }
 
@@ -1815,14 +1631,17 @@ ${locationContext}
                         });
 
                         if (failedIndices.length > 0) {
-                            elements.errorBox.textContent = `⚠️ 提醒：第 ${failedIndices.join(', ')} 張圖片辨識失敗（已標示紅框），您可以點選 ✕ 移除該圖片或重新嘗試`;
+                            elements.errorBox.textContent = _t(
+                                `⚠️ 提醒：第 ${failedIndices.join(', ')} 張圖片辨識失敗（已標示紅框），您可以點選 ✕ 移除該圖片或重新嘗試`,
+                                `⚠️ Note: Image(s) ${failedIndices.join(', ')} failed (marked in red). Tap ✕ to remove or try again.`
+                            );
                             elements.errorBox.classList.add('show');
                         }
                     } catch (err) {
                         if (err.message && err.message.includes('未設定 Gemini API Key')) {
                             elements.errorBox.innerHTML = `
                                 <div style="display:flex;flex-direction:column;gap:10px;width:100%;text-align:left;box-sizing:border-box;">
-                                    <div>⚠️ <strong style="color:#ff5252">未設定 Gemini API Key</strong><br><span style="font-size:11.5px;opacity:0.9;line-height:1.4;display:block;margin-top:4px;">辨識照片文字需填寫免費 Gemini API Key（若拍攝台灣電子發票，請對準下方 QR Code 可免 Key 自動解析）。</span></div>
+                                    <div>⚠️ <strong style="color:#ff5252">未設定 Gemini API Key</strong><br><span style="font-size:11.5px;opacity:0.9;line-height:1.4;display:block;margin-top:4px;">辨識照片文字需填寫免費 Gemini API Key，請貼上金鑰後繼續。</span></div>
                                     <div style="display:flex;flex-direction:column;gap:6px;width:100%;">
                                         <input type="text" id="ai-quick-key-input" placeholder="貼上 Gemini API Key (AIzaSy...)" style="width:100%;box-sizing:border-box;padding:8px 12px;border-radius:8px;border:1px solid rgba(255,255,255,0.3);background:rgba(0,0,0,0.6);color:#fff;font-size:12px;outline:none;">
                                         <button id="ai-quick-key-save-btn" style="width:100%;box-sizing:border-box;padding:8px;border-radius:8px;border:none;background:var(--accent-color, #29b6f6);color:#000;font-weight:bold;font-size:12.5px;cursor:pointer;transition:all 0.2s;">⚡ 儲存 Key 並立即辨識</button>
@@ -1870,6 +1689,19 @@ ${locationContext}
                     if (elements.previewWrap) elements.previewWrap.classList.remove('scanning');
                     if (elements.thoughtBox) {
                         elements.thoughtBox.classList.remove('streaming');
+                        // 掃描完畢：平順縮小視窗並更新標題
+                        const lang = localStorage.getItem('bCalc_lang') || localStorage.getItem('calc_lang') || 'en';
+                        const doneLabel = lang === 'zh' ? '掃描完畢' : 'Scan Complete';
+                        const titleEl = elements.thoughtBox.querySelector('.ai-thought-title');
+                        const iconEl = elements.thoughtBox.querySelector('.ai-thought-icon');
+                        if (titleEl) titleEl.textContent = doneLabel;
+                        if (iconEl) iconEl.textContent = '✅';
+                        // 短暫延遲後觸發縮小動畫（讓瀏覽器先渲染文字更新）
+                        requestAnimationFrame(() => {
+                            requestAnimationFrame(() => {
+                                elements.thoughtBox.classList.add('collapsed');
+                            });
+                        });
                     }
                 }
             });
@@ -1880,6 +1712,27 @@ ${locationContext}
         }
         if (elements.importItemsBtn) {
             elements.importItemsBtn.addEventListener('click', importItemsToCalculator);
+        }
+
+        // 💡 思路視窗點擊切換：縮小狀態下點擊可展開紀錄，展開後再點標題可收合
+        if (elements.thoughtBox) {
+            elements.thoughtBox.addEventListener('click', (e) => {
+                // 掃描進行中禁止切換
+                if (elements.thoughtBox.classList.contains('streaming')) return;
+                // 必須是 show 狀態才處理
+                if (!elements.thoughtBox.classList.contains('show')) return;
+
+                if (elements.thoughtBox.classList.contains('collapsed')) {
+                    // 目前是縮小狀態 → 展開
+                    elements.thoughtBox.classList.remove('collapsed');
+                } else {
+                    // 目前是展開狀態，點擊 header 區域才收合（避免點選文字時誤觸）
+                    const header = elements.thoughtBox.querySelector('.ai-thought-header');
+                    if (header && header.contains(e.target)) {
+                        elements.thoughtBox.classList.add('collapsed');
+                    }
+                }
+            });
         }
 
         bindGeminiKeyEvents();

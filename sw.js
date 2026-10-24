@@ -1,4 +1,4 @@
-const CACHE_NAME = 'business-calc-v48';
+const CACHE_NAME = 'business-calc-v49';
 // 預快取核心靜態資源（確保初次離線使用不白屏）
 const ASSETS_TO_CACHE = [
   './',
@@ -12,7 +12,6 @@ const ASSETS_TO_CACHE = [
   './firebase-sync.js',
   './xlsx.full.min.js',
   './math.min.js',
-  './jsqr.min.js',
   './manifest.json',
   './app_icon.png',
   './flags/cn.svg',
@@ -96,8 +95,8 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 2. 核心大數據庫與幾乎不變資源 (math.min.js, xlsx.full.min.js, jsqr.min.js)：Cache First 策略
-  const isCoreImmutableLib = url.pathname.endsWith('math.min.js') || url.pathname.endsWith('xlsx.full.min.js') || url.pathname.endsWith('jsqr.min.js');
+  // 2. 核心大數據庫與幾乎不變資源 (math.min.js, xlsx.full.min.js)：Cache First 策略
+  const isCoreImmutableLib = url.pathname.endsWith('math.min.js') || url.pathname.endsWith('xlsx.full.min.js');
   if (isCoreImmutableLib) {
     event.respondWith(
       caches.match(event.request).then((cachedResponse) => {
